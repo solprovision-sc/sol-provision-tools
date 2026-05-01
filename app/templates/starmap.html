@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star Map — Sol Provision</title>
+
+<!-- Shared fonts from base.html -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ── RESET ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── SYSTEM THEMES ── */
+  :root {
+    --hud-green:  #00ff88;
+    --hud-dim:    #00aa55;
+    --hud-faint:  #003322;
+    --hud-accent: #00ccff;
+    --hud-red:    #ff4455;
+    --hud-orange: #ff8833;
+    --bg:         #020a06;
+    --panel-bg:   rgba(0,10,6,0.90);
+    --panel-border: rgba(0,255,136,0.18);
+  }
+  body.pyro-theme {
+    --hud-green:  #ff8833;
+    --hud-dim:    #cc5522;
+    --hud-faint:  #2a0f00;
+    --hud-accent: #ffcc44;
+    --bg:         #0a0400;
+    --panel-bg:   rgba(10,4,0,0.90);
+    --panel-border: rgba(255,136,51,0.20);
+  }
+  body.nyx-theme {
+    --hud-green:  #aabbff;
+    --hud-dim:    #6677cc;
+    --hud-faint:  #050a1a;
+    --hud-accent: #ddeeff;
+    --bg:         #020408;
+    --panel-bg:   rgba(2,4,12,0.92);
+    --panel-border: rgba(170,187,255,0.18);
+  }
+
+  /* ── BASE ── */
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: var(--bg); transition: background 0.6s;
+    cursor: crosshair;
+    font-family: 'Rajdhani', sans-serif;
+  }
+  #canvas-container { position: fixed; inset: 0; }
+
+  /* ── OVERLAYS ── */
+  #scanlines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+  }
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,0.72) 100%);
+  }
+  #flash {
+    position: fixed; inset: 0; z-index: 50; pointer-events: none;
+    background: var(--hud-green); opacity: 0; transition: opacity 0.15s;
+  }
+  body.pyro-theme #flash { background: var(--hud-orange); }
+  body.nyx-theme  #flash { background: #aabbff; }
+
+  /* ── CORNER BRACKETS ── */
+  .corner { position: fixed; width: 20px; height: 20px; z-index: 3; pointer-events: none; }
+  .corner-tl { top: 8px;    left: 8px;  border-top:    1px solid var(--hud-dim); border-left:   1px solid var(--hud-dim); }
+  .corner-tr { top: 8px;    right: 8px; border-top:    1px solid var(--hud-dim); border-right:  1px solid var(--hud-dim); }
+  .corner-bl { bottom: 8px; left: 8px;  border-bottom: 1px solid var(--hud-dim); border-left:   1px solid var(--hud-dim); }
+  .corner-br { bottom: 8px; right: 8px; border-bottom: 1px solid var(--hud-dim); border-right:  1px solid var(--hud-dim); }
+
+  /* ── HEADER ── */
+  #sm-header {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; height: 48px;
+    background: linear-gradient(180deg, rgba(0,10,6,0.96) 0%, transparent 100%);
+    border-bottom: 1px solid var(--panel-border);
+    transition: border-color 0.4s, background 0.4s;
+  }
+  body.pyro-theme #sm-header { background: linear-gradient(180deg, rgba(10,4,0,0.96) 0%, transparent 100%); }
+  body.nyx-theme  #sm-header { background: linear-gradient(180deg, rgba(2,4,12,0.96) 0%, transparent 100%); }
+
+  #sm-back {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    letter-spacing: 2px; color: var(--hud-dim); text-decoration: none;
+    transition: color 0.2s; padding: 4px 0;
+  }
+  #sm-back:hover { color: var(--hud-green); }
+
+  .sm-logo {
+    font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px;
+    letter-spacing: 4px; color: var(--hud-green); text-transform: uppercase;
+    transition: color 0.4s;
+  }
+  .sm-logo span { color: var(--hud-accent); transition: color 0.4s; }
+
+  #sm-header-right {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    color: var(--hud-dim); display: flex; align-items: center; gap: 20px;
+    transition: color 0.4s;
+  }
+  #system-id { letter-spacing: 2px; }
+
+  .live { color: var(--hud-green) !important; }
+  .live::before {
+    content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--hud-green); margin-right: 6px;
+    animation: blink 2s infinite; transition: background 0.4s;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  #body-count { color: var(--hud-dim); }
+
+  #danger-badge {
+    font-size: 9px; letter-spacing: 2px; color: var(--hud-orange);
+    border: 1px solid rgba(255,136,51,0.4); padding: 2px 8px; display: none;
+  }
+  body.pyro-theme #danger-badge,
+  body.nyx-theme  #danger-badge { display: inline-block; }
+
+  /* ── SYSTEM SELECTOR ── */
+  #system-selector {
+    position: fixed; top: 58px; left: 50%; transform: translateX(-50%);
+    z-index: 20; display: flex;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    transition: border-color 0.4s;
+  }
+  .sys-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px;
+    padding: 8px 22px; cursor: pointer; transition: all 0.2s;
+    color: var(--hud-dim); background: transparent; border: none; outline: none;
+    text-transform: uppercase; user-select: none;
+    border-right: 1px solid var(--panel-border);
+  }
+  .sys-btn:last-child { border-right: none; }
+  .sys-btn:hover  { color: var(--hud-green); }
+  .sys-btn.active { color: var(--bg); background: var(--hud-green); }
+  body.pyro-theme .sys-btn.active { color: #000; background: var(--hud-orange); }
+  body.nyx-theme  .sys-btn.active { color: #000; background: #aabbff; }
+
+  /* ── FILTER PANEL ── */
+  #filters {
+    position: fixed; top: 58px; left: 24px; z-index: 20;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    padding: 12px 16px; transition: border-color 0.4s;
+  }
+  #filters::before {
+    content: 'DISPLAY FILTER'; display: block;
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
+    color: var(--hud-dim); margin-bottom: 10px;
+    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
+  }
+  .filter-btn {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    cursor: pointer; font-size: 12px; letter-spacing: 1px;
+    color: var(--hud-dim); transition: color 0.2s; user-select: none;
+  }
+  .filter-btn:hover  { color: var(--hud-green); }
+  .filter-btn.active { color: var(--hud-green); }
+  .filter-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--hud-faint); border: 1px solid var(--hud-dim); transition: all 0.2s;
+  }
+  .filter-btn.active .filter-dot { background: var(--hud-green); border-color: var(--hud-green); }
+
+  /* ── CONTROLS PANEL ── */
+  #controls {
+    position: fixed; bottom: 24px; left: 24px; z-index: 20;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    padding: 14px 18px; min-width: 220px; transition: border-color 0.4s;
+  }
+  #controls::before {
+    content: 'NAV CONTROLS'; display: block;
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
+    color: var(--hud-dim); margin-bottom: 12px;
+    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
+  }
+  .ctrl-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .ctrl-key {
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--hud-accent);
+    background: rgba(0,204,255,0.08); border: 1px solid rgba(0,204,255,0.25);
+    padding: 2px 6px; min-width: 70px; text-align: center;
+  }
+  .ctrl-desc { font-size: 12px; color: var(--hud-dim); letter-spacing: 1px; }
+
+  /* ── ORBIT TOGGLE ── */
+  #orbit-toggle {
+    position: fixed; bottom: 24px; right: 24px; z-index: 20;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    padding: 10px 18px; font-family: 'Share Tech Mono', monospace;
+    font-size: 10px; letter-spacing: 2px; color: var(--hud-dim);
+    cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 10px; user-select: none;
+  }
+  #orbit-toggle:hover, #orbit-toggle.active { border-color: var(--hud-green); color: var(--hud-green); }
+  #orbit-toggle .ind { width: 8px; height: 8px; border-radius: 50%; background: var(--hud-dim); transition: background 0.2s; }
+  #orbit-toggle.active .ind { background: var(--hud-green); }
+
+  /* ── INFO PANEL ── */
+  #info-panel {
+    position: fixed; top: 58px; right: 24px; z-index: 20;
+    background: var(--panel-bg); border: 1px solid var(--panel-border);
+    width: 280px; transform: translateX(320px);
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1), border-color 0.4s;
+    pointer-events: none;
+  }
+  #info-panel.visible { transform: translateX(0); pointer-events: all; }
+  #iph {
+    padding: 10px 14px; border-bottom: 1px solid var(--panel-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #ipt    { font-weight: 700; font-size: 16px; color: var(--hud-green); letter-spacing: 2px; text-transform: uppercase; transition: color 0.4s; }
+  #iptype { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--hud-accent); letter-spacing: 2px; transition: color 0.4s; }
+  #ipclose { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--hud-dim); cursor: pointer; padding: 2px 6px; transition: color 0.2s; }
+  #ipclose:hover { color: var(--hud-red); }
+  #ipbody { padding: 12px 14px; }
+  .info-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 6px; font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  }
+  .info-label { color: var(--hud-dim); letter-spacing: 1px; transition: color 0.4s; }
+  .info-value { color: var(--hud-green); transition: color 0.4s; }
+  #idesc {
+    font-size: 12px; color: rgba(0,255,136,0.5); line-height: 1.5; margin-top: 10px;
+    border-top: 1px solid var(--panel-border); padding-top: 10px;
+  }
+  body.pyro-theme #idesc { color: rgba(255,136,51,0.5); }
+  body.nyx-theme  #idesc { color: rgba(170,187,255,0.5); }
+
+  /* ── TOOLTIP ── */
+  #tooltip {
+    position: fixed; z-index: 30; pointer-events: none;
+    background: var(--panel-bg); border: 1px solid var(--hud-green);
+    padding: 6px 10px; font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: var(--hud-green); letter-spacing: 1px;
+    opacity: 0; transition: opacity 0.15s, border-color 0.4s, color 0.4s;
+    white-space: nowrap;
+  }
+  #tooltip.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="scanlines"></div>
+<div id="vignette"></div>
+<div id="flash"></div>
+
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
+<!-- HEADER -->
+<div id="sm-header">
+  <a id="sm-back" href="/">← DASHBOARD</a>
+  <div class="sm-logo">SOL <span>PROVISION</span> — NAVIGATIONAL SYSTEMS</div>
+  <div id="sm-header-right">
+    <span class="live">ARK STARMAP DATA</span>
+    <span id="system-id">SYS: STANTON // UEE TERRITORY</span>
+    <span id="body-count">4 PLANETS // 12 MOONS</span>
+    <span id="danger-badge">⚠ HIGH DANGER</span>
+  </div>
+</div>
+
+<!-- SYSTEM SELECTOR -->
+<div id="system-selector">
+  <button class="sys-btn active" onclick="switchSystem('stanton')">STANTON</button>
+  <button class="sys-btn"        onclick="switchSystem('pyro')">PYRO</button>
+  <button class="sys-btn"        onclick="switchSystem('nyx')">NYX</button>
+</div>
+
+<!-- FILTERS -->
+<div id="filters">
+  <div class="filter-btn active" data-type="PLANET"        onclick="toggleFilter(this)"><div class="filter-dot"></div>PLANETS</div>
+  <div class="filter-btn active" data-type="SATELLITE"     onclick="toggleFilter(this)"><div class="filter-dot"></div>MOONS</div>
+  <div class="filter-btn active" data-type="orbits"        onclick="toggleFilter(this)"><div class="filter-dot"></div>ORBIT RINGS</div>
+  <div class="filter-btn active" data-type="labels"        onclick="toggleFilter(this)"><div class="filter-dot"></div>LABELS</div>
+  <div class="filter-btn active" data-type="JUMPPOINT"     onclick="toggleFilter(this)"><div class="filter-dot"></div>JUMP POINTS</div>
+  <div class="filter-btn active" data-type="ASTEROID_BELT" onclick="toggleFilter(this)"><div class="filter-dot"></div>ASTEROID FIELDS</div>
+</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+  <div class="ctrl-row"><div class="ctrl-key">LEFT DRAG</div><div class="ctrl-desc">ROTATE VIEW</div></div>
+  <div class="ctrl-row"><div class="ctrl-key">RIGHT DRAG</div><div class="ctrl-desc">PAN</div></div>
+  <div class="ctrl-row"><div class="ctrl-key">SCROLL</div><div class="ctrl-desc">ZOOM</div></div>
+  <div class="ctrl-row"><div class="ctrl-key">CLICK</div><div class="ctrl-desc">SELECT BODY</div></div>
+  <div class="ctrl-row"><div class="ctrl-key">F</div><div class="ctrl-desc">RESET VIEW</div></div>
+</div>
+
+<!-- ORBIT TOGGLE -->
+<div id="orbit-toggle" onclick="toggleOrbits()">
+  <div class="ind"></div>ORBITAL MOTION
+</div>
+
+<!-- INFO PANEL -->
+<div id="info-panel">
+  <div id="iph">
+    <div><div id="ipt">—</div><div id="iptype">—</div></div>
+    <div id="ipclose" onclick="closeInfo()">[ X ]</div>
+  </div>
+  <div id="ipbody">
+    <div class="info-row"><span class="info-label">DESIGNATION</span><span class="info-value" id="i-desig">—</span></div>
+    <div class="info-row"><span class="info-label">TYPE</span>       <span class="info-value" id="i-type">—</span></div>
+    <div class="info-row"><span class="info-label">PARENT BODY</span><span class="info-value" id="i-parent">—</span></div>
+    <div class="info-row"><span class="info-label">ORBITAL DIST</span><span class="info-value" id="i-dist">—</span></div>
+    <div class="info-row"><span class="info-label">ORBIT PERIOD</span><span class="info-value" id="i-period">—</span></div>
+    <div class="info-row"><span class="info-label">BODY RADIUS</span><span class="info-value" id="i-size">—</span></div>
+    <div class="info-row"><span class="info-label">FACTION</span>    <span class="info-value" id="i-faction">—</span></div>
+    <div id="idesc">—</div>
+  </div>
+</div>
+
+<div id="tooltip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/starmap/starmap.js"></script>
+</body>
+</html>

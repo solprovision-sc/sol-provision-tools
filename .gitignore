@@ -1,51 +1,28 @@
-# ── Database (never commit — SCP'd to server separately) ─────────────────────
+# Database — deployed separately via SCP
 *.db
 *.db-shm
 *.db-wal
 
-# ── Python ────────────────────────────────────────────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *.pyo
-*.pyd
 .Python
-*.egg-info/
-dist/
-build/
-.eggs/
-
-# ── Virtual environments ──────────────────────────────────────────────────────
 venv/
-.venv/
 env/
-.env/
+*.egg-info/
 
-# ── Local config / secrets (server IPs, API keys — never commit) ─────────────
+# Environment files
 .env
-*.env
-config.local.py
-secrets.py
+.env.*
 
-# ── DataForge / pipeline artifacts ───────────────────────────────────────────
-*.p4k
-*.dcb
-*.log
-exports/
-DataMining/
-
-# ── OS noise ──────────────────────────────────────────────────────────────────
+# OS
 .DS_Store
 Thumbs.db
-desktop.ini
 
-# ── Editor artifacts ──────────────────────────────────────────────────────────
+# IDE
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# ── Future build tooling (Vite/Node — cargo planner rebuild) ─────────────────
-node_modules/
-dist/
-.cache/
+# Logs
+*.log

@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sol Provision — Cargo Planner</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #060c12;
+    color: #c8d8e8;
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  #canvas-container {
+    position: absolute;
+    inset: 0;
+  }
+
+  canvas { display: block; }
+
+  /* ── Header ── */
+  #header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: 14px 24px;
+    background: linear-gradient(180deg, rgba(6,12,18,0.95) 0%, transparent 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+
+  .back-btn {
+    pointer-events: all;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00d4ff;
+    text-decoration: none;
+    border: 1px solid #1e2d3d;
+    padding: 5px 12px;
+    background: rgba(0,20,35,0.8);
+    transition: all 0.15s;
+  }
+  .back-btn:hover { border-color: #00d4ff; background: rgba(0,50,80,0.6); }
+
+  .ship-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #e8f4ff;
+  }
+  .ship-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: #00d4ff;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .patch-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: #3d5a72;
+    border: 1px solid #1e2d3d;
+    padding: 4px 10px;
+  }
+
+  /* ── Side panel ── */
+  #side-panel {
+    position: absolute;
+    top: 80px;
+    right: 20px;
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  .grid-card {
+    background: rgba(8,18,28,0.88);
+    border: 1px solid;
+    padding: 14px 16px;
+    backdrop-filter: blur(4px);
+  }
+  .grid-card.primary   { border-color: #004488; }
+  .grid-card.secondary { border-color: #553300; }
+
+  .grid-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .grid-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .grid-dot.primary   { background: #0088ff; box-shadow: 0 0 8px #0066cc; }
+  .grid-dot.secondary { background: #ff8800; box-shadow: 0 0 8px #cc6600; }
+
+  .grid-port-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #7a9ab8;
+    letter-spacing: 0.1em;
+    flex: 1;
+    margin-left: 8px;
+  }
+
+  .scu-badge {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .scu-badge.primary   { color: #4499ff; }
+  .scu-badge.secondary { color: #ff9933; }
+  .scu-badge span { font-size: 11px; color: #3d5a72; font-weight: 400; }
+
+  .grid-dims {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #0d1820;
+  }
+
+  .dim-item { text-align: center; }
+  .dim-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #3d5a72;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .dim-value {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: #c8d8e8;
+    margin-top: 2px;
+  }
+  .dim-scu {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: #3d5a72;
+    margin-top: 1px;
+  }
+
+  .grid-cells-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #0d1820;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #3d5a72;
+  }
+  .grid-cells-row strong { color: #7a9ab8; }
+
+  /* ── Legend ── */
+  #legend {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(8,18,28,0.88);
+    border: 1px solid #1e2d3d;
+    padding: 12px 16px;
+    z-index: 10;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+  }
+
+  .legend-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #3d5a72;
+    margin-bottom: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #7a9ab8;
+  }
+  .legend-item:last-child { margin-bottom: 0; }
+
+  .legend-swatch {
+    width: 28px; height: 14px;
+    border: 1px solid;
+  }
+  .legend-swatch.primary   { background: rgba(0,100,255,0.25); border-color: #0066cc; }
+  .legend-swatch.secondary { background: rgba(255,120,0,0.25);  border-color: #cc6600; }
+  .legend-swatch.floor     { background: rgba(0,50,80,0.15);    border-color: #1e3a4a; }
+
+  /* ── Controls hint ── */
+  #controls-hint {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: #2a4050;
+    letter-spacing: 0.1em;
+    line-height: 1.8;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* ── Axis lock buttons ── */
+  #axis-controls {
+    position: absolute;
+    bottom: 110px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 10;
+  }
+
+  .axis-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #2a4050;
+    margin-bottom: 2px;
+  }
+
+  .axis-btn-row { display: flex; gap: 6px; }
+
+  .axis-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    background: rgba(6,18,28,0.85);
+    border: 1px solid #1e2d3d;
+    color: #3d5a72;
+    cursor: pointer;
+    transition: all 0.15s;
+    backdrop-filter: blur(4px);
+    white-space: nowrap;
+  }
+  .axis-btn:hover {
+    border-color: #00d4ff;
+    color: #00d4ff;
+    background: rgba(0,40,60,0.85);
+  }
+  .axis-btn.active {
+    border-color: #00d4ff;
+    color: #00d4ff;
+    background: rgba(0,50,80,0.7);
+    box-shadow: 0 0 8px rgba(0,180,255,0.2);
+  }
+  .axis-btn.snap {
+    border-color: #336644;
+    color: #44aa66;
+  }
+  .axis-btn.snap:hover, .axis-btn.snap.active {
+    border-color: #44ff88;
+    color: #44ff88;
+    background: rgba(0,40,20,0.7);
+    box-shadow: 0 0 8px rgba(0,255,100,0.2);
+  }
+
+  /* ── Crosshair reticle ── */
+  #reticle {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px; height: 20px;
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.2;
+  }
+  #reticle::before, #reticle::after {
+    content: '';
+    position: absolute;
+    background: #00d4ff;
+  }
+  #reticle::before { width: 1px; height: 100%; left: 50%; top: 0; }
+  #reticle::after  { width: 100%; height: 1px; top: 50%; left: 0; }
+
+  /* ── Loading ── */
+  #loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #060c12;
+    z-index: 100;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: #00d4ff;
+    text-transform: uppercase;
+    transition: opacity 0.5s;
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">INITIALIZING CARGO SYSTEMS...</div>
+<div id="canvas-container"></div>
+<div id="reticle"></div>
+
+<!-- Header -->
+<div id="header">
+  <div class="header-left">
+    <a href="/" class="back-btn">← Dashboard</a>
+    <div>
+      <div class="ship-name">Crusader Mercury Star Runner</div>
+      <div class="ship-sub">Cargo Grid Visualizer — POC · crus_star_runner</div>
+    </div>
+  </div>
+  <div class="patch-badge">PATCH 4.6</div>
+</div>
+
+<!-- Side panel -->
+<div id="side-panel">
+
+  <div class="grid-card primary">
+    <div class="grid-card-header">
+      <div class="grid-dot primary"></div>
+      <div class="grid-port-name">hardpoint_cargo_large</div>
+      <div class="scu-badge primary">108 <span>SCU</span></div>
+    </div>
+    <div class="grid-dims">
+      <div class="dim-item">
+        <div class="dim-label">WIDTH</div>
+        <div class="dim-value">7.500m</div>
+        <div class="dim-scu">6 SCU</div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-label">LENGTH</div>
+        <div class="dim-value">7.500m</div>
+        <div class="dim-scu">6 SCU</div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-label">HEIGHT</div>
+        <div class="dim-value">3.750m</div>
+        <div class="dim-scu">3 SCU</div>
+      </div>
+    </div>
+    <div class="grid-cells-row">
+      <span>CELLS</span>
+      <strong>6 × 6 × 3 = 108</strong>
+    </div>
+  </div>
+
+  <div class="grid-card secondary">
+    <div class="grid-card-header">
+      <div class="grid-dot secondary"></div>
+      <div class="grid-port-name">hardpoint_cargo_small</div>
+      <div class="scu-badge secondary">6 <span>SCU</span></div>
+    </div>
+    <div class="grid-dims">
+      <div class="dim-item">
+        <div class="dim-label">WIDTH</div>
+        <div class="dim-value">1.250m</div>
+        <div class="dim-scu">1 SCU</div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-label">LENGTH</div>
+        <div class="dim-value">3.750m</div>
+        <div class="dim-scu">3 SCU</div>
+      </div>
+      <div class="dim-item">
+        <div class="dim-label">HEIGHT</div>
+        <div class="dim-value">2.500m</div>
+        <div class="dim-scu">2 SCU</div>
+      </div>
+    </div>
+    <div class="grid-cells-row">
+      <span>CELLS</span>
+      <strong>1 × 3 × 2 = 6</strong>
+    </div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div id="legend">
+  <div class="legend-title">Legend</div>
+  <div class="legend-item"><div class="legend-swatch primary"></div>Primary Cargo (accessible)</div>
+  <div class="legend-item"><div class="legend-swatch secondary"></div>Suspected Hidden Compartment</div>
+  <div class="legend-item"><div class="legend-swatch floor"></div>Reference Floor Plane</div>
+</div>
+
+<!-- Axis lock controls -->
+<div id="axis-controls">
+  <div class="axis-label">Camera Axis Lock</div>
+  <div class="axis-btn-row">
+    <button class="axis-btn active" id="btn-free"    onclick="setAxisMode('free')">Free</button>
+    <button class="axis-btn"        id="btn-lockx"   onclick="setAxisMode('lockX')">Lock&nbsp;Horizontal</button>
+    <button class="axis-btn"        id="btn-lockz"   onclick="setAxisMode('lockZ')">Lock&nbsp;Vertical</button>
+  </div>
+  <div class="axis-btn-row">
+    <button class="axis-btn snap"   id="btn-top"     onclick="snapView('top')">Top</button>
+    <button class="axis-btn snap"   id="btn-front"   onclick="snapView('front')">Front</button>
+    <button class="axis-btn snap"   id="btn-side"    onclick="snapView('side')">Side</button>
+    <button class="axis-btn snap"   id="btn-iso"     onclick="snapView('iso')">Iso</button>
+  </div>
+</div>
+
+<!-- Controls -->
+<div id="controls-hint">
+  LEFT DRAG  · ORBIT<br>
+  RIGHT DRAG · PAN<br>
+  SCROLL     · ZOOM<br>
+  DBL CLICK  · RESET
+</div>
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ── OrbitControls (inline — not available on Cloudflare CDN for r128) ────────
+// Minimal orbit implementation to avoid CDN path issues
+class OrbitControls {
+  constructor(camera, domElement) {
+    this.camera     = camera;
+    this.domElement = domElement;
+    this.target     = new THREE.Vector3();
+    this.enableDamping = true;
+    this.dampingFactor = 0.15;
+    this.lockTheta = false;   // when true: horizontal rotation locked
+    this.lockPhi   = false;   // when true: vertical rotation locked
+
+    // Spherical coords
+    this._spherical     = new THREE.Spherical();
+    this._sphericalDelta = new THREE.Spherical();
+    this._panOffset     = new THREE.Vector3();
+    this._scale         = 1;
+
+    this._rotateStart   = new THREE.Vector2();
+    this._panStart      = new THREE.Vector2();
+    this._state         = 'none'; // 'rotate' | 'pan'
+
+    this._updateSpherical();
+    this._bindEvents();
+  }
+
+  _updateSpherical() {
+    const offset = new THREE.Vector3().subVectors(this.camera.position, this.target);
+    this._spherical.setFromVector3(offset);
+  }
+
+  _bindEvents() {
+    const el = this.domElement;
+    el.addEventListener('mousedown',  e => this._onMouseDown(e));
+    el.addEventListener('mousemove',  e => this._onMouseMove(e));
+    el.addEventListener('mouseup',    e => this._state = 'none');
+    el.addEventListener('wheel',      e => this._onWheel(e), {passive:false});
+    el.addEventListener('contextmenu',e => e.preventDefault());
+    el.addEventListener('dblclick',   e => this.reset());
+    el.addEventListener('touchstart', e => this._onTouchStart(e), {passive:false});
+    el.addEventListener('touchmove',  e => this._onTouchMove(e),  {passive:false});
+    el.addEventListener('touchend',   e => this._state = 'none');
+    this._lastTouchDist = null;
+  }
+
+  _onMouseDown(e) {
+    if (e.button === 0) {
+      this._state = 'rotate';
+      this._rotateStart.set(e.clientX, e.clientY);
+    } else if (e.button === 2) {
+      this._state = 'pan';
+      this._panStart.set(e.clientX, e.clientY);
+    }
+  }
+
+  _onMouseMove(e) {
+    if (this._state === 'rotate') {
+      const dx = (e.clientX - this._rotateStart.x) / window.innerHeight * Math.PI * 0.5;
+      const dy = (e.clientY - this._rotateStart.y) / window.innerHeight * Math.PI * 0.5;
+      if (!this.lockTheta) this._sphericalDelta.theta -= dx;
+      if (!this.lockPhi)   this._sphericalDelta.phi   -= dy;
+      this._rotateStart.set(e.clientX, e.clientY);
+    } else if (this._state === 'pan') {
+      const dx = e.clientX - this._panStart.x;
+      const dy = e.clientY - this._panStart.y;
+      this._doPan(dx, dy);
+      this._panStart.set(e.clientX, e.clientY);
+    }
+  }
+
+  _onWheel(e) {
+    e.preventDefault();
+    this._scale *= e.deltaY > 0 ? 1.12 : 0.89;
+  }
+
+  _onTouchStart(e) {
+    e.preventDefault();
+    if (e.touches.length === 1) {
+      this._state = 'rotate';
+      this._rotateStart.set(e.touches[0].clientX, e.touches[0].clientY);
+    } else if (e.touches.length === 2) {
+      this._state = 'pinch';
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      this._lastTouchDist = Math.sqrt(dx*dx + dy*dy);
+    }
+  }
+
+  _onTouchMove(e) {
+    e.preventDefault();
+    if (this._state === 'rotate' && e.touches.length === 1) {
+      const dx = (e.touches[0].clientX - this._rotateStart.x) / window.innerHeight * Math.PI * 0.5;
+      const dy = (e.touches[0].clientY - this._rotateStart.y) / window.innerHeight * Math.PI * 0.5;
+      if (!this.lockTheta) this._sphericalDelta.theta -= dx;
+      if (!this.lockPhi)   this._sphericalDelta.phi   -= dy;
+      this._rotateStart.set(e.touches[0].clientX, e.touches[0].clientY);
+    } else if (this._state === 'pinch' && e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      this._scale *= this._lastTouchDist / dist;
+      this._lastTouchDist = dist;
+    }
+  }
+
+  _doPan(dx, dy) {
+    const el = this.domElement;
+    const fov = this.camera.fov * Math.PI / 180;
+    const dist = this.camera.position.distanceTo(this.target);
+    const h = 2 * dist * Math.tan(fov / 2);
+    const w = h * el.clientWidth / el.clientHeight;
+    const right = new THREE.Vector3().crossVectors(
+      new THREE.Vector3().subVectors(this.camera.position, this.target).normalize(),
+      this.camera.up
+    ).normalize();
+    const up = this.camera.up.clone().normalize();
+    this._panOffset.addScaledVector(right, -dx / el.clientWidth  * w);
+    this._panOffset.addScaledVector(up,     dy / el.clientHeight * h);
+  }
+
+  reset() {
+    this.target.set(0, 0, 0);
+    this._spherical.set(35, Math.PI / 4, Math.PI / 3);
+    this._sphericalDelta.set(0, 0, 0);
+    this._panOffset.set(0, 0, 0);
+    this._scale = 1;
+    this.update();
+  }
+
+  update() {
+    this._spherical.theta += this._sphericalDelta.theta;
+    this._spherical.phi   += this._sphericalDelta.phi;
+    this._spherical.phi    = Math.max(0.01, Math.min(Math.PI - 0.01, this._spherical.phi));
+    this._spherical.radius = Math.max(2, Math.min(200, this._spherical.radius * this._scale));
+
+    if (this.enableDamping) {
+      this._sphericalDelta.theta *= (1 - this.dampingFactor);
+      this._sphericalDelta.phi   *= (1 - this.dampingFactor);
+      this._panOffset.multiplyScalar(1 - this.dampingFactor);
+    } else {
+      this._sphericalDelta.set(0, 0, 0);
+      this._panOffset.set(0, 0, 0);
+    }
+    this._scale = 1;
+
+    const offset = new THREE.Vector3().setFromSpherical(this._spherical);
+    this.target.add(this._panOffset);
+    this.camera.position.copy(this.target).add(offset);
+    this.camera.lookAt(this.target);
+  }
+}
+
+// ── Scene setup ───────────────────────────────────────────────────────────────
+const W = window.innerWidth;
+const H = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(W, H);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x060c12, 1);
+renderer.shadowMap.enabled = true;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
+camera.position.set(18, -20, 16);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(4, -4, -2);
+controls._updateSpherical();
+
+// ── Lighting ──────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x223344, 2.0));
+const dirLight = new THREE.DirectionalLight(0x88bbff, 1.2);
+dirLight.position.set(10, 10, 20);
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x334455, 0.5);
+fillLight.position.set(-10, -5, -10);
+scene.add(fillLight);
+
+// ── Grid data ─────────────────────────────────────────────────────────────────
+const SCU_SIZE = 1.25; // 1 SCU = 1.25m
+
+const GRIDS = [
+  {
+    name:     'hardpoint_cargo_large',
+    pos:      { x: 0.314,  y: -3.9609, z: -4.1195 },
+    dim:      { x: 7.5,    y: 7.5,     z: 3.75 },
+    scu:      108,
+    primary:  true,
+    color:    0x0066ff,
+    emissive: 0x001133,
+  },
+  {
+    name:     'hardpoint_cargo_small',
+    pos:      { x: 10.500, y: -5.3359, z: -4.1195 },
+    dim:      { x: 1.25,   y: 3.75,    z: 2.5 },
+    scu:      6,
+    primary:  false,
+    color:    0xff8800,
+    emissive: 0x331100,
+  },
+];
+
+// ── Build grid boxes ──────────────────────────────────────────────────────────
+function buildCargoGrid(grid) {
+  const group = new THREE.Group();
+
+  // Blender: Z-up, Three.js: Y-up
+  // Map: Blender X→Three X, Blender Y→Three Z (negated), Blender Z→Three Y
+  // But let's keep it intuitive — render in Blender coords and orient camera accordingly
+  // Position: center of box = pos + dim/2 offset (hardpoint is at corner)
+  const cx = grid.pos.x + grid.dim.x / 2;
+  const cy = grid.pos.y + grid.dim.y / 2;
+  const cz = grid.pos.z + grid.dim.z / 2;
+
+  // ── Solid fill (semi-transparent) ──
+  const fillGeo = new THREE.BoxGeometry(grid.dim.x, grid.dim.y, grid.dim.z);
+  const fillMat = new THREE.MeshPhongMaterial({
+    color:       grid.color,
+    emissive:    grid.emissive,
+    transparent: true,
+    opacity:     grid.primary ? 0.18 : 0.22,
+    side:        THREE.FrontSide,
+    depthWrite:  false,
+  });
+  const fillMesh = new THREE.Mesh(fillGeo, fillMat);
+  fillMesh.position.set(cx, cy, cz);
+  group.add(fillMesh);
+
+  // ── Outer wireframe border ──
+  const edgesGeo = new THREE.EdgesGeometry(fillGeo);
+  const edgesMat = new THREE.LineBasicMaterial({
+    color:     grid.primary ? 0x2288ff : 0xff9922,
+    linewidth: 2,
+    transparent: true,
+    opacity: 0.9,
+  });
+  const edges = new THREE.LineSegments(edgesGeo, edgesMat);
+  edges.position.set(cx, cy, cz);
+  group.add(edges);
+
+  // ── SCU cell grid lines (1.25m intervals) ──
+  const cellColor = grid.primary ? 0x004488 : 0x553300;
+  const cellMat   = new THREE.LineBasicMaterial({
+    color:       cellColor,
+    transparent: true,
+    opacity:     0.45,
+  });
+
+  const points = [];
+  const { x: dx, y: dy, z: dz } = grid.dim;
+  const ox = grid.pos.x, oy = grid.pos.y, oz = grid.pos.z;
+
+  // X-axis slices (YZ planes at each X interval)
+  const nx = Math.round(dx / SCU_SIZE);
+  const ny = Math.round(dy / SCU_SIZE);
+  const nz = Math.round(dz / SCU_SIZE);
+
+  for (let i = 1; i < nx; i++) {
+    const x = ox + i * SCU_SIZE;
+    points.push(new THREE.Vector3(x, oy,    oz),    new THREE.Vector3(x, oy+dy, oz));
+    points.push(new THREE.Vector3(x, oy,    oz),    new THREE.Vector3(x, oy,    oz+dz));
+    points.push(new THREE.Vector3(x, oy+dy, oz),    new THREE.Vector3(x, oy+dy, oz+dz));
+    points.push(new THREE.Vector3(x, oy,    oz+dz), new THREE.Vector3(x, oy+dy, oz+dz));
+  }
+  // Y-axis slices
+  for (let i = 1; i < ny; i++) {
+    const y = oy + i * SCU_SIZE;
+    points.push(new THREE.Vector3(ox,    y, oz),    new THREE.Vector3(ox+dx, y, oz));
+    points.push(new THREE.Vector3(ox,    y, oz),    new THREE.Vector3(ox,    y, oz+dz));
+    points.push(new THREE.Vector3(ox+dx, y, oz),    new THREE.Vector3(ox+dx, y, oz+dz));
+    points.push(new THREE.Vector3(ox,    y, oz+dz), new THREE.Vector3(ox+dx, y, oz+dz));
+  }
+  // Z-axis slices
+  for (let i = 1; i < nz; i++) {
+    const z = oz + i * SCU_SIZE;
+    points.push(new THREE.Vector3(ox,    oy,    z), new THREE.Vector3(ox+dx, oy,    z));
+    points.push(new THREE.Vector3(ox,    oy,    z), new THREE.Vector3(ox,    oy+dy, z));
+    points.push(new THREE.Vector3(ox+dx, oy,    z), new THREE.Vector3(ox+dx, oy+dy, z));
+    points.push(new THREE.Vector3(ox,    oy+dy, z), new THREE.Vector3(ox+dx, oy+dy, z));
+  }
+
+  if (points.length > 0) {
+    const cellGeo = new THREE.BufferGeometry().setFromPoints(points);
+    const cellLines = new THREE.LineSegments(cellGeo, cellMat);
+    group.add(cellLines);
+  }
+
+  // ── Corner marker at hardpoint origin ──
+  const markerGeo = new THREE.SphereGeometry(0.12, 8, 8);
+  const markerMat = new THREE.MeshBasicMaterial({ color: grid.primary ? 0x44aaff : 0xffaa44 });
+  const marker    = new THREE.Mesh(markerGeo, markerMat);
+  marker.position.set(grid.pos.x, grid.pos.y, grid.pos.z);
+  group.add(marker);
+
+  // ── Label sprite (simple axis line to corner) ──
+  const axisPoints = [
+    new THREE.Vector3(grid.pos.x, grid.pos.y, grid.pos.z),
+    new THREE.Vector3(grid.pos.x, grid.pos.y, grid.pos.z + grid.dim.z + 1.5),
+  ];
+  const axisGeo = new THREE.BufferGeometry().setFromPoints(axisPoints);
+  const axisMat = new THREE.LineBasicMaterial({
+    color: grid.primary ? 0x2288ff : 0xff9922,
+    transparent: true, opacity: 0.4
+  });
+  group.add(new THREE.Line(axisGeo, axisMat));
+
+  return group;
+}
+
+// ── Reference floor ───────────────────────────────────────────────────────────
+function buildFloor() {
+  const group = new THREE.Group();
+
+  // Main grid plane
+  const size = 30;
+  const divs = 24;
+  const gridHelper = new THREE.GridHelper(size, divs, 0x0d2030, 0x0d2030);
+  gridHelper.rotation.x = Math.PI / 2; // rotate to XY plane (Z=0)
+  group.add(gridHelper);
+
+  // Floor fill
+  const floorGeo = new THREE.PlaneGeometry(size, size);
+  const floorMat = new THREE.MeshBasicMaterial({
+    color:       0x030810,
+    transparent: true,
+    opacity:     0.6,
+    side:        THREE.DoubleSide,
+    depthWrite:  false,
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  group.add(floor);
+
+  // Axis indicators
+  const axisLen = 8;
+  const axes = [
+    { dir: [1,0,0], color: 0xff3333, label: '+X' },
+    { dir: [0,1,0], color: 0x33ff33, label: '+Y' },
+    { dir: [0,0,1], color: 0x3333ff, label: '+Z' },
+  ];
+  axes.forEach(({ dir, color }) => {
+    const pts = [new THREE.Vector3(0,0,0), new THREE.Vector3(...dir).multiplyScalar(axisLen)];
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
+    group.add(new THREE.Line(geo, mat));
+  });
+
+  return group;
+}
+
+// ── Atmosphere ────────────────────────────────────────────────────────────────
+// Subtle fog
+scene.fog = new THREE.FogExp2(0x060c12, 0.012);
+
+// Add everything to scene
+const floor = buildFloor();
+scene.add(floor);
+
+GRIDS.forEach(grid => {
+  scene.add(buildCargoGrid(grid));
+});
+
+// ── Stars (distant points) ────────────────────────────────────────────────────
+const starCount = 800;
+const starPositions = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount; i++) {
+  const r = 120 + Math.random() * 80;
+  const theta = Math.random() * Math.PI * 2;
+  const phi   = Math.acos(2 * Math.random() - 1);
+  starPositions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+  starPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+  starPositions[i*3+2] = r * Math.cos(phi);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+const starMat = new THREE.PointsMaterial({ color: 0x334455, size: 0.3, transparent: true, opacity: 0.6 });
+scene.add(new THREE.Points(starGeo, starMat));
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+
+// ── Axis lock controls ────────────────────────────────────────────────────────
+function setAxisMode(mode) {
+  controls.lockTheta = (mode === 'lockZ');   // lockZ = only vertical = lock horizontal (theta)
+  controls.lockPhi   = (mode === 'lockX');   // lockX = only horizontal = lock vertical (phi)
+
+  ['free','lockx','lockz'].forEach(id => {
+    document.getElementById('btn-' + id).classList.remove('active');
+  });
+  const map = { free: 'btn-free', lockX: 'btn-lockx', lockZ: 'btn-lockz' };
+  document.getElementById(map[mode]).classList.add('active');
+}
+
+function snapView(view) {
+  // Snap camera to a preset angle — animates via damping
+  controls._sphericalDelta.set(0, 0, 0);
+  controls._panOffset.set(0, 0, 0);
+
+  const r = controls._spherical.radius;
+  const cx = 4, cy = -4, cz = -2; // scene center approx
+  controls.target.set(cx, cy, cz);
+
+  const snaps = {
+    top:   { r, phi: 0.01,         theta: 0 },
+    front: { r, phi: Math.PI / 2,  theta: 0 },
+    side:  { r, phi: Math.PI / 2,  theta: Math.PI / 2 },
+    iso:   { r, phi: Math.PI / 4,  theta: Math.PI / 3 },
+  };
+  const s = snaps[view];
+  controls._spherical.set(s.r, s.phi, s.theta);
+
+  // Flash the snap button
+  ['top','front','side','iso'].forEach(id =>
+    document.getElementById('btn-' + id).classList.remove('active')
+  );
+  const btn = document.getElementById('btn-' + view);
+  btn.classList.add('active');
+  setTimeout(() => btn.classList.remove('active'), 600);
+
+  controls.update();
+}
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// Hide loading screen
+setTimeout(() => {
+  const loading = document.getElementById('loading');
+  loading.style.opacity = '0';
+  setTimeout(() => loading.style.display = 'none', 500);
+  animate();
+}, 600);
+</script>
+</body>
+</html>
