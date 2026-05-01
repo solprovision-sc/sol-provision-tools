@@ -89,14 +89,15 @@ function navHTML(active) {
 	const links = [
 	{ href: '/',              label: 'Dashboard' },
 	{ href: '/ships',         label: 'Ships' },
-	{ href: '/components',    label: 'Components' },
-	{ href: '/weapons/ship',  label: 'Ship Weapons' },
-	{ href: '/weapons/fps',   label: 'FPS Weapons' },
-	{ href: '/armor',         label: 'Armor' },
-	{ href: '/shops',         label: 'Shops' },
+	// { href: '/components',    label: 'Components' },
+	// { href: '/weapons/ship',  label: 'Ship Weapons' },
+	// { href: '/weapons/fps',   label: 'FPS Weapons' },
+	// { href: '/armor',         label: 'Armor' },
+	// { href: '/shops',         label: 'Shops' },
 	{ href: '/crafting', 	  label: 'Crafting'},
-	{ href: '/cargo-planner', label: 'Cargo Planner' },
-	{ href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
+	// { href: '/cargo-planner', label: 'Cargo Planner' },
+	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
+	{ href: '/ledger', label: 'Ledger' },
 	{ href: '/patchnotes',    label: 'Patch Notes' },
 	];
   return `<nav class="section-nav">` +
