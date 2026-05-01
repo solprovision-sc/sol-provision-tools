@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Components — Sol Provision{% endblock %}
+
+{% block body %}
+<div class="layout">
+  <aside>
+    <div class="sidebar-section">
+      <div class="section-label">Search</div>
+      <input type="text" id="search-input" placeholder="Component name..."/>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Filters</div>
+      <select id="size-filter">
+        <option value="">All Sizes</option>
+        <option value="1">Size 1</option>
+        <option value="2">Size 2</option>
+        <option value="3">Size 3</option>
+        <option value="4">Size 4</option>
+        <option value="5">Size 5+</option>
+      </select>
+      <select id="grade-filter">
+        <option value="">All Grades</option>
+        <option value="1">Grade A</option>
+        <option value="2">Grade B</option>
+        <option value="3">Grade C</option>
+      </select>
+      <button class="btn" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Sort By</div>
+      <div style="display:flex;flex-direction:column;gap:4px" id="sort-btns">
+        <button class="sort-btn active" data-sort="size"        onclick="setSort(this)">Size</button>
+        <button class="sort-btn"        data-sort="entity_name" onclick="setSort(this)">Name</button>
+        <button class="sort-btn"        data-sort="grade"       onclick="setSort(this)">Grade</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Compare <span id="compare-count">(0/4)</span></div>
+      <div id="compare-list"></div>
+      <button class="btn" id="compare-btn" onclick="showCompare()" style="display:none">Compare Selected</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="list-view">
+      <!-- Type tabs -->
+      <div class="tab-area">
+        <div class="tabs" id="type-tabs">
+          <button class="tab-btn active" data-type="Shield"      onclick="setType(this)">Shields</button>
+          <button class="tab-btn"        data-type="Cooler"      onclick="setType(this)">Coolers</button>
+          <button class="tab-btn"        data-type="QuantumDrive" onclick="setType(this)">Quantum Drives</button>
+          <button class="tab-btn"        data-type="PowerPlant"  onclick="setType(this)">Power Plants</button>
+        </div>
+      </div>
+      <div class="list-header" style="margin-top:16px">
+        <div class="list-count">Showing <span id="comp-count">0</span> components</div>
+      </div>
+      <div id="comp-list-container"><div class="loading">Loading components...</div></div>
+    </div>
+
+    <!-- Detail panel -->
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="detail-title">—</div>
+          <div class="detail-sub"   id="detail-sub">—</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn" style="width:auto;padding:6px 14px" onclick="addCurrentToCompare()">+ Compare</button>
+          <button class="close-btn" onclick="closeDetail()">✕</button>
+        </div>
+      </div>
+      <div class="detail-stats-row" id="detail-stats"></div>
+      <div class="detail-body">
+        <div class="detail-section" id="detail-main-stats">
+          <div class="detail-section-title">Stats</div>
+          <div id="detail-stats-content"></div>
+        </div>
+        <div class="detail-section" id="detail-power-stats">
+          <div class="detail-section-title">Power & Heat</div>
+          <div id="detail-power-content"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compare panel -->
+    <div class="detail-panel" id="compare-panel">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent)">Component Comparison</div>
+        <button class="close-btn" onclick="closeCompare()">✕</button>
+      </div>
+      <div style="overflow-x:auto;padding:24px">
+        <table class="compare-table" id="compare-table"></table>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block page_script %}
+let allComps = [];
+let currentType = 'Shield';
+let currentSort = 'size';
+let currentComp = null;
+let compareMgr = new CompareManager(4, items => {
+  compareMgr.renderChips('compare-list', 'compare-btn');
+  renderCompList(allComps);
+});
+
+// Column definitions per type
+const TYPE_COLS = {
+  Shield: [
+    { key: 'MaxShieldHealth',      label: 'HP',         decimals: 0 },
+    { key: 'MaxShieldRegen',       label: 'Regen/s',    decimals: 1 },
+    { key: 'DownedRegenDelay',     label: 'Down Delay', decimals: 1, unit: 's' },
+    { key: 'DamagedRegenDelay',    label: 'Hit Delay',  decimals: 1, unit: 's' },
+    { key: 'DecayRatio',           label: 'Decay',      decimals: 2 },
+  ],
+  Cooler: [
+    { key: 'CoolingRate',          label: 'Cooling',    decimals: 0 },
+    { key: 'SuppressionHeatFactor',label: 'Suppress',   decimals: 2 },
+  ],
+  QuantumDrive: [
+    { key: 'jumpRange',            label: 'Range',      decimals: 0, unit: 'Mm' },
+    { key: 'quantumFuelRequirement',label:'Fuel/Mm',    decimals: 4 },
+    { key: 'disconnectRange',      label: 'Discon.',    decimals: 0, unit: 'm' },
+  ],
+  PowerPlant: [
+    { key: 'power_draw',           label: 'Power Draw', decimals: 0, source: 'power' },
+    { key: 'thermal_draw',         label: 'Therm. Draw',decimals: 0, source: 'power' },
+    { key: 'em_decay',             label: 'EM Decay',   decimals: 2, source: 'power' },
+  ],
+};
+
+function getStatValue(comp, col) {
+  const d = comp.stats || {};
+  const p = comp.power || {};
+  if (col.source === 'power') return p[col.key];
+  return d[col.key];
+}
+
+async function loadComps(params = {}) {
+  document.getElementById('comp-list-container').innerHTML = '<div class="loading">Loading...</div>';
+  const qs = new URLSearchParams({ type: currentType, sort: currentSort, limit: 500, ...params });
+  allComps = await api('/api/components?' + qs);
+  renderCompList(allComps);
+}
+
+function renderCompList(comps) {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const size   = document.getElementById('size-filter').value;
+  const grade  = document.getElementById('grade-filter').value;
+
+  let filtered = comps;
+  if (search) filtered = filtered.filter(c => c.entity_name.toLowerCase().includes(search));
+  if (size)   filtered = filtered.filter(c => String(c.size) === size);
+  if (grade)  filtered = filtered.filter(c => String(c.grade) === grade);
+
+  document.getElementById('comp-count').textContent = filtered.length.toLocaleString();
+
+  const cols = TYPE_COLS[currentType] || [];
+
+  const rows = filtered.map(c => {
+    const statCells = cols.map(col => {
+      const v = getStatValue(c, col);
+      return `<td>${fmtStat(v, col.decimals, col.unit||'')}</td>`;
+    }).join('');
+
+    return `<tr onclick="selectComp('${c.entity_name}')" id="crow-${c.entity_name}">
+      <td>
+        <div style="font-family:var(--font-ui);font-size:14px;font-weight:600">${cleanName(c.entity_name)}</div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${getMfr(c.entity_name)}</div>
+      </td>
+      <td>${sizeBadge(c.size, c.size?`S${c.size}`:'?')}</td>
+      <td><span style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">${c.grade?'G'+c.grade:'—'}</span></td>
+      ${statCells}
+      <td>
+        <button class="sort-btn ${compareMgr.has(c.entity_name)?'active':''}"
+          onclick="event.stopPropagation();compareMgr.toggle(${JSON.stringify({entity_name:c.entity_name})})">+</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const headers = ['Component','Size','Grade', ...cols.map(c=>`<th>${c.label}</th>`), ''].map((h,i)=>
+    i < 3 || i === cols.length+3 ? `<th>${h}</th>` : h
+  ).join('');
+
+  document.getElementById('comp-list-container').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Component</th><th>Size</th><th>Grade</th>${cols.map(c=>`<th>${c.label}</th>`).join('')}<th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function selectComp(name) {
+  document.querySelectorAll('.data-table tr.selected').forEach(r=>r.classList.remove('selected'));
+  const row = document.getElementById('crow-' + name);
+  if (row) row.classList.add('selected');
+
+  const panel = document.getElementById('detail-panel');
+  panel.style.display = 'block';
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('compare-panel').style.display = 'none';
+  document.getElementById('detail-stats').innerHTML = '<div class="loading">Loading...</div>';
+
+  const comp = await api(`/api/component/${name}`);
+  currentComp = comp;
+  renderCompDetail(comp);
+}
+
+function renderCompDetail(c) {
+  document.getElementById('detail-title').textContent = cleanName(c.entity_name);
+  document.getElementById('detail-sub').textContent =
+    `${getMfr(c.entity_name)}  ·  ${c.item_type}  ·  S${c.size||'?'} G${c.grade||'?'}`;
+
+  const cols = TYPE_COLS[c.item_type] || [];
+  const p    = c.power || {};
+  const s    = c.stats || {};
+
+  // Top stats row
+  const topStats = cols.filter(col=>col.source!=='power').slice(0,4);
+  document.getElementById('detail-stats').innerHTML = topStats.map(col => {
+    const v = s[col.key];
+    return `<div class="stat-block">
+      <div class="stat-block-label">${col.label}</div>
+      <div class="stat-block-value accent">${v!=null?parseFloat(v).toFixed(col.decimals):'—'}<span class="stat-block-unit">${col.unit||''}</span></div>
+    </div>`;
+  }).join('') + `
+    <div class="stat-block"><div class="stat-block-label">Size</div><div class="stat-block-value">${c.size||'—'}</div></div>
+    <div class="stat-block"><div class="stat-block-label">Grade</div><div class="stat-block-value">${c.grade?'G'+c.grade:'—'}</div></div>`;
+
+  // Main stats
+  document.getElementById('detail-stats-content').innerHTML = cols.map(col => {
+    const v = getStatValue(c, col);
+    return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #0d1820">
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${col.label}</span>
+      <span style="font-family:var(--font-mono);font-size:13px;color:var(--accent)">${v!=null?parseFloat(v).toFixed(col.decimals)+' '+(col.unit||''):'—'}</span>
+    </div>`;
+  }).join('') || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">No stats available</div>';
+
+  // Power & heat
+  document.getElementById('detail-power-content').innerHTML = [
+    ['Power Draw',   p.power_draw,   0],
+    ['Power Base',   p.power_base,   0],
+    ['Thermal Draw', p.thermal_draw, 0],
+    ['Thermal Base', p.thermal_base, 0],
+    ['EM Decay',     p.em_decay,     3],
+  ].map(([label,v,dec])=>`
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #0d1820">
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${label}</span>
+      <span style="font-family:var(--font-mono);font-size:13px;color:var(--text)">${v!=null?parseFloat(v).toFixed(dec):'—'}</span>
+    </div>`).join('');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+  currentComp = null;
+}
+
+function addCurrentToCompare() {
+  if (currentComp) compareMgr.toggle({ entity_name: currentComp.entity_name });
+}
+
+async function showCompare() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('compare-panel').style.display = 'block';
+
+  const names = compareMgr.items.map(i=>i.entity_name).join(',');
+  const comps = await api(`/api/compare/components?items=${names}`);
+  const cols = TYPE_COLS[currentType] || [];
+
+  const rows = [
+    ['Manufacturer', c=>getMfr(c.entity_name), null],
+    ['Size',         c=>c.size?`S${c.size}`:'—', null],
+    ['Grade',        c=>c.grade?`G${c.grade}`:'—', null],
+    ...cols.map(col => [col.label, c=>{
+      const v = getStatValue(c, col);
+      return v!=null ? parseFloat(v).toFixed(col.decimals)+(col.unit?' '+col.unit:'') : '—';
+    }, 'higher']),
+    ['Power Draw',   c=>c.power?.power_draw!=null?parseFloat(c.power.power_draw).toFixed(0):'—', 'lower'],
+    ['Thermal Draw', c=>c.power?.thermal_draw!=null?parseFloat(c.power.thermal_draw).toFixed(0):'—', 'lower'],
+  ];
+
+  const thead = `<tr><th>Stat</th>${comps.map(c=>`<th>${cleanName(c.entity_name)}<br><span style="font-family:var(--font-mono);font-size:10px;color:var(--text3);font-weight:400">S${c.size||'?'} G${c.grade||'?'}</span></th>`).join('')}</tr>`;
+  const tbody = rows.map(([label,fn,cmp])=>{
+    const vals=comps.map(c=>fn(c));
+    let cls=vals.map(()=>'');
+    if(cmp){
+      const nums=vals.map(v=>parseFloat(v)||0);
+      const mx=Math.max(...nums),mn=Math.min(...nums);
+      if(cmp==='higher') cls=nums.map(v=>v===mx&&mx!==mn?'best':v===mn&&mx!==mn?'worst':'');
+      if(cmp==='lower')  cls=nums.map(v=>v===mn&&mx!==mn?'best':v===mx&&mx!==mn?'worst':'');
+    }
+    return `<tr><td>${label}</td>${vals.map((v,i)=>`<td class="${cls[i]}">${v}</td>`).join('')}</tr>`;
+  }).join('');
+
+  document.getElementById('compare-table').innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+}
+
+function closeCompare() {
+  document.getElementById('compare-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+}
+
+function setType(btn) {
+  document.querySelectorAll('#type-tabs .tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentType = btn.dataset.type;
+  compareMgr.clear();
+  loadComps();
+}
+
+let searchTimer;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('search-input').addEventListener('input', ()=>{
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(()=>renderCompList(allComps), 200);
+  });
+});
+
+function applyFilters() { loadComps(); }
+function clearFilters() {
+  ['search-input','size-filter','grade-filter'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  loadComps();
+}
+function setSort(btn) {
+  document.querySelectorAll('#sort-btns .sort-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSort = btn.dataset.sort;
+  loadComps();
+}
+
+loadComps();
+{% endblock %}
