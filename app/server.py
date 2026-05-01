@@ -68,20 +68,22 @@ COMP_PARAMS = {
 def index(): return render_template("index.html", active_page="/")
 @app.route("/ships")
 def ships_page(): return render_template("ships.html", active_page="/ships")
-@app.route("/components")
-def components_page(): return render_template("components.html", active_page="/components")
-@app.route("/weapons/ship")
-def weapons_ship_page(): return render_template("weapons_ship.html", active_page="/weapons/ship")
-@app.route("/weapons/fps")
-def weapons_fps_page(): return render_template("weapons_fps.html", active_page="/weapons/fps")
-@app.route("/armor")
-def armor_page(): return render_template("armor.html", active_page="/armor")
+#@app.route("/components")
+#def components_page(): return render_template("components.html", active_page="/components")
+#@app.route("/weapons/ship")
+#def weapons_ship_page(): return render_template("weapons_ship.html", active_page="/weapons/ship")
+#@app.route("/weapons/fps")
+#def weapons_fps_page(): return render_template("weapons_fps.html", active_page="/weapons/fps")
+#@app.route("/armor")
+#def armor_page(): return render_template("armor.html", active_page="/armor")
 @app.route("/crafting")
 def crafting(): return render_template("crafting.html", active_page="/crafting")
-@app.route("/cargo-planner")
-def cargo_planner_page():
-    from flask import send_from_directory
-    return send_from_directory("templates", "cargo_planner.html")
+#@app.route("/cargo-planner")
+#def cargo_planner_page():
+#    from flask import send_from_directory
+#    return send_from_directory("templates", "cargo_planner.html")
+@app.route("/ledger")
+def ledger(): return render_template("ledger.html", active_page="ledger")
 @app.route("/patchnotes")
 def patchnotes_page(): return render_template("patchnotes.html", active_page="/patchnotes")
 
@@ -925,14 +927,14 @@ def api_crafting_mission_detail(mission_name):
 # ─────────────────────────────────────────────────────────────────────────────
  
 # ── Page route ────────────────────────────────────────────────────────────────
-@app.route('/shops')
-def shops():
-    db   = get_db()
-    row  = db.execute(
-        "SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1"
-    ).fetchone()
-    patch_version = row['patch_version'] if row else ''
-    return render_template('shops.html', active_page='shops', patch_version=patch_version)
+#@app.route('/shops')
+#def shops():
+#    db   = get_db()
+#    row  = db.execute(
+#        "SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1"
+#    ).fetchone()
+#    patch_version = row['patch_version'] if row else ''
+#    return render_template('shops.html', active_page='shops', patch_version=patch_version)
  
  
 # ── Meta: locations + shop index for sidebar dropdowns ───────────────────────
