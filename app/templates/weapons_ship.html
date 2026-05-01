@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="layout">
+  <aside>
+    <div class="sidebar-section">
+      <div class="section-label">Search</div>
+      <input type="text" id="search-input" placeholder="Search..."/>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Filters</div>
+      <select id="size-filter">
+        <option value="">All Sizes</option>
+        <option>1</option><option>2</option><option>3</option>
+        <option>4</option><option>5</option><option>6</option>
+      </select>
+      <button class="btn" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Sort By</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="sort-btn active" data-sort="size"        onclick="setSort(this)">Size</button>
+        <button class="sort-btn"        data-sort="entity_name" onclick="setSort(this)">Name</button>
+      </div>
+    </div>
+  </aside>
+  <main>
+    <div class="list-header">
+      <div class="list-count">Showing <span id="item-count">0</span> items</div>
+    </div>
+    <div id="list-container"><div class="loading">Loading...</div></div>
+  </main>
+</div>
+{% endblock %}
+{% block page_script %}
+let allItems = [];
+let currentSort = 'size';
+
+async function loadItems() {
+  document.getElementById('list-container').innerHTML = '<div class="loading">Loading...</div>';
+  const endpoint = window.location.pathname.replace('/weapons/', '/api/weapons/').replace('/armor', '/api/armor');
+  try {
+    allItems = await api(endpoint + '?limit=500');
+    renderList(allItems);
+  } catch(e) {
+    document.getElementById('list-container').innerHTML = '<div class="loading">Error loading data</div>';
+  }
+}
+
+function renderList(items) {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const size   = document.getElementById('size-filter').value;
+  let filtered = items;
+  if (search) filtered = filtered.filter(i => i.entity_name.toLowerCase().includes(search) || (i.display_name||'').toLowerCase().includes(search));
+  if (size)   filtered = filtered.filter(i => String(i.size) === size);
+  document.getElementById('item-count').textContent = filtered.length.toLocaleString();
+
+  const rows = filtered.map(i => `
+    <tr>
+      <td>
+        <div style="font-family:var(--font-ui);font-size:14px;font-weight:600">${i.display_name || cleanName(i.entity_name)}</div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${i.entity_name}</div>
+      </td>
+      <td>${i.size ? sizeBadge(i.size, 'S'+i.size) : '<span class="stat null">—</span>'}</td>
+      <td><span style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">${i.item_type||'—'}</span></td>
+      <td><span style="font-family:var(--font-mono);font-size:12px;color:var(--text2)">${i.grade?'G'+i.grade:'—'}</span></td>
+    </tr>`).join('');
+
+  document.getElementById('list-container').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Size</th><th>Type</th><th>Grade</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+let searchTimer;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('search-input').addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderList(allItems), 200);
+  });
+});
+
+function applyFilters() { renderList(allItems); }
+function clearFilters() {
+  ['search-input','size-filter'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  renderList(allItems);
+}
+function setSort(btn) {
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSort = btn.dataset.sort;
+  allItems.sort((a,b) => {
+    if (currentSort === 'size') return (a.size||99) - (b.size||99);
+    return (a.entity_name||'').localeCompare(b.entity_name||'');
+  });
+  renderList(allItems);
+}
+
+loadItems();
+{% endblock %}

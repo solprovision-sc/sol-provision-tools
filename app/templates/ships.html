@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+{% block title %}Ships — Sol Provision{% endblock %}
+
+{% block body %}
+<div class="layout">
+  <aside>
+    <div class="sidebar-section">
+      <div class="section-label">Search</div>
+      <input type="text" id="search-input" placeholder="Ship name..."/>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Filters</div>
+      <select id="career-filter"><option value="">All Careers</option></select>
+      <div class="filter-row">
+        <input type="text" id="min-scu"  placeholder="Min SCU"/>
+        <input type="text" id="max-crew" placeholder="Max crew"/>
+      </div>
+      <button class="btn" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Sort By</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="sort-btn active" data-sort="entity_name" onclick="setSort(this)">Name</button>
+        <button class="sort-btn" data-sort="cargo_scu"   onclick="setSort(this)">Cargo SCU</button>
+        <button class="sort-btn" data-sort="crew_size"   onclick="setSort(this)">Crew</button>
+        <button class="sort-btn" data-sort="length_m"    onclick="setSort(this)">Length</button>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="section-label">Compare <span id="compare-count">(0/4)</span></div>
+      <div id="compare-list"></div>
+      <button class="btn" id="compare-btn" onclick="showCompare()" style="display:none">Compare Selected</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="list-view">
+      <div class="list-header">
+        <div class="list-count">Showing <span id="ship-count">0</span> ships</div>
+      </div>
+      <div id="ship-list-container"><div class="loading">Loading ships...</div></div>
+    </div>
+
+    <div class="detail-panel" id="detail-panel">
+      <div class="detail-header">
+        <div>
+          <div class="detail-title" id="detail-title">—</div>
+          <div class="detail-sub"   id="detail-sub">—</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn" style="width:auto;padding:6px 14px" onclick="addCurrentToCompare()">+ Compare</button>
+          <button class="close-btn" onclick="closeDetail()">✕</button>
+        </div>
+      </div>
+      <div class="detail-stats-row" id="detail-stats"></div>
+      <div class="tab-area">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab(this,'tab-cargo')">Cargo</button>
+          <button class="tab-btn" onclick="switchTab(this,'tab-hardpoints')">Hardpoints</button>
+          <button class="tab-btn" onclick="switchTab(this,'tab-combat')">Combat</button>
+        </div>
+        <div class="tab-content active" id="tab-cargo">
+          <div class="detail-body">
+            <div class="detail-section"><div class="detail-section-title">Cargo Grids</div><div id="detail-cargo"></div></div>
+            <div class="detail-section"><div class="detail-section-title">Dimensions</div><div id="detail-dims"></div></div>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-hardpoints">
+          <div class="detail-section full"><div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" id="detail-hardpoints"></div></div>
+        </div>
+        <div class="tab-content" id="tab-combat">
+          <div class="detail-section full" id="detail-combat"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-panel" id="compare-panel">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent)">Ship Comparison</div>
+        <button class="close-btn" onclick="closeCompare()">✕</button>
+      </div>
+      <div style="overflow-x:auto;padding:24px">
+        <table class="compare-table" id="compare-table"></table>
+      </div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block page_script %}
+let allShips = [];
+let currentSort = 'entity_name';
+let currentShip = null;
+let compareMgr = new CompareManager(4, items => {
+  compareMgr.renderChips('compare-list', 'compare-btn');
+  renderShipList(allShips);
+});
+
+async function init() {
+  const careers = await api('/api/careers');
+  const sel = document.getElementById('career-filter');
+  careers.forEach(c => {
+    const o = document.createElement('option');
+    o.value = o.textContent = c;
+    sel.appendChild(o);
+  });
+  await loadShips();
+}
+
+async function loadShips(params = {}) {
+  document.getElementById('ship-list-container').innerHTML = '<div class="loading">Loading ships...</div>';
+  const qs = new URLSearchParams({ sort: currentSort, limit: 500, ...params });
+  allShips = await api('/api/ships?' + qs);
+  renderShipList(allShips);
+}
+
+function renderShipList(ships) {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const filtered = search
+    ? ships.filter(s => s.entity_name.toLowerCase().includes(search) || s.manufacturer.toLowerCase().includes(search))
+    : ships;
+  document.getElementById('ship-count').textContent = filtered.length.toLocaleString();
+
+  if (!filtered.length) {
+    document.getElementById('ship-list-container').innerHTML = '<div class="loading">No ships found</div>';
+    return;
+  }
+
+  const rows = filtered.map(s => `
+    <tr onclick="selectShip('${s.entity_name}')" id="row-${s.entity_name}">
+      <td>
+        <div style="font-family:var(--font-ui);font-size:15px;font-weight:600">${cleanName(s.entity_name)}</div>
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${s.manufacturer}</div>
+      </td>
+      <td>${s.career ? `<span class="pill ${careerPillClass(s.career)}">${s.career}</span>` : '<span class="stat null">—</span>'}</td>
+      <td>${fmtStat(s.cargo_scu, 0, 'scu')}</td>
+      <td><span class="stat">${s.crew_size ?? '—'}</span></td>
+      <td>${fmtStat(s.length_m, 0, 'm')}</td>
+      <td>
+        <button class="sort-btn ${compareMgr.has(s.entity_name)?'active':''}"
+          onclick="event.stopPropagation();compareMgr.toggle(${JSON.stringify(s)})">+</button>
+      </td>
+    </tr>`).join('');
+
+  document.getElementById('ship-list-container').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>Ship</th><th>Career</th><th>Cargo</th><th>Crew</th><th>Length</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function selectShip(name) {
+  document.querySelectorAll('.data-table tr.selected').forEach(r => r.classList.remove('selected'));
+  const row = document.getElementById('row-' + name);
+  if (row) row.classList.add('selected');
+
+  const panel = document.getElementById('detail-panel');
+  panel.style.display = 'block';
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('compare-panel').style.display = 'none';
+  document.getElementById('detail-stats').innerHTML = '<div class="loading">Loading...</div>';
+
+  try {
+    const ship = await api(`/api/ship/${name}`);
+    currentShip = ship;
+    renderShipDetail(ship);
+  } catch(e) {
+    document.getElementById('detail-stats').innerHTML = '<div class="loading">Error loading ship</div>';
+  }
+}
+
+function renderShipDetail(s) {
+  document.getElementById('detail-title').textContent = cleanName(s.entity_name);
+  document.getElementById('detail-sub').textContent   =
+    `${s.manufacturer}  ·  ${s.career || '—'}  ·  ${s.entity_name}`;
+
+  document.getElementById('detail-stats').innerHTML = `
+    <div class="stat-block"><div class="stat-block-label">Cargo</div>
+      <div class="stat-block-value gold">${s.cargo_scu != null ? s.cargo_scu.toFixed(0) : '—'}<span class="stat-block-unit"> SCU</span></div></div>
+    <div class="stat-block"><div class="stat-block-label">Crew</div>
+      <div class="stat-block-value">${s.crew_size ?? '—'}</div></div>
+    <div class="stat-block"><div class="stat-block-label">Length</div>
+      <div class="stat-block-value">${s.length_m ? s.length_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
+    <div class="stat-block"><div class="stat-block-label">Beam</div>
+      <div class="stat-block-value">${s.beam_m ? s.beam_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
+    <div class="stat-block"><div class="stat-block-label">Height</div>
+      <div class="stat-block-value">${s.height_m ? s.height_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
+    ${s.personal_scu > 0 ? `<div class="stat-block"><div class="stat-block-label">Personal</div>
+      <div class="stat-block-value" style="color:var(--text2)">${s.personal_scu.toFixed(0)}<span class="stat-block-unit"> SCU</span></div></div>` : ''}`;
+
+  // Cargo grids
+  const main = (s.cargo_grids||[]).filter(g=>!g.is_personal);
+  const pers = (s.cargo_grids||[]).filter(g=>g.is_personal);
+  let cHtml = main.map(g => {
+    const dims = g.dim_x ? `${g.dim_x.toFixed(2)}×${g.dim_y.toFixed(2)}×${g.dim_z.toFixed(2)} m` : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;margin-bottom:4px;background:var(--bg2);border-left:3px solid var(--gold)">
+      <div>
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${g.name.replace(/_/g,' ')}</div>
+        ${dims?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${dims}</div>`:''}
+      </div>
+      <div style="font-family:var(--font-ui);font-size:18px;font-weight:600;color:var(--gold)">${g.scu!=null?g.scu.toFixed(0):'?'}<span style="font-size:11px;color:var(--text3)"> SCU</span></div>
+    </div>`;
+  }).join('');
+  if (pers.length) {
+    cHtml += `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;margin:10px 0 6px">Personal Storage</div>`;
+    cHtml += pers.map(g => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:var(--bg2);border-left:3px solid var(--text3);opacity:0.7">
+      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${g.name.replace(/_/g,' ')}</span>
+      <span style="font-family:var(--font-ui);font-size:16px;font-weight:600;color:var(--text2)">${g.scu!=null?g.scu.toFixed(0):'?'}<span style="font-size:10px;color:var(--text3)"> SCU</span></span>
+    </div>`).join('');
+  }
+  document.getElementById('detail-cargo').innerHTML = cHtml || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">No cargo grids</div>';
+
+  document.getElementById('detail-dims').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${[['Length',s.length_m,'m'],['Beam',s.beam_m,'m'],['Height',s.height_m,'m'],['Role',s.role,'']].map(([l,v,u])=>`
+        <div style="padding:10px;background:var(--bg2)">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">${l}</div>
+          <div style="font-family:var(--font-ui);font-size:18px;font-weight:600;color:var(--text)">${v!=null?(typeof v==='number'?v.toFixed(1):v):'—'}${u?`<span style="font-size:11px;color:var(--text3)"> ${u}</span>`:''}</div>
+        </div>`).join('')}
+    </div>`;
+
+  // Hardpoints
+  const hp = s.hardpoints || {};
+  const typeOrder = ['weapon','shield','power','cooler','quantum','sensor','cargo','seat','armor','fuel','thruster','controller','room','misc'];
+  const sorted = typeOrder.filter(t=>hp[t]).concat(Object.keys(hp).filter(t=>!typeOrder.includes(t)));
+  document.getElementById('detail-hardpoints').innerHTML = sorted.map(type => {
+    const ports = hp[type]; if(!ports?.length) return '';
+    const editable = ports.filter(p=>p.is_editable);
+    return `<div style="margin-bottom:14px">
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">
+        ${type} <span style="color:var(--text3)">(${ports.length}${editable.length?` · ${editable.length} editable`:''})</span>
+      </div>
+      ${ports.map(p=>{
+        const s2 = p.max_size||0;
+        const sStr = p.min_size===p.max_size&&p.min_size?`S${p.min_size}`:p.min_size&&p.max_size?`S${p.min_size}-${p.max_size}`:'?';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
+          ${sizeBadge(s2,sStr)}
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
+          ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.installed_name.replace(/_/g,' ')}</span>`:''}
+          ${!p.is_editable?'<span style="font-size:10px;color:var(--text3)">🔒</span>':''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+
+  // Combat
+  const weapons = (hp.weapon||[]).filter(p=>p.is_editable&&(p.max_size||0)>=1);
+  const defense = [...(hp.shield||[]),...(hp.armor||[])].filter(p=>p.is_editable);
+  document.getElementById('detail-combat').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div>
+        <div class="detail-section-title">Weapon Hardpoints</div>
+        ${weapons.map(p=>{
+          const s2=p.max_size||1;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
+            ${sizeBadge(s2,`S${s2}`)}
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
+            ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2)">${p.installed_name.replace(/_scitem$/,'').replace(/_/g,' ')}</span>`:''}
+          </div>`;
+        }).join('') || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">None</div>'}
+      </div>
+      <div>
+        <div class="detail-section-title">Shield & Defense</div>
+        ${defense.map(p=>{
+          const s2=p.max_size||1;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
+            ${sizeBadge(s2,`S${s2}`)}
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
+            ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2)">${p.installed_name.replace(/_scitem$/,'').replace(/_/g,' ')}</span>`:''}
+          </div>`;
+        }).join('') || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">None</div>'}
+      </div>
+    </div>`;
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+  document.querySelectorAll('.data-table tr.selected').forEach(r=>r.classList.remove('selected'));
+  currentShip = null;
+}
+
+function addCurrentToCompare() {
+  if (currentShip) compareMgr.toggle({entity_name: currentShip.entity_name, manufacturer: currentShip.manufacturer});
+}
+
+async function showCompare() {
+  document.getElementById('detail-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('compare-panel').style.display = 'block';
+  const names = compareMgr.items.map(i=>i.entity_name).join(',');
+  const ships = await api(`/api/compare?ships=${names}`);
+  const rows = [
+    ['Manufacturer', s=>s.manufacturer, null],
+    ['Career',       s=>s.career||'—', null],
+    ['Cargo SCU',    s=>s.cargo_scu!=null?s.cargo_scu.toFixed(0):'—', 'higher'],
+    ['Cargo Grids',  s=>(s.cargo_grids||[]).filter(g=>!g.is_personal).length, 'higher'],
+    ['Crew',         s=>s.crew_size??'—', null],
+    ['Length',       s=>s.length_m?s.length_m.toFixed(0)+' m':'—', null],
+    ['Beam',         s=>s.beam_m?s.beam_m.toFixed(0)+' m':'—', null],
+    ['Weapon Ports', s=>(s.hardpoints?.weapon||[]).filter(h=>h.is_editable).length, 'higher'],
+    ['Max Weapon',   s=>Math.max(0,...(s.hardpoints?.weapon||[]).filter(h=>h.is_editable).map(h=>h.max_size||0)), 'higher'],
+    ['Shield Size',  s=>(s.hardpoints?.shield||[]).filter(h=>h.is_editable)[0]?.max_size||'—', null],
+  ];
+  const thead = `<tr><th>Stat</th>${ships.map(s=>`<th>${cleanName(s.entity_name)}<br><span style="font-family:var(--font-mono);font-size:10px;color:var(--text3);font-weight:400">${s.manufacturer}</span></th>`).join('')}</tr>`;
+  const tbody = rows.map(([label,fn,cmp])=>{
+    const vals=ships.map(s=>fn(s));
+    let cls=vals.map(()=>'');
+    if(cmp==='higher'){const nums=vals.map(v=>parseFloat(v)||0);const mx=Math.max(...nums),mn=Math.min(...nums);cls=nums.map(v=>v===mx&&mx!==mn?'best':v===mn&&mx!==mn?'worst':'');}
+    return `<tr><td>${label}</td>${vals.map((v,i)=>`<td class="${cls[i]}">${v}</td>`).join('')}</tr>`;
+  }).join('');
+  document.getElementById('compare-table').innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+}
+
+function closeCompare() {
+  document.getElementById('compare-panel').style.display = 'none';
+  document.getElementById('list-view').style.display = 'block';
+}
+
+let searchTimer;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('search-input').addEventListener('input', ()=>{
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(()=>renderShipList(allShips), 200);
+  });
+});
+
+function applyFilters() {
+  const p={};
+  const c=document.getElementById('career-filter').value;
+  const s=document.getElementById('min-scu').value;
+  const cr=document.getElementById('max-crew').value;
+  if(c) p.career=c; if(s) p.min_scu=s; if(cr) p.max_crew=cr;
+  loadShips(p);
+}
+function clearFilters() {
+  ['career-filter','min-scu','max-crew','search-input'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  loadShips();
+}
+function setSort(btn) {
+  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSort = btn.dataset.sort;
+  loadShips();
+}
+
+init();
+{% endblock %}
