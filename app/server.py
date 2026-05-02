@@ -66,8 +66,12 @@ COMP_PARAMS = {
 # ── Page routes ───────────────────────────────────────────────────────────────
 @app.route("/")
 def index(): return render_template("index.html", active_page="/")
+@app.route("/ships/<entity_name>")
 @app.route("/ships")
-def ships_page(): return render_template("ships.html", active_page="/ships")
+def ships_page():
+    return render_template("ships.html", active_page="/ships")
+def ship_detail(entity_name):
+    return render_template("ship_detail.html", entity_name=entity_name, active_page="ships")
 #@app.route("/components")
 #def components_page(): return render_template("components.html", active_page="/components")
 #@app.route("/weapons/ship")
