@@ -58,6 +58,7 @@
     .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
     .highlight { color: var(--bn); font-weight: bold; }
     .paid-check { width: 20px; height: 20px; accent-color: var(--bn); cursor: pointer; }
+    
     .util-bar { margin-top: 20px; display: flex; gap: 10px; }
     .btn-util { background: #333; color: var(--kh); border: 1px solid var(--kh); padding: 10px 15px; font-family: var(--fh); font-size: 10px; cursor: pointer; text-transform: uppercase; }
     .admin-link { margin-top: 40px; font-size: 9px; color: var(--kh); opacity: 0.4; cursor: pointer; text-decoration: underline; border: none; background: none; }
@@ -67,13 +68,10 @@
 <body>
 
 <div id="splash" class="panel" style="display:block;">
-  <h2 style="margin-bottom:30px;">SOL PROVISION<br><span style="font-size:11px; letter-spacing:1px; opacity:0.6;">DEV AUTH ENVIRONMENT</span></h2>
-  <div>
-    <input type="email" id="emailInput" class="input-main" placeholder="TEST EMAIL" autocomplete="off"><br>
-    <input type="password" id="passInput" class="input-main" placeholder="PASSWORD" autocomplete="off" onkeydown="if(event.keyCode==13) devLogin()">
-    <button class="splash-btn" onclick="devLogin()">Authenticate</button>
-  </div>
-  <button class="admin-link" onclick="adminLogin()">Board Member Access</button>
+  <h2 style="margin-bottom:30px;">SOL PROVISION</h2>
+  <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
+  <button class="admin-link" onclick="toggleModal('privacyModal', true)">Security Protocol</button><br>
+  <button class="admin-link" style="margin-top:20px;" onclick="adminLogin()">Board Member Access</button>
 </div>
 
 <div id="registerScreen" class="panel">
@@ -114,8 +112,7 @@
 <div id="privacyModal" class="overlay">
     <div class="modal-content">
         <h3 style="font-family:var(--fh); color:var(--bn);">SECURITY PROTOCOL</h3>
-        <p>1. <strong>Discord Auth:</strong> We only request basic ID and email via OIDC. We never see messages or server lists.</p>
-        <p>2. <strong>Encryption:</strong> Passwords are vaulted by Google; Admins never see them.</p>
+        <p>This terminal uses Federated OIDC Identity for Discord verification. Manual accounts are vaulted via Google Firebase. Mission data is synchronized in real-time across the fleet.</p>
         <button class="btn-add" style="width:100%; margin-top:20px;" onclick="toggleModal('privacyModal', false)">Close</button>
     </div>
 </div>
@@ -168,8 +165,8 @@
   <div id="ledgerOutput"></div>
   
   <div id="utilButtons" class="util-bar" style="display:none; justify-content:center; gap:10px;">
-      <button class="btn-util" style="background:var(--bn); color:#000; border:none; font-weight:bold;" onclick="copyDiscord()">Copy Image Receipt</button>
-      <button class="btn-util" onclick="exportJSON()">Export JSON File</button>
+    <button class="btn-util" style="background:var(--bn); color:#000; border:none; font-weight:bold;" onclick="copyDiscordImage()">Copy Image Receipt</button>
+    <button class="btn-util" onclick="exportJSON()">Export JSON File</button>
   </div>
 </div>
 
@@ -259,17 +256,6 @@
       });
     } else { document.getElementById('splash').style.display = 'block'; }
   });
-
-  function devLogin() {
-    const email = document.getElementById('emailInput').value.trim();
-    const pass = document.getElementById('passInput').value;
-    if(!email || !pass) return;
-    auth.signInWithEmailAndPassword(email, pass).catch(function(e) {
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
-        auth.createUserWithEmailAndPassword(email, pass).catch(function(err) { alert(err.message); });
-      } else { alert(e.message); }
-    });
-  }
 
   function checkNameUniqueness(name, callback) {
       const upper = name.trim().toUpperCase();
@@ -362,7 +348,7 @@
                     </div>
                     <div style="display:flex; gap:5px;">
                       <button class="btn-add" onclick="resumeMission('${id}', ${isCmd})">Resume</button>
-                      ${isCmd ? `<button class="btn-add" style="color:#ff4444; border-color:rgba(255,68,68,0.3);" onclick="closeMission('${id}')">X Close</button>` : ''}
+                      ${isCmd && s.status !== 'closed' ? `<button class="btn-add" style="color:#ff4444; border-color:rgba(255,68,68,0.3);" onclick="closeMission('${id}')">X Close</button>` : ''}
                     </div>
                   </div>`;
           }
@@ -465,9 +451,52 @@
   function syncDropdowns() { const names = Array.from(document.querySelectorAll('.c-name')).map(function(input) { return input.value || "Unknown"; }); document.querySelectorAll('.claimant-select, .payer-select').forEach(function(s) { const v = s.value; s.innerHTML = '<option value="">Crew Member</option>'; names.forEach(function(n) { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); }); s.value = v; }); }
   function updateGross() { let t = 0; document.querySelectorAll('#saleContainer input[type="number"]').forEach(function(i) { t += parseFloat(i.value) || 0; }); document.getElementById('grossDisp').textContent = t.toLocaleString(); }
 
-  function runCalculation(m) { 
-      alert("Ledger Compiled. Verify payouts before closing session."); 
-      if (m) pushState(); 
+  function runCalculation(isManualTrigger) {
+    const feeRate = document.getElementById('feeRate').value / 100;
+    const crew = Array.from(document.querySelectorAll('.crew-row')).map(function(r) { return { name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 }; });
+    const sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(function(r) { return { payer: r.querySelector('.payer-select').value, amt: parseFloat(r.querySelectorAll('input')[1].value) || 0 }; });
+    let mE = {}; document.querySelectorAll('#expenseContainer .row').forEach(function(r) { const a = parseFloat(r.querySelectorAll('input')[1].value) || 0; const w = r.querySelector('.claimant-select').value; if(w && w !== "Crew Member") mE[w] = (mE[w] || 0) + a; });
+    
+    const totalGross = sales.reduce(function(a,b) { return a+b.amt; }, 0);
+    const payers = [...new Set(sales.map(function(s) { return s.payer; }).filter(function(p) { return p && p !== "Crew Member"; }))];
+    let sRW = 0; let sSW = 0;
+    crew.forEach(function(c) {
+      const reimb = mE[c.name] || 0; const weight = 1 + (payers.includes(c.name) ? 0 : feeRate); 
+      sRW += (reimb * weight); sSW += (c.share * weight);
+    });
+    const K = sSW > 0 ? (totalGross - sRW) / sSW : 0;
+    
+    let h = `<table class="ledger-table"><thead><tr><th>PAID</th><th>Member</th><th>Exp</th>`;
+    payers.forEach(function(p) { h += `<th>From ${p}</th>`; });
+    h += `<th>Wallet</th></tr></thead><tbody>`;
+    
+    crew.forEach(function(member) {
+      const reimb = mE[member.name] || 0; const targetWallet = reimb + (K * member.share);
+      h += `<tr><td><input type="checkbox" class="paid-check" data-member="${member.name}" onchange="pushState()"></td><td>${member.name}</td><td>${reimb.toLocaleString()}</td>`;
+      let myTaxBuffer = 0;
+      payers.forEach(function(pName) {
+        const pot = sales.filter(function(s) { return s.payer === pName; }).reduce(function(a,b) { return a+b.amt; }, 0);
+        const mShare = (pot / (totalGross || 1)) * targetWallet;
+        if (member.name !== pName) { h += `<td class="highlight">${Math.round(mShare).toLocaleString()}</td>`; }
+        else { h += `<td style="opacity:0.4;">-- HOLDER --</td>`; }
+      });
+      if (payers.includes(member.name)) {
+         const myPot = sales.filter(function(s) { return s.payer === member.name; }).reduce(function(a,b) { return a+b.amt; }, 0);
+         crew.forEach(function(other) {
+            if (other.name !== member.name) {
+               const otherTarget = (mE[other.name] || 0) + (K * other.share);
+               myTaxBuffer += ((myPot / (totalGross || 1)) * otherTarget * feeRate);
+            }
+         });
+      }
+      h += `<td class="highlight" style="color:var(--bn);">${Math.round(targetWallet + myTaxBuffer).toLocaleString()}`;
+      if (myTaxBuffer > 0) { h += `<br><span style="font-size:9px; color:#ff4444; opacity:0.8;">INCLUDES ${Math.round(myTaxBuffer).toLocaleString()} TAX BUF</span>`; }
+      h += `</td></tr>`;
+    });
+    
+    document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
+    document.getElementById('utilButtons').style.display = 'flex';
+    if (isManualTrigger === true) { pushState(); }
   }
 
   function exportJSON() {
@@ -476,24 +505,36 @@
     });
   }
 
-  // MODIFIED: Replaces old text-based logic to capture the UI context and push graphic to clipboard
-  function copyDiscord() {
+  function copyDiscordImage() {
     const feeRate = parseFloat(document.getElementById('feeRate').value) / 100 || 0.005;
-    const totalGross = Array.from(document.querySelectorAll('#saleContainer .row')).reduce((sum, r) => sum + (parseFloat(r.querySelectorAll('input')[1].value) || 0), 0);
+    const crew = Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value || 'Unknown', role: r.querySelector('.c-role').value || 'Crew', share: parseFloat(r.querySelector('.c-share').value) || 0 }));
+    const sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value || 'UNKNOWN', amt: parseFloat(r.querySelectorAll('input')[1].value) || 0, payer: r.querySelector('.payer-select').value }));
     
+    let mE = {};
     let totalExpenses = 0;
-    document.querySelectorAll('#expenseContainer .row').forEach(r => totalExpenses += (parseFloat(r.querySelectorAll('input')[1].value) || 0));
-    
+    document.querySelectorAll('#expenseContainer .row').forEach(r => {
+        const amt = parseFloat(r.querySelectorAll('input')[1].value) || 0;
+        totalExpenses += amt;
+        const w = r.querySelector('.claimant-select').value;
+        if(w && w !== "Member" && w !== "Crew Member") mE[w] = (mE[w] || 0) + amt;
+    });
+
+    const totalGross = sales.reduce((a,b) => a+b.amt, 0);
     const netProfit = totalGross - totalExpenses;
+    const payers = [...new Set(sales.map(s => s.payer).filter(p => p && p !== "Member" && p !== "Crew Member"))];
+
+    let sRW = 0; let sSW = 0;
+    crew.forEach(c => {
+        const reimb = mE[c.name] || 0;
+        const weight = 1 + (payers.includes(c.name) ? 0 : feeRate);
+        sRW += (reimb * weight); sSW += (c.share * weight);
+    });
+    const K = sSW > 0 ? (totalGross - sRW) / sSW : 0;
 
     document.getElementById('img-session-id').innerText = activeID || "DEV-TEST";
     
     let commanderName = myName;
-    document.querySelectorAll('.crew-row').forEach(r => {
-        if((r.querySelector('.c-role').value || '').toUpperCase() === 'COMMANDER') {
-            commanderName = r.querySelector('.c-name').value || myName;
-        }
-    });
+    crew.forEach(c => { if(c.role.toUpperCase() === 'COMMANDER') commanderName = c.name; });
     document.getElementById('img-commander').innerText = commanderName.toUpperCase();
     
     document.getElementById('img-gross').innerText = totalGross.toLocaleString() + " aUEC";
@@ -501,39 +542,40 @@
     document.getElementById('img-net').innerText = netProfit.toLocaleString() + " aUEC";
 
     let rosterHtml = '';
-    document.querySelectorAll('.ledger-table tbody tr').forEach(function(row) {
-        const cols = row.querySelectorAll('td');
-        if(cols.length > 3) {
-            const pName = cols[1].innerText;
-            let pRole = 'Crew';
-            document.querySelectorAll('.crew-row').forEach(r => {
-                if((r.querySelector('.c-name').value || '') === pName) {
-                    pRole = r.querySelector('.c-role').value || 'Crew';
+    crew.forEach(member => {
+        const reimb = mE[member.name] || 0;
+        const targetWallet = reimb + (K * member.share);
+        let myTaxBuffer = 0;
+        
+        if (payers.includes(member.name)) {
+            const myPot = sales.filter(s => s.payer === member.name).reduce((a,b) => a+b.amt, 0);
+            crew.forEach(other => {
+                if (other.name !== member.name) {
+                    const otherTarget = (mE[other.name] || 0) + (K * other.share);
+                    myTaxBuffer += ((myPot / (totalGross || 1)) * otherTarget * feeRate);
                 }
             });
-            const pPayout = cols[cols.length - 1].innerText.replace(/INCLUDES.*/g, '').trim();
-            rosterHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(154,140,100,0.1); padding:10px 5px; color:#CBB8AA;">
-                <div style="flex:1;">${pName}</div>
-                <div style="flex:1; color:#9A8C64;">${pRole}</div>
-                <div style="flex:1; text-align:right; color:#E8855C;">${pPayout}</div>
-            </div>`;
         }
+        const finalPayout = Math.round(targetWallet + myTaxBuffer).toLocaleString() + " aUEC";
+
+        rosterHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(154,140,100,0.1); padding:10px 5px; color:#CBB8AA;">
+            <div style="flex:1;">${member.name}</div>
+            <div style="flex:1; color:#9A8C64;">${member.role}</div>
+            <div style="flex:1; text-align:right; color:#E8855C;">${finalPayout}</div>
+        </div>`;
     });
     document.getElementById('img-roster').innerHTML = rosterHtml;
 
     let manifestHtml = '';
     let manifestMap = {};
-    document.querySelectorAll('#saleContainer .row').forEach(r => {
-        const rawItem = r.querySelectorAll('input')[0].value || '';
-        const amt = parseFloat(r.querySelectorAll('input')[1].value) || 0;
-        if(amt > 0) {
-            let cleanItem = rawItem.toUpperCase().replace(/^\d+\s*X\s*\d+\s*S?C?U?\s*/i, '').trim();
-            if (cleanItem === '') cleanItem = rawItem.toUpperCase();
-            manifestMap[cleanItem] = (manifestMap[cleanItem] || 0) + amt;
-        }
+    sales.forEach(s => {
+        let cleanItem = s.item.toUpperCase().replace(/^\d+\s*X\s*\d+\s*S?C?U?\s*/i, '').trim();
+        if (cleanItem === '') cleanItem = s.item.toUpperCase();
+        manifestMap[cleanItem] = (manifestMap[cleanItem] || 0) + s.amt;
     });
     
     for (const [item, amt] of Object.entries(manifestMap)) {
+        if(amt <= 0) continue;
         const pct = totalGross > 0 ? Math.round((amt / totalGross) * 100) : 0;
         manifestHtml += `<div style="display:flex; align-items:center; gap:15px; margin-bottom:12px;">
             <div style="width:150px; color:#CBB8AA; text-transform:uppercase;">${item}</div>
