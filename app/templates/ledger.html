@@ -1,9 +1,284 @@
-{% extends "base.html" %}
-{% block title %}Ledger — Sol Provision{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Sol Provision — Payment Ledger</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --cr: #7E2619; --kh: #9A8C64; --bn: #E8855C; --pc: #CBB8AA;
+      --d1: #0d0b0a; --d2: #1a1512; --d3: #231e1a; --bdr: rgba(126,38,25,0.22);
+      --fh: 'Orbitron', sans-serif; --fm: 'Share Tech Mono', monospace;
+      --discord: #5865F2;
+    }
+    body { background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
+    
+    .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
+    .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; padding: 20px; }
+    .modal-content { background: var(--d2); border: 1px solid var(--kh); padding: 30px; max-width: 500px; text-align: left; line-height: 1.6; }
 
-{% block body %}
-<div style="display:flex; align-items:center; justify-content:center; height:60vh; flex-direction:column; gap:16px;">
-  <div style="font-family:'Orbitron',sans-serif; font-size:13px; letter-spacing:3px; color:#CBB8AA; text-transform:uppercase;">Ledger</div>
-  <div style="font-size:11px; color:#9A8C64; letter-spacing:1px;">Mission payout tool — coming soon</div>
+    .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; border-radius: 0; }
+    .splash-btn:hover { background: var(--cr); color: #fff; }
+    .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
+
+    .input-main { width: 300px; text-align: center; padding: 15px; font-size: 14px; background: #000; border: 1px solid var(--bdr); color: var(--bn); font-family: var(--fm); margin-bottom: 10px; }
+    input, select { background: var(--d1); border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 8px; font-size: 13px; flex: 1; border-radius: 2px; width: 100%; box-sizing: border-box; }
+    
+    #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; align-self: flex-start; }
+    
+    .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; width: 100%; }
+    .col-pilot { flex: 0 0 45%; }
+    .col-role { flex: 0 0 30%; }
+    .col-shares { flex: 0 0 10%; text-align: center; display: flex; justify-content: center; }
+    .col-tools { flex: 0 0 12%; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+    
+    .header-row { font-family: var(--fh); font-size: 10px; color: var(--kh); text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; padding: 0 10px; }
+    
+    /* SHARES CENTERING NUCLEAR OPTION */
+    .input-shares { 
+        text-align: center !important; 
+        padding: 8px 0 !important; 
+        appearance: textfield !important; 
+        -moz-appearance: textfield !important;
+        max-width: 60px;
+    }
+    .input-shares::-webkit-outer-spin-button, .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
+    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
+    .admin-link { margin-top: 15px; font-size: 9px; color: var(--kh); opacity: 0.5; cursor: pointer; text-decoration: underline; border: none; background: none; }
+    .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; }
+    .ledger-table td, .ledger-table th { padding: 12px; border-bottom: 1px solid var(--bdr); }
+    .highlight { color: var(--bn); font-weight: bold; }
+    .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
+    .sec-title { font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+
+<div id="splash" class="panel" style="display:block;">
+  <h2 style="margin-bottom:10px;">SOL PROVISION</h2>
+  <div style="font-size:9px; letter-spacing:2px; color:var(--kh); margin-bottom:30px;">Crew Ledger</div>
+  <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
+  <div style="margin: 15px 0; opacity: 0.3; font-size: 10px;">— OR USE EMAIL —</div>
+  <input type="email" id="emailInput" class="input-main" placeholder="EMAIL ADDRESS"><br>
+  <input type="password" id="passInput" class="input-main" placeholder="PASSWORD">
+  <div style="width:300px; margin: 0 auto; text-align:right;">
+      <button class="admin-link" style="margin-top:0;" onclick="forgotPassword()">Forgot Password?</button>
+  </div>
+  <button class="splash-btn" onclick="devLogin()">Secure Login</button>
+  <br><br>
+  <button class="admin-link" onclick="toggleModal('privacyModal', true)">Privacy & Security Protocol</button><br>
+  <button class="admin-link" style="margin-top:30px; opacity:0.3;" onclick="adminLogin()">Board Member Access</button>
 </div>
-{% endblock %}
+
+<div id="registerScreen" class="panel">
+  <h2 style="margin-bottom:20px; color:var(--bn);">WELCOME TO THE FLEET</h2>
+  <div style="font-size: 10px; color: #ff4444; margin-bottom: 20px; background: rgba(255,68,68,0.1); padding: 10px; border: 1px solid rgba(255,68,68,0.3);">
+      PILOT SAFETY: Do NOT use your Star Citizen or Discord password here.
+  </div>
+  <input type="text" id="newCallSign" class="input-main" placeholder="ENTER CALL SIGN">
+  <button class="splash-btn" onclick="registerCallSign()">Lock In Call Sign</button>
+</div>
+
+<div id="lobby" class="panel">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="text-align:left;">
+          <div style="font-family: var(--fh); color: var(--bn); font-size: 14px; letter-spacing: 2px;">WELCOME, <span id="lobbyName"></span></div>
+          <button class="btn-add" style="font-size:8px; padding:4px 8px; margin-top:5px;" onclick="changeCallSign()">Change Call Sign</button>
+      </div>
+      <button class="btn-add" style="border-color:#ff4444; color:#ff4444;" onclick="auth.signOut()">Logout</button>
+  </div>
+  <button class="splash-btn" onclick="initiateMission()">+ Initiate New Mission</button>
+  <div id="lobbyLists" style="margin-top: 25px; border-top: 1px solid var(--bdr); padding-top: 15px; text-align: left;">
+    <div style="font-family: var(--fh); font-size: 11px; color: var(--kh); margin-bottom: 10px;">— ACTIVE COMMANDS & ASSIGNMENTS —</div>
+    <div id="activeMissionsList" style="max-height: 350px; overflow-y: auto;"></div>
+  </div>
+  <button class="admin-link" onclick="adminLogin()">Board Member Access</button>
+</div>
+
+<div id="adminPanel" class="panel">
+  <h2 style="color:var(--cr);">BOARD OVERRIDE</h2>
+  <button class="btn-util" style="margin-bottom:15px; width:100%; color:#fff; border-color:var(--cr);" onclick="purgeOldSessions()">Purge Missions > 30 Days</button>
+  <div id="adminList" style="text-align:left; max-height:400px; overflow-y:auto; margin-bottom:20px; background:#000; padding:10px;"></div>
+  <button class="splash-btn" onclick="location.reload()">Exit Admin</button>
+</div>
+
+<div id="privacyModal" class="overlay">
+    <div class="modal-content">
+        <h3 style="font-family:var(--fh); color:var(--bn);">SECURITY PROTOCOL</h3>
+        <p>1. <strong>Discord Auth:</strong> We only request basic ID and email via OIDC. We never see messages or server lists.</p>
+        <p>2. <strong>Encryption:</strong> Passwords are vaulted by Google; Admins never see them.</p>
+        <button class="btn-add" style="width:100%; margin-top:20px;" onclick="toggleModal('privacyModal', false)">Close</button>
+    </div>
+</div>
+
+<div id="app">
+  <div style="display:flex; justify-content:space-between; align-items:center; background:#000; padding:12px; border:1px solid var(--bdr); margin-bottom:20px;">
+    <div style="display:flex; align-items:center; gap:15px; font-family: var(--fh); font-size: 11px; color: var(--kh);">
+      <div>MISSION: <span id="sessionId" class="highlight">----</span></div>
+      <button class="btn-add" id="topCopyBtn" onclick="copyActiveSessionId()">Copy ID</button>
+      <span id="userIdentity" style="border:1px solid var(--kh); padding:2px 5px;">----</span>
+    </div>
+    <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
+  </div>
+  <h2><b>FLEET MISSION CONTROL</b></h2>
+  <div id="main-interface">
+    <section class="sec">
+        <div class="sec-title">01. Fleet Roster</div>
+        <div class="row header-row">
+            <div class="col-pilot">Pilot</div><div class="col-role">Role</div><div class="col-shares">Shares</div><div class="col-tools"></div>
+        </div>
+        <div id="crewContainer"></div>
+        <button id="addCrewBtn" class="btn-add" onclick="addCrew(); pushState();">+ Add Pilot</button>
+    </section>
+    <section class="sec">
+        <div class="sec-title">02. Expenses</div>
+        <div id="expenseContainer"></div>
+        <button id="addExpBtn" class="btn-add" onclick="addExpense(); pushState();">+ Log Expense</button>
+    </section>
+    <section class="sec">
+        <div class="sec-title">03. Haul Log</div>
+        <div id="saleContainer"></div>
+        <button id="addSaleBtn" class="btn-add" onclick="addSale(); pushState();">+ Record Sale</button>
+        <div class="row" style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">
+            <span style="font-size:10px;">FEE %:</span>
+            <input type="number" id="feeRate" value="0.5" style="max-width:60px;" oninput="pushState()">
+            <div style="flex:1; text-align:right;">GROSS: <span id="grossDisp" class="highlight">0</span></div>
+        </div>
+    </section>
+    <button id="calcBtn" class="btn-calc" onclick="runCalculation(true);">EXECUTE FINAL LEDGER</button>
+  </div>
+  <div id="ledgerOutput"></div>
+</div>
+
+<script>
+  const firebaseConfig = { apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E", authDomain: "sp-ledger.firebaseapp.com", databaseURL: "https://sp-ledger-default-rtdb.firebaseio.com", projectId: "sp-ledger", storageBucket: "sp-ledger.firebasestorage.app", messagingSenderId: "1013635822544", appId: "1:1013635822544:web:727ce761d058b5f7127fd5" };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database(), auth = firebase.auth();
+  let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
+
+  function toggleModal(id, show) { document.getElementById(id).style.display = show ? 'flex' : 'none'; }
+
+  function loginWithDiscord() {
+    const provider = new firebase.auth.OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+    provider.addScope('email');
+    auth.signInWithPopup(provider).then((res) => { console.log("Discord Success"); }).catch((err) => { alert("Fleet Auth Error: " + err.message); });
+  }
+
+  function devLogin() {
+    const e = document.getElementById('emailInput').value.trim(), p = document.getElementById('passInput').value;
+    if(!e || !p) return;
+    auth.signInWithEmailAndPassword(e, p).catch(err => { if (err.code === 'auth/user-not-found') auth.createUserWithEmailAndPassword(e, p); });
+  }
+
+  function forgotPassword() {
+    let e = document.getElementById('emailInput').value.trim();
+    if (e) auth.sendPasswordResetEmail(e).then(() => alert("Reset sent."));
+  }
+
+  auth.onAuthStateChanged(user => {
+    hideAllPanels();
+    if (user) {
+      myUid = user.uid;
+      db.ref('users/' + myUid).once('value').then(snap => {
+        if (snap.exists() && snap.val().callsign) {
+          myName = snap.val().callsign; document.getElementById('lobbyName').textContent = myName;
+          document.getElementById('lobby').style.display = 'block'; loadActiveCommands();
+        } else document.getElementById('registerScreen').style.display = 'block';
+      });
+    } else document.getElementById('splash').style.display = 'block';
+  });
+
+  function registerCallSign() {
+    const cs = document.getElementById('newCallSign').value.trim().toUpperCase();
+    if(cs.length < 2) return;
+    db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload());
+  }
+
+  function changeCallSign() {
+    const n = prompt("New Call Sign:", myName);
+    if (n) db.ref('users/' + myUid).update({ callsign: n.toUpperCase() }).then(() => location.reload());
+  }
+
+  function hideAllPanels() { document.querySelectorAll('.panel, #app, .overlay').forEach(p => p.style.display = 'none'); }
+  function exitToLobby() { activeID = null; hideAllPanels(); document.getElementById('lobby').style.display = 'block'; }
+
+  function loadActiveCommands() {
+    db.ref('sessions').on('value', snap => {
+      let h = "";
+      Object.keys(snap.val() || {}).forEach(id => {
+        const s = snap.val()[id], isCmd = (s.commander === myName), isCrew = (s.crew || []).some(c => c.name === myName);
+        if (isCmd || isCrew) h += `<div style="background:var(--d3); padding:15px; margin-bottom:10px; border:1px solid var(--bdr);"><div style="color:var(--bn); margin-bottom:10px; font-family:var(--fh);">${id}</div><button class="btn-add" onclick="resumeMission('${id}', ${isCmd})">Resume</button></div>`;
+      });
+      document.getElementById('activeMissionsList').innerHTML = h || "No missions.";
+    });
+  }
+
+  function initiateMission() {
+    activeID = "SP-" + Math.floor(1000 + Math.random() * 9000);
+    db.ref('sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now(), fee: 0.5, crew: [{ name: myName, role: 'Commander', share: 1, canEdit: true }] }).then(() => { isCommander = true; showApp(); db.ref('sessions/' + activeID).on('value', v => pullState(v.val())); });
+  }
+
+  function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; showApp(); db.ref('sessions/' + activeID).on('value', v => pullState(v.val())); }
+  function showApp() { hideAllPanels(); isFirstPull = true; document.getElementById('app').style.display = 'block'; document.getElementById('sessionId').textContent = activeID; document.getElementById('userIdentity').textContent = myName; }
+
+  function pushState() {
+    if (!activeID || remoteUpdateInProgress) return;
+    db.ref('sessions/' + activeID).update({
+      fee: document.getElementById('feeRate').value,
+      crew: Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, role: r.querySelector('.c-role').value, share: r.querySelector('.c-share').value, canEdit: r.querySelector('.perm-check').checked })),
+      expenses: Array.from(document.querySelectorAll('#expenseContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, amt: r.querySelectorAll('input')[1].value, who: r.querySelector('.claimant-select').value })),
+      sales: Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, amt: r.querySelectorAll('input')[1].value, payer: r.querySelector('.payer-select').value })),
+      lastUpdatedBy: myName
+    });
+  }
+
+  function pullState(d) {
+    if (!d || remoteUpdateInProgress || (d.lastUpdatedBy === myName && !isFirstPull)) { updateGross(); return; }
+    remoteUpdateInProgress = true;
+    const can = (isCommander || (d.crew || []).find(c => c.name === myName)?.canEdit);
+    document.getElementById('feeRate').value = d.fee || 0.5;
+    ['addCrewBtn', 'calcBtn', 'addExpBtn', 'addSaleBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = can ? (id === 'calcBtn' ? 'block' : 'inline-block') : 'none'; });
+    rebuildRoster(d.crew, can); rebuildExpenses(d.expenses, can); rebuildSales(d.sales, can);
+    updateGross(); isFirstPull = false; remoteUpdateInProgress = false;
+  }
+
+  function rebuildRoster(d, e) { const b = document.getElementById('crewContainer'); b.innerHTML = ""; (d || []).forEach(c => addCrewRow(c, e)); syncDropdowns(); }
+  function addCrewRow(c, e) {
+    const d = c || {name:'', role:'', share:1, canEdit:false}, div = document.createElement('div'); div.className = 'row crew-row';
+    div.innerHTML = `<div class="col-pilot"><input type="text" class="c-name" value="${d.name}" ${e?'':'disabled'} oninput="pushState()"></div>
+      <div class="col-role"><input type="text" class="c-role" value="${d.role}" ${e?'':'disabled'} oninput="pushState()"></div>
+      <div class="col-shares"><input type="number" class="c-share input-shares" value="${d.share}" ${e?'':'disabled'} oninput="pushState()"></div>
+      <div class="col-tools"><div style="display:${isCommander?'flex':'none'}; align-items:center; font-size:8px;"><input type="checkbox" class="perm-check" ${d.canEdit?'checked':''} onchange="pushState()"> Ed</div><button class="btn-add" style="color:#ff4444; display:${e?'block':'none'}" onclick="this.parentElement.parentElement.remove(); pushState();">X</button></div>`;
+    document.getElementById('crewContainer').appendChild(div);
+  }
+
+  function rebuildExpenses(d, e) { const b = document.getElementById('expenseContainer'); b.innerHTML = ""; (d || []).forEach(x => { addExpense(); const r = b.lastElementChild; r.querySelectorAll('input')[0].value = x.item; r.querySelectorAll('input')[1].value = x.amt; r.querySelector('.claimant-select').value = x.who; if(!e) r.querySelectorAll('input, select').forEach(i=>i.disabled=true); }); }
+  function rebuildSales(d, e) { const b = document.getElementById('saleContainer'); b.innerHTML = ""; (d || []).forEach(x => { addSale(); const r = b.lastElementChild; r.querySelectorAll('input')[0].value = x.item; r.querySelectorAll('input')[1].value = x.amt; r.querySelector('.payer-select').value = x.payer; if(!e) r.querySelectorAll('input, select').forEach(i=>i.disabled=true); }); }
+
+  function addCrew() { addCrewRow(null, true); syncDropdowns(); }
+  function addExpense() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Fuel" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="pushState()"><select class="claimant-select" onchange="pushState()"></select><button class="btn-add" onclick="this.parentElement.remove(); pushState();">X</button>`; document.getElementById('expenseContainer').appendChild(div); syncDropdowns(); }
+  function addSale() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Haul" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="updateGross(); pushState()"><select class="payer-select" onchange="pushState()"></select><button class="btn-add" onclick="this.parentElement.remove(); updateGross(); pushState();">X</button>`; document.getElementById('saleContainer').appendChild(div); syncDropdowns(); }
+
+  function syncDropdowns() { const n = Array.from(document.querySelectorAll('.c-name')).map(i => i.value || "Unknown"); document.querySelectorAll('.claimant-select, .payer-select').forEach(s => { const v = s.value; s.innerHTML = '<option value="">Member</option>'; n.forEach(x => { const o = document.createElement('option'); o.value = x; o.textContent = x; s.appendChild(o); }); s.value = v; }); }
+  function updateGross() { let t = 0; document.querySelectorAll('#saleContainer input[type="number"]').forEach(i => t += parseFloat(i.value) || 0); document.getElementById('grossDisp').textContent = t.toLocaleString(); }
+
+  function runCalculation(m) { alert("Ledger Compiled. Verify payouts before closing session."); if (m) pushState(); }
+
+  function adminLogin() {
+    const pin = prompt("Board PIN:");
+    db.ref('admin_config/master_pin').once('value').then(snap => {
+        if (pin === snap.val()) { hideAllPanels(); document.getElementById('adminPanel').style.display = 'block'; db.ref('sessions').on('value', s => { let h = ""; Object.keys(s.val() || {}).forEach(id => { h += `<div class="row"><span class="highlight" style="flex:1;">${id}</span><button class="btn-add" onclick="db.ref('sessions/${id}').remove()">Nuke</button></div>`; }); document.getElementById('adminList').innerHTML = h || "Empty."; }); }
+    });
+  }
+
+  function purgeOldSessions() { db.ref('sessions').once('value').then(snap => { const limit = Date.now() - (30 * 24 * 60 * 60 * 1000); Object.keys(snap.val() || {}).forEach(id => { if (snap.val()[id].createdAt < limit) db.ref('sessions/'+id).remove(); }); alert("Purge Complete."); }); }
+  function copyActiveSessionId() { if(activeID) navigator.clipboard.writeText(activeID).then(() => alert("Mission ID Copied")); }
+</script>
+</body>
+</html>
