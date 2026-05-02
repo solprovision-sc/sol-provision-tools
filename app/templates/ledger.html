@@ -16,13 +16,13 @@
         }
         body { background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
 
-        /* UI PANELS */
+        /* UI PANELS & OVERLAYS */
         .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; position: relative; }
         #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; align-self: flex-start; }
         .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; padding: 20px; }
         .modal-content { background: var(--d2); border: 1px solid var(--kh); padding: 30px; max-width: 500px; text-align: left; line-height: 1.6; border-top: 3px solid var(--cr); }
 
-        /* BUTTON ARCHITECTURE */
+        /* INTERACTION ELEMENTS */
         .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
         .splash-btn:hover { background: var(--cr); color: #fff; }
         .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
@@ -30,29 +30,27 @@
         .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; margin-top: 30px; }
         .admin-link { margin-top: 15px; font-size: 9px; color: var(--kh); opacity: 0.5; cursor: pointer; text-decoration: underline; border: none; background: none; }
 
-        /* INPUT STYLING */
+        /* INPUT SYSTEM */
         input, select { background: var(--d1); border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 8px; font-size: 13px; flex: 1; border-radius: 2px; box-sizing: border-box; }
         input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
         .input-main { width: 300px; text-align: center; padding: 15px; font-size: 14px; background: #000; border: 1px solid var(--bdr); color: var(--bn); font-family: var(--fm); margin-bottom: 10px; }
-        
-        /* GRID LOCKDOWN */
+        .input-shares { text-align: center !important; appearance: textfield !important; max-width: 60px; }
+        .input-shares::-webkit-outer-spin-button, .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* GRID ARCHITECTURE */
         .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; width: 100%; }
         .col-pilot { flex: 0 0 45%; }
         .col-role { flex: 0 0 30%; }
         .col-shares { flex: 0 0 10%; text-align: center; display: flex; justify-content: center; }
         .col-tools { flex: 0 0 12%; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-        
         .header-row { font-family: var(--fh); font-size: 10px; color: var(--kh); text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; padding: 0 10px; border-bottom: 1px solid var(--bdr); padding-bottom: 10px; }
-        .input-shares { text-align: center !important; appearance: textfield !important; max-width: 60px; }
-        .input-shares::-webkit-outer-spin-button, .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-
-        /* SECTION DECOR */
+        
         .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
         .sec-title { font-family: var(--fh); font-size: 11px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
         .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
         .highlight { color: var(--bn); font-weight: bold; }
 
-        /* OUTPUT TABLE */
+        /* TABLES */
         .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; }
         .ledger-table th { font-family: var(--fh); color: var(--kh); text-transform: uppercase; font-size: 10px; padding: 12px; border-bottom: 2px solid var(--cr); text-align: left; }
         .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
@@ -76,7 +74,7 @@
 <div id="registerScreen" class="panel">
     <h2 style="color:var(--bn);">WELCOME TO THE FLEET</h2>
     <p style="font-size: 10px; color: #ff4444; margin-bottom: 20px; background: rgba(255,68,68,0.1); padding: 10px; border: 1px solid rgba(255,68,68,0.3);">
-        SECURITY: Call Signs are unique and permanent.
+        IDENTITY LOCK: Call Signs are unique and permanent.
     </p>
     <input type="text" id="newCallSign" class="input-main" placeholder="ENTER CALL SIGN">
     <button class="splash-btn" onclick="registerCallSign()">Lock In Call Sign</button>
@@ -96,7 +94,6 @@
         </div>
     </div>
     <div id="activeMissionsList" style="margin-top:25px; text-align:left; max-height: 300px; overflow-y: auto;"></div>
-    <button class="admin-link" onclick="adminLogin()">Board Member Access</button>
 </div>
 
 <div id="adminPanel" class="panel">
@@ -110,7 +107,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; background:#000; padding:12px; border:1px solid var(--bdr); margin-bottom:20px;">
         <div style="display:flex; align-items:center; gap:15px; font-family: var(--fh); font-size: 11px; color: var(--kh);">
             <div>MISSION: <span id="sessionId" class="highlight">----</span></div>
-            <button class="btn-add" id="topCopyBtn" onclick="copyActiveSessionId()">Copy ID</button>
+            <button class="btn-add" onclick="copyActiveSessionId()">Copy ID</button>
             <span id="userIdentity" style="border:1px solid var(--kh); padding:2px 5px;">----</span>
         </div>
         <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
@@ -170,7 +167,7 @@
     const db = firebase.database(), auth = firebase.auth();
     let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
 
-    // 1. AUTHENTICATION & IDENTITY REGISTRY
+    // 1. AUTHENTICATION & GLOBAL NAME SECURITY
     function loginWithDiscord() { 
         const provider = new firebase.auth.OAuthProvider('oidc.discord'); 
         auth.signInWithPopup(provider).catch(e => alert(e.message)); 
@@ -201,7 +198,7 @@
     function registerCallSign() {
         const cs = document.getElementById('newCallSign').value.trim().toUpperCase();
         if(cs.length < 2) return;
-        // Restored Global Uniqueness Check
+        // GLOBAL REGISTRY LOCK
         db.ref('users').once('value').then(snap => {
             let taken = false;
             snap.forEach(u => { if(u.val().callsign === cs) taken = true; });
@@ -219,7 +216,6 @@
             let h = ""; const now = Date.now();
             Object.keys(snap.val() || {}).forEach(id => {
                 const s = snap.val()[id], isCmd = (s.commander === myName);
-                // Auto-Purge check
                 if(s.killAt && now > s.killAt) { db.ref('sessions/' + id).remove(); return; }
                 
                 if(isCmd || (s.crew || []).some(c => c.name === myName)) {
@@ -263,7 +259,15 @@
         activeID = "SP-" + Math.floor(1000 + Math.random() * 9000);
         db.ref('sessions/' + activeID).set({ commander: myName, createdAt: Date.now(), fee: 0.5, crew: [{ name: myName, role: 'COMMANDER', share: 1, canEdit: true }] }).then(() => resumeMission(activeID, true));
     }
-    function resumeMission(id, cmd) { activeID = id; isCommander = cmd; document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); document.getElementById('app').style.display = 'block'; document.getElementById('sessionId').textContent = id; document.getElementById('userIdentity').textContent = myName; db.ref('sessions/' + id).on('value', v => pullState(v.val())); }
+
+    function resumeMission(id, cmd) { 
+        activeID = id; isCommander = cmd; 
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); 
+        document.getElementById('app').style.display = 'block'; 
+        document.getElementById('sessionId').textContent = id; 
+        document.getElementById('userIdentity').textContent = myName; 
+        db.ref('sessions/' + id).on('value', v => pullState(v.val())); 
+    }
 
     // 3. SYNC ENGINE & EDITOR DELEGATION
     function pushState() {
@@ -293,22 +297,16 @@
     function pullState(d) {
         if (!d || remoteUpdateInProgress || (d.lastUpdatedBy === myUid && !isFirstPull)) { updateGross(); return; }
         remoteUpdateInProgress = true;
-        
-        // Editor Security Logic
         const canEditTerminal = (isCommander || (d.crew || []).find(c => c.name === myName)?.canEdit);
-        
         document.getElementById('feeRate').value = d.fee || 0.5;
         document.getElementById('feeRate').disabled = !canEditTerminal;
         ['addCrewBtn', 'calcBtn', 'addExpBtn', 'addSaleBtn'].forEach(id => { 
             const el = document.getElementById(id);
             if (el) el.style.display = canEditTerminal ? 'inline-block' : 'none'; 
         });
-
-        // Rebuild containers
         rebuildRoster(d.crew, canEditTerminal);
         rebuildExpenses(d.expenses, canEditTerminal);
         rebuildSales(d.sales, canEditTerminal);
-        
         updateGross(); isFirstPull = false; remoteUpdateInProgress = false;
     }
 
@@ -350,26 +348,21 @@
         const crew = Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 }));
         const sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ payer: r.querySelector('.payer-select').value, amt: parseFloat(r.querySelectorAll('input')[1].value) || 0 }));
         let memberExpenses = {}; document.querySelectorAll('#expenseContainer .row').forEach(r => { const a = parseFloat(r.querySelectorAll('input')[1].value) || 0, w = r.querySelector('.claimant-select').value; if(w) memberExpenses[w] = (memberExpenses[w] || 0) + a; });
-        
         const gross = sales.reduce((a,b) => a+b.amt, 0);
         const payers = [...new Set(sales.map(s => s.payer).filter(p => p))];
         let sumRW = 0, sumSW = 0;
-        
         crew.forEach(c => {
             const r_i = memberExpenses[c.name] || 0;
             const w_i = 1 + (payers.includes(c.name) ? 0 : fee);
             sumRW += (r_i * w_i); sumSW += (c.share * w_i);
         });
-        
         const K = sumSW > 0 ? (gross - sumRW) / sumSW : 0;
 
         let h = `<table class="ledger-table"><thead><tr><th>Pilot</th><th>Exp</th>`;
         payers.forEach(p => h += `<th>From ${p}</th>`);
         h += `<th>Final Wallet</th></tr></thead><tbody>`;
-        
         crew.forEach(m => {
-            const r_i = memberExpenses[m.name] || 0;
-            const basePayout = r_i + (K * m.share);
+            const r_i = memberExpenses[m.name] || 0, basePayout = r_i + (K * m.share);
             h += `<tr><td>${m.name}</td><td>${r_i.toLocaleString()}</td>`;
             let taxTotalBonus = 0;
             payers.forEach(pn => {
@@ -379,15 +372,10 @@
             });
             if (payers.includes(m.name)) {
                 const myGrossHandled = sales.filter(s => s.payer === m.name).reduce((a,b) => a+b.amt, 0);
-                crew.forEach(other => { 
-                    if (other.name !== m.name) {
-                        taxTotalBonus += ((myGrossHandled / (gross || 1)) * ( (memberExpenses[other.name] || 0) + (K * other.share) ) * fee); 
-                    }
-                });
+                crew.forEach(other => { if (other.name !== m.name) taxTotalBonus += ((myGrossHandled / (gross || 1)) * ( (memberExpenses[other.name] || 0) + (K * other.share) ) * fee); });
             }
             h += `<td class="highlight" style="color:var(--bn);">${Math.round(basePayout + taxTotalBonus).toLocaleString()}</td></tr>`;
         });
-        
         document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
         document.getElementById('exportSuite').style.display = 'flex';
         if (m) pushState();
