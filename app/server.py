@@ -70,6 +70,7 @@ def index(): return render_template("index.html", active_page="/")
 @app.route("/ships")
 def ships_page():
     return render_template("ships.html", active_page="/ships")
+@app.route("/ships/<entity_name>")
 def ship_detail(entity_name):
     return render_template("ship_detail.html", entity_name=entity_name, active_page="ships")
 #@app.route("/components")
