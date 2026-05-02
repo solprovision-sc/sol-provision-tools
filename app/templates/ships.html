@@ -1,352 +1,828 @@
 {% extends "base.html" %}
 {% block title %}Ships — Sol Provision{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* ── Page layout ── */
+  .ships-page {
+    padding: 28px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  /* ── Breadcrumb ── */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 28px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: #9A8C64;
+    text-transform: uppercase;
+    min-height: 20px;
+  }
+  .bc-item {
+    color: #9A8C64;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+  .bc-item:hover { color: #E8855C; }
+  .bc-item.active { color: #CBB8AA; cursor: default; }
+  .bc-sep { color: #7E2619; }
+
+  /* ── Section header ── */
+  .sec-hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(126,38,25,0.22);
+  }
+  .sec-bar { width: 3px; height: 20px; background: #7E2619; flex-shrink: 0; }
+  .sec-title {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #CBB8AA;
+    text-transform: uppercase;
+  }
+  .sec-note { font-size: 9px; color: #9A8C64; margin-left: auto; letter-spacing: 0.5px; }
+
+  /* ── Layer containers ── */
+  .layer { display: none; }
+  .layer.active { display: block; }
+
+  /* ── Mode cards (Layer 0) ── */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .mode-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    position: relative;
+    cursor: pointer;
+    padding: 36px 28px 28px;
+    transition: all 0.22s;
+    overflow: hidden;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
+  }
+  .mode-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: #7E2619;
+    transition: background 0.22s;
+  }
+  .mode-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 50%, rgba(126,38,25,0.08) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .mode-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-3px); }
+  .mode-card:hover::before { background: #E8855C; }
+  .mode-card:hover::after { opacity: 1; }
+  .mode-card:hover .mode-arrow { opacity: 1; transform: translateX(4px); }
+  .mode-corner {
+    position: absolute;
+    top: 0; right: 0;
+    width: 16px; height: 16px;
+    border-top: 2px solid #7E2619;
+    border-right: 2px solid #7E2619;
+  }
+  .mode-eyebrow {
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    color: #7E2619;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mode-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 14px; height: 1px;
+    background: #7E2619;
+  }
+  .mode-name {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .mode-desc { font-size: 11px; color: #9A8C64; letter-spacing: 0.5px; line-height: 1.7; }
+  .mode-count {
+    position: absolute;
+    bottom: 16px; right: 20px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 36px; font-weight: 900;
+    color: rgba(126,38,25,0.12);
+    letter-spacing: 2px;
+  }
+  .mode-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(126,38,25,0.15);
+  }
+  .mode-cta {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #E8855C;
+    text-transform: uppercase;
+  }
+  .mode-arrow {
+    font-size: 14px;
+    color: #E8855C;
+    opacity: 0;
+    transition: all 0.2s;
+  }
+
+  /* ── Manufacturer cards (Layer 1a) ── */
+  .mfr-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+  .mfr-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    padding: 20px 16px;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+  }
+  .mfr-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-2px); }
+  .mfr-card:hover .mfr-code { color: #E8855C; }
+  .mfr-code {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #7E2619;
+    margin-bottom: 6px;
+    transition: color 0.18s;
+  }
+  .mfr-name { font-size: 10px; color: #CBB8AA; letter-spacing: 0.5px; margin-bottom: 6px; line-height: 1.4; }
+  .mfr-count { font-family: 'Orbitron', sans-serif; font-size: 9px; letter-spacing: 1.5px; color: #9A8C64; }
+
+  /* ── Career cards (Layer 1b) ── */
+  .career-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .career-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    padding: 24px 20px;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  }
+  .career-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-2px); }
+  .career-accent {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: #7E2619;
+  }
+  .career-name {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 2.5px;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    padding-left: 12px;
+  }
+  .career-count { font-size: 10px; color: #9A8C64; letter-spacing: 1px; padding-left: 12px; }
+
+  /* ── Role cards (Layer 2) ── */
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+  .role-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    padding: 16px 14px;
+    cursor: pointer;
+    transition: all 0.18s;
+  }
+  .role-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-2px); }
+  .role-card.all-roles {
+    border-style: dashed;
+    opacity: 0.7;
+  }
+  .role-card.all-roles:hover { opacity: 1; }
+  .role-name {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #CBB8AA;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .role-count { font-size: 10px; color: #9A8C64; }
+
+  /* ── Ship list (Layer — final) ── */
+  .ship-list-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .search-box {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    padding: 9px 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: #CBB8AA;
+    width: 260px;
+    outline: none;
+    letter-spacing: 0.5px;
+    transition: border-color 0.15s;
+  }
+  .search-box:focus { border-color: #7E2619; }
+  .search-box::placeholder { color: #9A8C64; }
+  .ship-count-badge {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #9A8C64;
+    padding: 5px 12px;
+    border: 1px solid rgba(126,38,25,0.22);
+    background: #231e1a;
+    margin-left: auto;
+  }
+
+  .ship-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  /* ── Ship card ── */
+  .ship-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+    text-decoration: none;
+    display: block;
+  }
+  .ship-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-2px); }
+  .ship-card:hover .ship-card-bar { background: #7E2619; }
+  .ship-card-bar {
+    height: 2px;
+    background: rgba(126,38,25,0.3);
+    transition: background 0.18s;
+  }
+  .ship-card-body { padding: 14px; }
+  .ship-mfr {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: #9A8C64;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .ship-name {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    line-height: 1.4;
+  }
+  .ship-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    border-top: 1px solid rgba(126,38,25,0.15);
+    padding-top: 10px;
+  }
+  .ship-stat-label {
+    font-size: 8px;
+    letter-spacing: 1.5px;
+    color: #9A8C64;
+    text-transform: uppercase;
+    margin-bottom: 1px;
+  }
+  .ship-stat-value { font-size: 12px; color: #CBB8AA; letter-spacing: 0.5px; }
+  .ship-stat-value.hi { color: #E8855C; }
+  .ship-tags {
+    display: flex;
+    gap: 5px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .ship-tag {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 7px;
+    letter-spacing: 1.5px;
+    padding: 2px 6px;
+    border: 1px solid rgba(126,38,25,0.22);
+    color: #9A8C64;
+    text-transform: uppercase;
+  }
+  .ship-tag.career { border-color: rgba(126,38,25,0.5); color: #E8855C; }
+  .ship-tag.size   { border-color: rgba(154,140,100,0.4); color: #9A8C64; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: #9A8C64;
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+
+  /* ── Loading state ── */
+  .loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #9A8C64;
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .anim-in { animation: fadeInUp 0.25s ease both; }
+  .anim-in:nth-child(1)  { animation-delay: 0.02s; }
+  .anim-in:nth-child(2)  { animation-delay: 0.04s; }
+  .anim-in:nth-child(3)  { animation-delay: 0.06s; }
+  .anim-in:nth-child(4)  { animation-delay: 0.08s; }
+  .anim-in:nth-child(5)  { animation-delay: 0.10s; }
+  .anim-in:nth-child(6)  { animation-delay: 0.12s; }
+  .anim-in:nth-child(7)  { animation-delay: 0.14s; }
+  .anim-in:nth-child(8)  { animation-delay: 0.16s; }
+  .anim-in:nth-child(9)  { animation-delay: 0.18s; }
+  .anim-in:nth-child(10) { animation-delay: 0.20s; }
+  .anim-in:nth-child(11) { animation-delay: 0.22s; }
+  .anim-in:nth-child(12) { animation-delay: 0.24s; }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="layout">
-  <aside>
-    <div class="sidebar-section">
-      <div class="section-label">Search</div>
-      <input type="text" id="search-input" placeholder="Ship name..."/>
-    </div>
-    <div class="sidebar-section">
-      <div class="section-label">Filters</div>
-      <select id="career-filter"><option value="">All Careers</option></select>
-      <div class="filter-row">
-        <input type="text" id="min-scu"  placeholder="Min SCU"/>
-        <input type="text" id="max-crew" placeholder="Max crew"/>
-      </div>
-      <button class="btn" onclick="applyFilters()">Apply</button>
-      <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
-    </div>
-    <div class="sidebar-section">
-      <div class="section-label">Sort By</div>
-      <div style="display:flex;flex-direction:column;gap:4px">
-        <button class="sort-btn active" data-sort="entity_name" onclick="setSort(this)">Name</button>
-        <button class="sort-btn" data-sort="cargo_scu"   onclick="setSort(this)">Cargo SCU</button>
-        <button class="sort-btn" data-sort="crew_size"   onclick="setSort(this)">Crew</button>
-        <button class="sort-btn" data-sort="length_m"    onclick="setSort(this)">Length</button>
-      </div>
-    </div>
-    <div class="sidebar-section">
-      <div class="section-label">Compare <span id="compare-count">(0/4)</span></div>
-      <div id="compare-list"></div>
-      <button class="btn" id="compare-btn" onclick="showCompare()" style="display:none">Compare Selected</button>
-    </div>
-  </aside>
+<div class="ships-page">
 
-  <main>
-    <div id="list-view">
-      <div class="list-header">
-        <div class="list-count">Showing <span id="ship-count">0</span> ships</div>
-      </div>
-      <div id="ship-list-container"><div class="loading">Loading ships...</div></div>
-    </div>
+  <!-- ── Breadcrumb ── -->
+  <div class="breadcrumb" id="breadcrumb">
+    <span class="bc-item active" data-layer="mode">Ships</span>
+  </div>
 
-    <div class="detail-panel" id="detail-panel">
-      <div class="detail-header">
-        <div>
-          <div class="detail-title" id="detail-title">—</div>
-          <div class="detail-sub"   id="detail-sub">—</div>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn" style="width:auto;padding:6px 14px" onclick="addCurrentToCompare()">+ Compare</button>
-          <button class="close-btn" onclick="closeDetail()">✕</button>
-        </div>
-      </div>
-      <div class="detail-stats-row" id="detail-stats"></div>
-      <div class="tab-area">
-        <div class="tabs">
-          <button class="tab-btn active" onclick="switchTab(this,'tab-cargo')">Cargo</button>
-          <button class="tab-btn" onclick="switchTab(this,'tab-hardpoints')">Hardpoints</button>
-          <button class="tab-btn" onclick="switchTab(this,'tab-combat')">Combat</button>
-        </div>
-        <div class="tab-content active" id="tab-cargo">
-          <div class="detail-body">
-            <div class="detail-section"><div class="detail-section-title">Cargo Grids</div><div id="detail-cargo"></div></div>
-            <div class="detail-section"><div class="detail-section-title">Dimensions</div><div id="detail-dims"></div></div>
-          </div>
-        </div>
-        <div class="tab-content" id="tab-hardpoints">
-          <div class="detail-section full"><div style="display:grid;grid-template-columns:1fr 1fr;gap:24px" id="detail-hardpoints"></div></div>
-        </div>
-        <div class="tab-content" id="tab-combat">
-          <div class="detail-section full" id="detail-combat"></div>
-        </div>
-      </div>
+  <!-- ── Layer 0: Mode Select ── -->
+  <div class="layer active" id="layer-mode">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">Fleet Registry</div>
+      <div class="sec-note" id="total-count">Loading...</div>
     </div>
+    <div class="mode-grid">
 
-    <div class="detail-panel" id="compare-panel">
-      <div style="padding:16px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-        <div style="font-family:var(--font-mono);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--accent)">Ship Comparison</div>
-        <button class="close-btn" onclick="closeCompare()">✕</button>
+      <div class="mode-card anim-in" onclick="selectMode('all')">
+        <div class="mode-corner"></div>
+        <div class="mode-eyebrow">Browse</div>
+        <div class="mode-name">All Ships</div>
+        <div class="mode-desc">Browse the complete vessel registry across all manufacturers and classes.</div>
+        <div class="mode-count" id="mode-count-all">—</div>
+        <div class="mode-footer">
+          <div class="mode-cta">Full Registry</div>
+          <div class="mode-arrow">→</div>
+        </div>
       </div>
-      <div style="overflow-x:auto;padding:24px">
-        <table class="compare-table" id="compare-table"></table>
+
+      <div class="mode-card anim-in" onclick="selectMode('manufacturer')">
+        <div class="mode-corner"></div>
+        <div class="mode-eyebrow">By Manufacturer</div>
+        <div class="mode-name">Manufacturer</div>
+        <div class="mode-desc">Filter by shipwright — explore the full lineup from each manufacturer.</div>
+        <div class="mode-count" id="mode-count-mfr">—</div>
+        <div class="mode-footer">
+          <div class="mode-cta">Browse Shipwrights</div>
+          <div class="mode-arrow">→</div>
+        </div>
       </div>
+
+      <div class="mode-card anim-in" onclick="selectMode('career')">
+        <div class="mode-corner"></div>
+        <div class="mode-eyebrow">By Career</div>
+        <div class="mode-name">Career & Role</div>
+        <div class="mode-desc">Drill down by operational doctrine — Combat, Freight, Exploration, and more.</div>
+        <div class="mode-count" id="mode-count-career">—</div>
+        <div class="mode-footer">
+          <div class="mode-cta">Browse Careers</div>
+          <div class="mode-arrow">→</div>
+        </div>
+      </div>
+
     </div>
-  </main>
+  </div>
+
+  <!-- ── Layer 1a: Manufacturer Select ── -->
+  <div class="layer" id="layer-manufacturer">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">By Manufacturer</div>
+      <div class="sec-note" id="mfr-count-note"></div>
+    </div>
+    <div class="mfr-grid" id="mfr-grid"></div>
+  </div>
+
+  <!-- ── Layer 1b: Career Select ── -->
+  <div class="layer" id="layer-career">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title">By Career</div>
+      <div class="sec-note" id="career-count-note"></div>
+    </div>
+    <div class="career-grid" id="career-grid"></div>
+  </div>
+
+  <!-- ── Layer 2: Role Select ── -->
+  <div class="layer" id="layer-role">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title" id="role-section-title">Roles</div>
+      <div class="sec-note" id="role-count-note"></div>
+    </div>
+    <div class="role-grid" id="role-grid"></div>
+  </div>
+
+  <!-- ── Layer Final: Ship List ── -->
+  <div class="layer" id="layer-ships">
+    <div class="sec-hdr">
+      <div class="sec-bar"></div>
+      <div class="sec-title" id="ship-list-title">Vessels</div>
+      <div class="sec-note" id="ship-list-note"></div>
+    </div>
+    <div class="ship-list-controls">
+      <input
+        type="text"
+        class="search-box"
+        id="ship-search"
+        placeholder="SEARCH VESSELS..."
+        oninput="filterShips()"
+      >
+      <div class="ship-count-badge" id="ship-count-badge">0 VESSELS</div>
+    </div>
+    <div class="ship-grid" id="ship-grid"></div>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block page_script %}
-let allShips = [];
-let currentSort = 'entity_name';
-let currentShip = null;
-let compareMgr = new CompareManager(4, items => {
-  compareMgr.renderChips('compare-list', 'compare-btn');
-  renderShipList(allShips);
-});
+  // ─── State ───────────────────────────────────────────────────────────────────
+  let ALL_SHIPS = [];
+  let filteredShips = [];
+  let activeMode = null;
+  let activeMfr = null;
+  let activeCareer = null;
+  let activeRole = null;
 
-async function init() {
-  const careers = await api('/api/careers');
-  const sel = document.getElementById('career-filter');
-  careers.forEach(c => {
-    const o = document.createElement('option');
-    o.value = o.textContent = c;
-    sel.appendChild(o);
-  });
-  await loadShips();
-}
+  // Breadcrumb trail: array of { label, action }
+  let trail = [{ label: 'Ships', action: () => showLayer('mode') }];
 
-async function loadShips(params = {}) {
-  document.getElementById('ship-list-container').innerHTML = '<div class="loading">Loading ships...</div>';
-  const qs = new URLSearchParams({ sort: currentSort, limit: 500, ...params });
-  allShips = await api('/api/ships?' + qs);
-  renderShipList(allShips);
-}
-
-function renderShipList(ships) {
-  const search = document.getElementById('search-input').value.toLowerCase();
-  const filtered = search
-    ? ships.filter(s => s.entity_name.toLowerCase().includes(search) || s.manufacturer.toLowerCase().includes(search))
-    : ships;
-  document.getElementById('ship-count').textContent = filtered.length.toLocaleString();
-
-  if (!filtered.length) {
-    document.getElementById('ship-list-container').innerHTML = '<div class="loading">No ships found</div>';
-    return;
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
+  function fmt(v, dec, unit) {
+    if (v === null || v === undefined || v === '') return '—';
+    const n = parseFloat(v);
+    if (isNaN(n)) return '—';
+    const s = dec ? n.toFixed(dec) : Math.round(n).toLocaleString();
+    return unit ? `${s} ${unit}` : s;
   }
 
-  const rows = filtered.map(s => `
-    <tr onclick="selectShip('${s.entity_name}')" id="row-${s.entity_name}">
-      <td>
-        <div style="font-family:var(--font-ui);font-size:15px;font-weight:600">${cleanName(s.entity_name)}</div>
-        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${s.manufacturer}</div>
-      </td>
-      <td>${s.career ? `<span class="pill ${careerPillClass(s.career)}">${s.career}</span>` : '<span class="stat null">—</span>'}</td>
-      <td>${fmtStat(s.cargo_scu, 0, 'scu')}</td>
-      <td><span class="stat">${s.crew_size ?? '—'}</span></td>
-      <td>${fmtStat(s.length_m, 0, 'm')}</td>
-      <td>
-        <button class="sort-btn ${compareMgr.has(s.entity_name)?'active':''}"
-          onclick="event.stopPropagation();compareMgr.toggle(${JSON.stringify(s)})">+</button>
-      </td>
-    </tr>`).join('');
-
-  document.getElementById('ship-list-container').innerHTML = `
-    <table class="data-table">
-      <thead><tr><th>Ship</th><th>Career</th><th>Cargo</th><th>Crew</th><th>Length</th><th></th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-}
-
-async function selectShip(name) {
-  document.querySelectorAll('.data-table tr.selected').forEach(r => r.classList.remove('selected'));
-  const row = document.getElementById('row-' + name);
-  if (row) row.classList.add('selected');
-
-  const panel = document.getElementById('detail-panel');
-  panel.style.display = 'block';
-  document.getElementById('list-view').style.display = 'none';
-  document.getElementById('compare-panel').style.display = 'none';
-  document.getElementById('detail-stats').innerHTML = '<div class="loading">Loading...</div>';
-
-  try {
-    const ship = await api(`/api/ship/${name}`);
-    currentShip = ship;
-    renderShipDetail(ship);
-  } catch(e) {
-    document.getElementById('detail-stats').innerHTML = '<div class="loading">Error loading ship</div>';
+  function getMfr(entityName) {
+    const MFR_MAP = {
+      aegs:'Aegis', anvl:'Anvil', argo:'Argo', cnou:'C.O.', crus:'Crusader',
+      drak:'Drake', espr:'Esperia', gama:'Gatac', grin:'Greycat', krig:'Kruger',
+      misc:'MISC', mrai:'Mirai', orig:'Origin', rsi:'RSI', tmbl:'Tumbril',
+      behr:'Behring', klwe:'Klaus & Werner', vncl:'Vanduul', xian:"Xi'an",
+    };
+    const prefix = (entityName || '').split('_')[0].toLowerCase();
+    return MFR_MAP[prefix] || prefix.toUpperCase();
   }
-}
 
-function renderShipDetail(s) {
-  document.getElementById('detail-title').textContent = cleanName(s.entity_name);
-  document.getElementById('detail-sub').textContent   =
-    `${s.manufacturer}  ·  ${s.career || '—'}  ·  ${s.entity_name}`;
-
-  document.getElementById('detail-stats').innerHTML = `
-    <div class="stat-block"><div class="stat-block-label">Cargo</div>
-      <div class="stat-block-value gold">${s.cargo_scu != null ? s.cargo_scu.toFixed(0) : '—'}<span class="stat-block-unit"> SCU</span></div></div>
-    <div class="stat-block"><div class="stat-block-label">Crew</div>
-      <div class="stat-block-value">${s.crew_size ?? '—'}</div></div>
-    <div class="stat-block"><div class="stat-block-label">Length</div>
-      <div class="stat-block-value">${s.length_m ? s.length_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
-    <div class="stat-block"><div class="stat-block-label">Beam</div>
-      <div class="stat-block-value">${s.beam_m ? s.beam_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
-    <div class="stat-block"><div class="stat-block-label">Height</div>
-      <div class="stat-block-value">${s.height_m ? s.height_m.toFixed(0) : '—'}<span class="stat-block-unit"> m</span></div></div>
-    ${s.personal_scu > 0 ? `<div class="stat-block"><div class="stat-block-label">Personal</div>
-      <div class="stat-block-value" style="color:var(--text2)">${s.personal_scu.toFixed(0)}<span class="stat-block-unit"> SCU</span></div></div>` : ''}`;
-
-  // Cargo grids
-  const main = (s.cargo_grids||[]).filter(g=>!g.is_personal);
-  const pers = (s.cargo_grids||[]).filter(g=>g.is_personal);
-  let cHtml = main.map(g => {
-    const dims = g.dim_x ? `${g.dim_x.toFixed(2)}×${g.dim_y.toFixed(2)}×${g.dim_z.toFixed(2)} m` : '';
-    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;margin-bottom:4px;background:var(--bg2);border-left:3px solid var(--gold)">
-      <div>
-        <div style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${g.name.replace(/_/g,' ')}</div>
-        ${dims?`<div style="font-family:var(--font-mono);font-size:10px;color:var(--text3)">${dims}</div>`:''}
-      </div>
-      <div style="font-family:var(--font-ui);font-size:18px;font-weight:600;color:var(--gold)">${g.scu!=null?g.scu.toFixed(0):'?'}<span style="font-size:11px;color:var(--text3)"> SCU</span></div>
-    </div>`;
-  }).join('');
-  if (pers.length) {
-    cHtml += `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);letter-spacing:0.15em;text-transform:uppercase;margin:10px 0 6px">Personal Storage</div>`;
-    cHtml += pers.map(g => `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;margin-bottom:4px;background:var(--bg2);border-left:3px solid var(--text3);opacity:0.7">
-      <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2)">${g.name.replace(/_/g,' ')}</span>
-      <span style="font-family:var(--font-ui);font-size:16px;font-weight:600;color:var(--text2)">${g.scu!=null?g.scu.toFixed(0):'?'}<span style="font-size:10px;color:var(--text3)"> SCU</span></span>
-    </div>`).join('');
+  function cleanCareer(s) {
+    return (s || '').replace('@vehicle_focus_', '').replace('@vehicle_class_', '').replace(/_/g, ' ').trim();
   }
-  document.getElementById('detail-cargo').innerHTML = cHtml || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">No cargo grids</div>';
 
-  document.getElementById('detail-dims').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-      ${[['Length',s.length_m,'m'],['Beam',s.beam_m,'m'],['Height',s.height_m,'m'],['Role',s.role,'']].map(([l,v,u])=>`
-        <div style="padding:10px;background:var(--bg2)">
-          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text3);margin-bottom:4px">${l}</div>
-          <div style="font-family:var(--font-ui);font-size:18px;font-weight:600;color:var(--text)">${v!=null?(typeof v==='number'?v.toFixed(1):v):'—'}${u?`<span style="font-size:11px;color:var(--text3)"> ${u}</span>`:''}</div>
-        </div>`).join('')}
-    </div>`;
+  function cleanRole(s) {
+    return (s || '').replace('@vehicle_class_', '').replace('@vehicle_role_', '').replace(/_/g, ' ').trim();
+  }
 
-  // Hardpoints
-  const hp = s.hardpoints || {};
-  const typeOrder = ['weapon','shield','power','cooler','quantum','sensor','cargo','seat','armor','fuel','thruster','controller','room','misc'];
-  const sorted = typeOrder.filter(t=>hp[t]).concat(Object.keys(hp).filter(t=>!typeOrder.includes(t)));
-  document.getElementById('detail-hardpoints').innerHTML = sorted.map(type => {
-    const ports = hp[type]; if(!ports?.length) return '';
-    const editable = ports.filter(p=>p.is_editable);
-    return `<div style="margin-bottom:14px">
-      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">
-        ${type} <span style="color:var(--text3)">(${ports.length}${editable.length?` · ${editable.length} editable`:''})</span>
+  function toTitleCase(s) {
+    return (s || '').replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
+  }
+
+  // ─── Layer navigation ────────────────────────────────────────────────────────
+  function showLayer(layerId) {
+    document.querySelectorAll('.layer').forEach(l => l.classList.remove('active'));
+    document.getElementById('layer-' + layerId).classList.add('active');
+    renderBreadcrumb();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderBreadcrumb() {
+    const bc = document.getElementById('breadcrumb');
+    bc.innerHTML = trail.map((item, i) => {
+      const isLast = i === trail.length - 1;
+      const sep = i > 0 ? `<span class="bc-sep">›</span>` : '';
+      if (isLast) {
+        return `${sep}<span class="bc-item active">${item.label}</span>`;
+      }
+      return `${sep}<span class="bc-item" onclick="navigateTrail(${i})">${item.label}</span>`;
+    }).join('');
+  }
+
+  function navigateTrail(index) {
+    trail = trail.slice(0, index + 1);
+    trail[index].action();
+  }
+
+  // ─── Mode select ─────────────────────────────────────────────────────────────
+  function selectMode(mode) {
+    activeMode = mode;
+    activeMfr = null;
+    activeCareer = null;
+    activeRole = null;
+
+    if (mode === 'all') {
+      trail = [
+        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
+        { label: 'All Ships', action: () => showShipList(ALL_SHIPS, 'All Ships') }
+      ];
+      showShipList(ALL_SHIPS, 'All Ships');
+
+    } else if (mode === 'manufacturer') {
+      trail = [
+        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
+        { label: 'Manufacturer', action: () => showMfrLayer() }
+      ];
+      showMfrLayer();
+
+    } else if (mode === 'career') {
+      trail = [
+        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
+        { label: 'Career', action: () => showCareerLayer() }
+      ];
+      showCareerLayer();
+    }
+  }
+
+  // ─── Manufacturer layer ───────────────────────────────────────────────────────
+  function showMfrLayer() {
+    // Group ships by manufacturer
+    const mfrMap = {};
+    ALL_SHIPS.forEach(s => {
+      const mfr = getMfr(s.entity_name);
+      if (!mfrMap[mfr]) mfrMap[mfr] = [];
+      mfrMap[mfr].push(s);
+    });
+
+    const sorted = Object.keys(mfrMap).sort();
+    document.getElementById('mfr-count-note').textContent = `${sorted.length} manufacturers`;
+
+    const grid = document.getElementById('mfr-grid');
+    grid.innerHTML = sorted.map((mfr, i) => `
+      <div class="mfr-card anim-in" style="animation-delay:${Math.min(i * 0.02, 0.3)}s" onclick="selectMfr('${mfr}')">
+        <div class="mfr-code">${mfr}</div>
+        <div class="mfr-count">${mfrMap[mfr].length} vessels</div>
       </div>
-      ${ports.map(p=>{
-        const s2 = p.max_size||0;
-        const sStr = p.min_size===p.max_size&&p.min_size?`S${p.min_size}`:p.min_size&&p.max_size?`S${p.min_size}-${p.max_size}`:'?';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
-          ${sizeBadge(s2,sStr)}
-          <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
-          ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.installed_name.replace(/_/g,' ')}</span>`:''}
-          ${!p.is_editable?'<span style="font-size:10px;color:var(--text3)">🔒</span>':''}
-        </div>`;
-      }).join('')}
-    </div>`;
-  }).join('');
+    `).join('');
 
-  // Combat
-  const weapons = (hp.weapon||[]).filter(p=>p.is_editable&&(p.max_size||0)>=1);
-  const defense = [...(hp.shield||[]),...(hp.armor||[])].filter(p=>p.is_editable);
-  document.getElementById('detail-combat').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-      <div>
-        <div class="detail-section-title">Weapon Hardpoints</div>
-        ${weapons.map(p=>{
-          const s2=p.max_size||1;
-          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
-            ${sizeBadge(s2,`S${s2}`)}
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
-            ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2)">${p.installed_name.replace(/_scitem$/,'').replace(/_/g,' ')}</span>`:''}
-          </div>`;
-        }).join('') || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">None</div>'}
+    showLayer('manufacturer');
+  }
+
+  function selectMfr(mfr) {
+    activeMfr = mfr;
+    const ships = ALL_SHIPS.filter(s => getMfr(s.entity_name) === mfr);
+    trail = [
+      { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
+      { label: 'Manufacturer', action: () => showMfrLayer() },
+      { label: mfr, action: () => showShipList(ships, mfr) }
+    ];
+    showShipList(ships, mfr);
+  }
+
+  // ─── Career layer ─────────────────────────────────────────────────────────────
+  function showCareerLayer() {
+    const careerMap = {};
+    ALL_SHIPS.forEach(s => {
+      const career = toTitleCase(cleanCareer(s.career));
+      if (!career) return;
+      if (!careerMap[career]) careerMap[career] = [];
+      careerMap[career].push(s);
+    });
+
+    const sorted = Object.keys(careerMap).sort();
+    document.getElementById('career-count-note').textContent = `${sorted.length} career designations`;
+
+    const grid = document.getElementById('career-grid');
+    grid.innerHTML = sorted.map((career, i) => `
+      <div class="career-card anim-in" style="animation-delay:${Math.min(i * 0.03, 0.3)}s" onclick="selectCareer('${career}')">
+        <div class="career-accent"></div>
+        <div class="career-name">${career}</div>
+        <div class="career-count">${careerMap[career].length} vessels</div>
       </div>
-      <div>
-        <div class="detail-section-title">Shield & Defense</div>
-        ${defense.map(p=>{
-          const s2=p.max_size||1;
-          return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #0d1820">
-            ${sizeBadge(s2,`S${s2}`)}
-            <span style="font-family:var(--font-mono);font-size:11px;color:var(--text2);flex:1">${p.port_name.replace(/^hardpoint_/,'').replace(/_/g,' ')}</span>
-            ${p.installed_name?`<span style="font-family:var(--font-mono);font-size:10px;color:var(--accent2)">${p.installed_name.replace(/_scitem$/,'').replace(/_/g,' ')}</span>`:''}
-          </div>`;
-        }).join('') || '<div style="color:var(--text3);font-family:var(--font-mono);font-size:11px">None</div>'}
+    `).join('');
+
+    showLayer('career');
+  }
+
+  function selectCareer(career) {
+    activeCareer = career;
+    const ships = ALL_SHIPS.filter(s => toTitleCase(cleanCareer(s.career)) === career);
+
+    // Build role map for this career
+    const roleMap = {};
+    ships.forEach(s => {
+      const role = toTitleCase(cleanRole(s.role));
+      if (!role) return;
+      if (!roleMap[role]) roleMap[role] = [];
+      roleMap[role].push(s);
+    });
+
+    const roles = Object.keys(roleMap).sort();
+
+    trail = [
+      { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
+      { label: 'Career', action: () => showCareerLayer() },
+      { label: career, action: () => showRoleLayer(career, ships, roleMap) }
+    ];
+
+    // Skip role layer if only one role
+    if (roles.length <= 1) {
+      showShipList(ships, career);
+    } else {
+      showRoleLayer(career, ships, roleMap);
+    }
+  }
+
+  // ─── Role layer ───────────────────────────────────────────────────────────────
+  function showRoleLayer(career, ships, roleMap) {
+    const roles = Object.keys(roleMap).sort();
+    document.getElementById('role-section-title').textContent = career;
+    document.getElementById('role-count-note').textContent = `${roles.length} role classifications`;
+
+    const grid = document.getElementById('role-grid');
+    grid.innerHTML = `
+      <div class="role-card all-roles anim-in" onclick="selectRole(null, '${career}', ${JSON.stringify(ships).replace(/"/g, '&quot;')})">
+        <div class="role-name">All ${career}</div>
+        <div class="role-count">${ships.length} vessels</div>
       </div>
-    </div>`;
-}
+      ${roles.map((role, i) => `
+        <div class="role-card anim-in" style="animation-delay:${Math.min((i+1) * 0.03, 0.3)}s" onclick="selectRole('${role}', '${career}', null)">
+          <div class="role-name">${role}</div>
+          <div class="role-count">${roleMap[role].length} vessels</div>
+        </div>
+      `).join('')}
+    `;
 
-function closeDetail() {
-  document.getElementById('detail-panel').style.display = 'none';
-  document.getElementById('list-view').style.display = 'block';
-  document.querySelectorAll('.data-table tr.selected').forEach(r=>r.classList.remove('selected'));
-  currentShip = null;
-}
+    showLayer('role');
+  }
 
-function addCurrentToCompare() {
-  if (currentShip) compareMgr.toggle({entity_name: currentShip.entity_name, manufacturer: currentShip.manufacturer});
-}
+  function selectRole(role, career, allShips) {
+    activeRole = role;
+    let ships;
+    if (role === null) {
+      ships = allShips || ALL_SHIPS.filter(s => toTitleCase(cleanCareer(s.career)) === career);
+    } else {
+      ships = ALL_SHIPS.filter(s =>
+        toTitleCase(cleanCareer(s.career)) === career &&
+        toTitleCase(cleanRole(s.role)) === role
+      );
+    }
+    const label = role || `All ${career}`;
+    trail.push({ label, action: () => showShipList(ships, label) });
+    showShipList(ships, label);
+  }
 
-async function showCompare() {
-  document.getElementById('detail-panel').style.display = 'none';
-  document.getElementById('list-view').style.display = 'none';
-  document.getElementById('compare-panel').style.display = 'block';
-  const names = compareMgr.items.map(i=>i.entity_name).join(',');
-  const ships = await api(`/api/compare?ships=${names}`);
-  const rows = [
-    ['Manufacturer', s=>s.manufacturer, null],
-    ['Career',       s=>s.career||'—', null],
-    ['Cargo SCU',    s=>s.cargo_scu!=null?s.cargo_scu.toFixed(0):'—', 'higher'],
-    ['Cargo Grids',  s=>(s.cargo_grids||[]).filter(g=>!g.is_personal).length, 'higher'],
-    ['Crew',         s=>s.crew_size??'—', null],
-    ['Length',       s=>s.length_m?s.length_m.toFixed(0)+' m':'—', null],
-    ['Beam',         s=>s.beam_m?s.beam_m.toFixed(0)+' m':'—', null],
-    ['Weapon Ports', s=>(s.hardpoints?.weapon||[]).filter(h=>h.is_editable).length, 'higher'],
-    ['Max Weapon',   s=>Math.max(0,...(s.hardpoints?.weapon||[]).filter(h=>h.is_editable).map(h=>h.max_size||0)), 'higher'],
-    ['Shield Size',  s=>(s.hardpoints?.shield||[]).filter(h=>h.is_editable)[0]?.max_size||'—', null],
-  ];
-  const thead = `<tr><th>Stat</th>${ships.map(s=>`<th>${cleanName(s.entity_name)}<br><span style="font-family:var(--font-mono);font-size:10px;color:var(--text3);font-weight:400">${s.manufacturer}</span></th>`).join('')}</tr>`;
-  const tbody = rows.map(([label,fn,cmp])=>{
-    const vals=ships.map(s=>fn(s));
-    let cls=vals.map(()=>'');
-    if(cmp==='higher'){const nums=vals.map(v=>parseFloat(v)||0);const mx=Math.max(...nums),mn=Math.min(...nums);cls=nums.map(v=>v===mx&&mx!==mn?'best':v===mn&&mx!==mn?'worst':'');}
-    return `<tr><td>${label}</td>${vals.map((v,i)=>`<td class="${cls[i]}">${v}</td>`).join('')}</tr>`;
-  }).join('');
-  document.getElementById('compare-table').innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
-}
+  // ─── Ship list ────────────────────────────────────────────────────────────────
+  function showShipList(ships, title) {
+    filteredShips = ships;
+    document.getElementById('ship-list-title').textContent = title;
+    document.getElementById('ship-search').value = '';
+    renderShipGrid(ships);
+    showLayer('ships');
+  }
 
-function closeCompare() {
-  document.getElementById('compare-panel').style.display = 'none';
-  document.getElementById('list-view').style.display = 'block';
-}
+  function filterShips() {
+    const q = document.getElementById('ship-search').value.toLowerCase().trim();
+    const result = q
+      ? filteredShips.filter(s =>
+          (s.display_name || s.entity_name || '').toLowerCase().includes(q) ||
+          getMfr(s.entity_name).toLowerCase().includes(q)
+        )
+      : filteredShips;
+    renderShipGrid(result);
+  }
 
-let searchTimer;
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('search-input').addEventListener('input', ()=>{
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(()=>renderShipList(allShips), 200);
-  });
-});
+  function renderShipGrid(ships) {
+    const grid = document.getElementById('ship-grid');
+    document.getElementById('ship-count-badge').textContent = `${ships.length} VESSEL${ships.length !== 1 ? 'S' : ''}`;
 
-function applyFilters() {
-  const p={};
-  const c=document.getElementById('career-filter').value;
-  const s=document.getElementById('min-scu').value;
-  const cr=document.getElementById('max-crew').value;
-  if(c) p.career=c; if(s) p.min_scu=s; if(cr) p.max_crew=cr;
-  loadShips(p);
-}
-function clearFilters() {
-  ['career-filter','min-scu','max-crew','search-input'].forEach(id=>{
-    const el=document.getElementById(id);
-    if(el) el.value='';
-  });
-  loadShips();
-}
-function setSort(btn) {
-  document.querySelectorAll('.sort-btn').forEach(b=>b.classList.remove('active'));
-  btn.classList.add('active');
-  currentSort = btn.dataset.sort;
-  loadShips();
-}
+    if (ships.length === 0) {
+      grid.innerHTML = `<div class="empty-state">No vessels match your search</div>`;
+      return;
+    }
 
-init();
+    grid.innerHTML = ships.map(s => {
+      const name   = s.display_name || s.entity_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const mfr    = getMfr(s.entity_name);
+      const career = toTitleCase(cleanCareer(s.career));
+      const role   = toTitleCase(cleanRole(s.role));
+      const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
+      const crew   = s.crew_min === s.crew_max ? `${s.crew_min}` : `${s.crew_min}–${s.crew_max}`;
+      const len    = s.length_m ? `${s.length_m}m` : '—';
+
+      return `
+        <a class="ship-card" href="/ships/${s.entity_name}">
+          <div class="ship-card-bar"></div>
+          <div class="ship-card-body">
+            <div class="ship-mfr">${mfr}</div>
+            <div class="ship-name">${name}</div>
+            <div class="ship-stats">
+              <div>
+                <div class="ship-stat-label">Cargo</div>
+                <div class="ship-stat-value hi">${cargo}</div>
+              </div>
+              <div>
+                <div class="ship-stat-label">Crew</div>
+                <div class="ship-stat-value">${crew}</div>
+              </div>
+              <div>
+                <div class="ship-stat-label">Length</div>
+                <div class="ship-stat-value">${len}</div>
+              </div>
+              <div>
+                <div class="ship-stat-label">Role</div>
+                <div class="ship-stat-value">${role || career}</div>
+              </div>
+            </div>
+            <div class="ship-tags">
+              ${career ? `<span class="ship-tag career">${career}</span>` : ''}
+            </div>
+          </div>
+        </a>
+      `;
+    }).join('');
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────────
+  async function init() {
+    try {
+      const ships = await api('/api/ships?limit=2000');
+      ALL_SHIPS = ships;
+
+      // Update mode card counts
+      const mfrCount = new Set(ships.map(s => getMfr(s.entity_name))).size;
+      const careerCount = new Set(ships.map(s => toTitleCase(cleanCareer(s.career))).filter(Boolean)).size;
+
+      document.getElementById('mode-count-all').textContent    = ships.length;
+      document.getElementById('mode-count-mfr').textContent    = mfrCount;
+      document.getElementById('mode-count-career').textContent = careerCount;
+      document.getElementById('total-count').textContent       = `${ships.length} vessels indexed`;
+
+    } catch(e) {
+      document.getElementById('total-count').textContent = 'Error loading ships';
+      console.error('Ships init error:', e);
+    }
+  }
+
+  init();
 {% endblock %}
