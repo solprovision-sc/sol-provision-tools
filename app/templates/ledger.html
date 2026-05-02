@@ -16,39 +16,37 @@
     }
     body { background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
     
-    /* PANELS & MODALS */
     .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
     .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; padding: 20px; }
     .modal-content { background: var(--d2); border: 1px solid var(--kh); padding: 30px; max-width: 500px; text-align: left; line-height: 1.6; }
 
-    /* BUTTONS */
     .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; border-radius: 0; }
     .splash-btn:hover { background: var(--cr); color: #fff; }
     .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
-    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
-    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
-    .admin-link { margin-top: 15px; font-size: 9px; color: var(--kh); opacity: 0.5; cursor: pointer; text-decoration: underline; border: none; background: none; }
 
-    /* INPUTS */
     .input-main { width: 300px; text-align: center; padding: 15px; font-size: 14px; background: #000; border: 1px solid var(--bdr); color: var(--bn); font-family: var(--fm); margin-bottom: 10px; }
     input, select { background: var(--d1); border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 8px; font-size: 13px; flex: 1; border-radius: 2px; width: 100%; box-sizing: border-box; }
     
-    /* INTERFACE GRID */
     #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; align-self: flex-start; }
+    
     .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; width: 100%; }
     .col-pilot { flex: 0 0 45%; }
     .col-role { flex: 0 0 30%; }
     .col-shares { flex: 0 0 10%; text-align: center; display: flex; justify-content: center; }
     .col-tools { flex: 0 0 12%; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
     
-    /* SHARES CENTERING (FIXED) */
+    .header-row { font-family: var(--fh); font-size: 10px; color: var(--kh); text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; padding: 0 10px; }
+    
     .input-shares { text-align: center !important; padding: 8px 0 !important; appearance: textfield !important; -moz-appearance: textfield !important; max-width: 60px; }
     .input-shares::-webkit-outer-spin-button, .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
-    /* DECOR & TABLES */
+    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
+    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
+    .admin-link { margin-top: 15px; font-size: 9px; color: var(--kh); opacity: 0.5; cursor: pointer; text-decoration: underline; border: none; background: none; }
     .highlight { color: var(--bn); font-weight: bold; }
     .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
     .sec-title { font-family: var(--fh); font-size: 11px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; }
+    
     .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; text-align: left; }
     .ledger-table th { font-family: var(--fh); color: var(--kh); text-transform: uppercase; font-size: 10px; padding: 12px; border-bottom: 2px solid var(--cr); }
     .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
@@ -87,13 +85,14 @@
   <div style="margin-top:25px; border-top:1px solid var(--bdr); padding-top:20px;">
       <div style="font-family: var(--fh); font-size: 11px; color: var(--kh); margin-bottom:10px;">— JOIN ACTIVE SESSION —</div>
       <div style="display:flex; gap:10px;">
-          <input type="text" id="joinIdInput" placeholder="ENTER ID" style="text-align:center;">
+          <input type="text" id="joinIdInput" placeholder="ENTER MISSION ID" style="text-align:center;">
           <button class="btn-add" style="padding:10px 20px;" onclick="joinSessionManual()">JOIN</button>
       </div>
   </div>
   <div id="lobbyLists" style="margin-top: 25px; text-align: left; max-height: 250px; overflow-y: auto;">
     <div id="activeMissionsList"></div>
   </div>
+  <button class="admin-link" onclick="adminLogin()">Board Member Access</button>
 </div>
 
 <div id="adminPanel" class="panel">
@@ -112,13 +111,28 @@
     </div>
     <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
   </div>
+  <h2><b>FLEET MISSION CONTROL</b></h2>
   <div id="main-interface">
-    <section class="sec"><div class="sec-title">01. Fleet Roster</div><div id="crewContainer"></div><button class="btn-add" onclick="addCrew(); pushState();">+ Add Pilot</button></section>
-    <section class="sec"><div class="sec-title">02. Expenses</div><div id="expenseContainer"></div><button class="btn-add" onclick="addExpense(); pushState();">+ Log Expense</button></section>
     <section class="sec">
-        <div class="sec-title">03. Haul Log</div><div id="saleContainer"></div><button class="btn-add" onclick="addSale(); pushState();">+ Record Sale</button>
+        <div class="sec-title">01. Fleet Roster</div>
+        <div class="row header-row">
+            <div class="col-pilot">Pilot</div><div class="col-role">Role</div><div class="col-shares">Shares</div><div class="col-tools"></div>
+        </div>
+        <div id="crewContainer"></div>
+        <button id="addCrewBtn" class="btn-add" onclick="addCrew(); pushState();">+ Add Pilot</button>
+    </section>
+    <section class="sec">
+        <div class="sec-title">02. Expenses</div>
+        <div id="expenseContainer"></div>
+        <button id="addExpBtn" class="btn-add" onclick="addExpense(); pushState();">+ Log Expense</button>
+    </section>
+    <section class="sec">
+        <div class="sec-title">03. Haul Log</div>
+        <div id="saleContainer"></div>
+        <button id="addSaleBtn" class="btn-add" onclick="addSale(); pushState();">+ Record Sale</button>
         <div class="row" style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">
-            <span style="font-size:10px;">FEE %:</span><input type="number" id="feeRate" value="0.5" style="max-width:60px;" oninput="pushState()">
+            <span style="font-size:10px;">MO.TRADER FEE %:</span>
+            <input type="number" id="feeRate" value="0.5" style="max-width:60px;" oninput="pushState()">
             <div style="flex:1; text-align:right;">GROSS: <span id="grossDisp" class="highlight">0</span></div>
         </div>
     </section>
@@ -130,7 +144,7 @@
 <div id="privacyModal" class="overlay">
     <div class="modal-content">
         <h3 style="font-family:var(--fh); color:var(--bn);">SECURITY PROTOCOL</h3>
-        <p>This terminal uses <strong>OIDC Federated Identity</strong>. No sensitive Discord data is stored. Manual accounts are encrypted via Google Firebase.</p>
+        <p>This terminal uses <strong>OIDC Federated Identity</strong>. No sensitive Discord data is stored.</p>
         <button class="btn-add" style="width:100%; margin-top:20px;" onclick="toggleModal('privacyModal', false)">Close</button>
     </div>
 </div>
@@ -141,7 +155,7 @@
   const db = firebase.database(), auth = firebase.auth();
   let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
 
-  // AUTH & REGISTRATION
+  // AUTH
   function loginWithDiscord() {
     const provider = new firebase.auth.OAuthProvider('oidc.discord');
     provider.addScope('identify'); provider.addScope('email');
@@ -159,12 +173,12 @@
         if (snap.exists() && snap.val().callsign) {
           myName = snap.val().callsign; document.getElementById('lobbyName').textContent = myName;
           document.getElementById('lobby').style.display = 'block'; loadActiveCommands();
-        } else document.getElementById('registerScreen').style.display = 'block';
+        } else { document.getElementById('registerScreen').style.display = 'block'; }
       });
     } else document.getElementById('splash').style.display = 'block';
   });
 
-  // LOBBY & JOINING
+  // LOBBY & JOIN
   function joinSessionManual() {
     const id = document.getElementById('joinIdInput').value.trim().toUpperCase();
     if(!id) return;
@@ -182,14 +196,20 @@
   function loadActiveCommands() {
     db.ref('sessions').on('value', snap => {
       let h = ""; Object.keys(snap.val() || {}).forEach(id => {
-        const s = snap.val()[id], isCrew = (s.crew || []).some(c => c.name === myName);
-        if (s.commander === myName || isCrew) h += `<div style="background:var(--d3); padding:10px; margin-bottom:8px; border:1px solid var(--bdr); display:flex; justify-content:space-between; align-items:center;"><span class="highlight">${id}</span><button class="btn-add" onclick="resumeMission('${id}', ${s.commander === myName})">Resume</button></div>`;
+        const s = snap.val()[id], isCommanderOfSession = (s.commander === myName), isCrew = (s.crew || []).some(c => c.name === myName);
+        if (isCommanderOfSession || isCrew) {
+          h += `<div style="background:var(--d3); padding:12px; margin-bottom:10px; border:1px solid var(--bdr); display:flex; justify-content:space-between; align-items:center;">
+                  <span class="highlight">${id}</span>
+                  <div style="display:flex; gap:8px;">
+                    <button class="btn-add" onclick="resumeMission('${id}', ${isCommanderOfSession})">Resume</button>
+                    ${isCommanderOfSession ? `<button class="btn-add" style="color:#ff4444; border-color:rgba(255,68,68,0.2);" onclick="if(confirm('Nuke Mission?')) db.ref('sessions/${id}').remove();">Kill</button>` : ''}
+                  </div>
+                </div>`;
+        }
       });
-      document.getElementById('activeMissionsList').innerHTML = h || "No active sessions.";
+      document.getElementById('activeMissionsList').innerHTML = h || "No active missions found.";
     });
   }
-
-  // MISSION FLOW
   function initiateMission() {
     activeID = "SP-" + Math.floor(1000 + Math.random() * 9000);
     db.ref('sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now(), fee: 0.5, crew: [{ name: myName, role: 'Commander', share: 1, canEdit: true }] }).then(() => { isCommander = true; showApp(); db.ref('sessions/' + activeID).on('value', v => pullState(v.val())); });
@@ -197,7 +217,7 @@
   function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; showApp(); db.ref('sessions/' + activeID).on('value', v => pullState(v.val())); }
   function showApp() { document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); isFirstPull = true; document.getElementById('app').style.display = 'block'; document.getElementById('sessionId').textContent = activeID; document.getElementById('userIdentity').textContent = myName; }
 
-  // SYNC ENGINE (UID-BASED)
+  // MISSION ENGINE
   function pushState() {
     if (!activeID || remoteUpdateInProgress) return;
     db.ref('sessions/' + activeID).update({
@@ -218,7 +238,7 @@
     updateGross(); isFirstPull = false; remoteUpdateInProgress = false;
   }
 
-  // MATH ENGINE (THE BRAIN)
+  // MO.TRADER MATH LOGIC
   function runCalculation(m) {
     const fee = parseFloat(document.getElementById('feeRate').value) / 100;
     const crew = Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 }));
@@ -236,7 +256,7 @@
 
     let h = `<table class="ledger-table"><thead><tr><th>Member</th><th>Exp</th>`;
     payers.forEach(p => h += `<th>From ${p}</th>`);
-    h += `<th>Final Wallet</th></tr></thead><tbody>`;
+    h += `<th>Final Payout</th></tr></thead><tbody>`;
     
     crew.forEach(m => {
       const r_i = mE[m.name] || 0, basePayout = r_i + (K * m.share);
@@ -257,7 +277,7 @@
     if (m) pushState();
   }
 
-  // ROW GENERATORS
+  // UI HELPERS (HEADERS RESTORED)
   function addCrewRow(c, e) {
     const d = c || {name:'', role:'', share:1, canEdit:false}, div = document.createElement('div'); div.className = 'row crew-row';
     div.innerHTML = `<div class="col-pilot"><input type="text" class="c-name" value="${d.name}" ${e?'':'disabled'} oninput="pushState()"></div><div class="col-role"><input type="text" class="c-role" value="${d.role}" ${e?'':'disabled'} oninput="pushState()"></div><div class="col-shares"><input type="number" class="c-share input-shares" value="${d.share}" ${e?'':'disabled'} oninput="pushState()"></div><div class="col-tools"><div style="display:${isCommander?'flex':'none'}; align-items:center; font-size:8px;"><input type="checkbox" class="perm-check" ${d.canEdit?'checked':''} onchange="pushState()"> Ed</div><button class="btn-add" style="color:#ff4444; display:${e?'block':'none'}" onclick="this.parentElement.parentElement.remove(); pushState();">X</button></div>`;
@@ -270,7 +290,7 @@
   function syncDropdowns() { const n = Array.from(document.querySelectorAll('.c-name')).map(i => i.value || "PILOT"); document.querySelectorAll('.claimant-select, .payer-select').forEach(s => { const v = s.value; s.innerHTML = '<option value="">Member</option>'; n.forEach(x => { s.innerHTML += `<option value="${x}">${x}</option>`; }); s.value = v; }); }
   function updateGross() { let t = 0; document.querySelectorAll('#saleContainer input[type="number"]').forEach(i => t += parseFloat(i.value) || 0); document.getElementById('grossDisp').textContent = t.toLocaleString(); }
 
-  // ADMIN OVERRIDE
+  // ADMIN
   function adminLogin() {
     const pin = prompt("Board PIN:");
     db.ref('admin_config/master_pin').once('value').then(snap => {
@@ -278,8 +298,7 @@
           document.querySelectorAll('.panel, #app').forEach(p => p.style.display = 'none'); 
           document.getElementById('adminPanel').style.display = 'block'; 
           db.ref('sessions').on('value', s => { 
-            let h = ""; 
-            Object.keys(s.val() || {}).forEach(id => { h += `<div class="row" style="background:#000; padding:10px; border:1px solid #333;"><span class="highlight" style="flex:1;">${id}</span><button class="btn-add" style="color:#ff4444;" onclick="db.ref('sessions/${id}').remove()">NUKE</button></div>`; }); 
+            let h = ""; Object.keys(s.val() || {}).forEach(id => { h += `<div class="row" style="background:#000; padding:10px; border:1px solid #333;"><span class="highlight" style="flex:1;">${id}</span><button class="btn-add" style="color:#ff4444;" onclick="db.ref('sessions/${id}').remove()">NUKE</button></div>`; }); 
             document.getElementById('adminList').innerHTML = h || "No sessions found."; 
           }); 
         } else alert("ACCESS DENIED");
@@ -293,7 +312,6 @@
     });
   }
 
-  // UTILS
   function registerCallSign() { const cs = document.getElementById('newCallSign').value.trim().toUpperCase(); if(cs.length >= 2) db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload()); }
   function changeCallSign() { const n = prompt("New Call Sign:", myName); if (n) db.ref('users/' + myUid).update({ callsign: n.toUpperCase() }).then(() => location.reload()); }
   function exitToLobby() { activeID = null; location.reload(); }
