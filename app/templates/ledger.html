@@ -17,33 +17,39 @@
         body { background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; margin: 0; padding: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; overflow-x: hidden; }
 
         /* UI PANELS */
-        .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
+        .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; position: relative; }
         #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; align-self: flex-start; }
         .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); display:none; align-items:center; justify-content:center; z-index:1000; padding: 20px; }
         .modal-content { background: var(--d2); border: 1px solid var(--kh); padding: 30px; max-width: 500px; text-align: left; line-height: 1.6; border-top: 3px solid var(--cr); }
 
-        /* BUTTONS & INPUTS */
+        /* BUTTON ARCHITECTURE */
         .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
         .splash-btn:hover { background: var(--cr); color: #fff; }
         .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
-        .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
-        .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
+        .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; margin-top: 10px; }
+        .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; margin-top: 30px; }
         .admin-link { margin-top: 15px; font-size: 9px; color: var(--kh); opacity: 0.5; cursor: pointer; text-decoration: underline; border: none; background: none; }
-        
-        input, select { background: var(--d1); border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 8px; font-size: 13px; border-radius: 2px; width: 100%; box-sizing: border-box; }
-        .input-main { width: 300px; text-align: center; padding: 15px; font-size: 14px; background: #000; border: 1px solid var(--bdr); color: var(--bn); font-family: var(--fm); margin-bottom: 10px; }
-        .input-shares { text-align: center !important; appearance: textfield !important; max-width: 60px; }
 
+        /* INPUT STYLING */
+        input, select { background: var(--d1); border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 8px; font-size: 13px; flex: 1; border-radius: 2px; box-sizing: border-box; }
+        input:disabled, select:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(1); }
+        .input-main { width: 300px; text-align: center; padding: 15px; font-size: 14px; background: #000; border: 1px solid var(--bdr); color: var(--bn); font-family: var(--fm); margin-bottom: 10px; }
+        
         /* GRID LOCKDOWN */
         .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; width: 100%; }
         .col-pilot { flex: 0 0 45%; }
         .col-role { flex: 0 0 30%; }
         .col-shares { flex: 0 0 10%; text-align: center; display: flex; justify-content: center; }
         .col-tools { flex: 0 0 12%; display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-        .header-row { font-family: var(--fh); font-size: 10px; color: var(--kh); text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; padding: 0 10px; }
         
+        .header-row { font-family: var(--fh); font-size: 10px; color: var(--kh); text-transform: uppercase; margin-bottom: 8px; opacity: 0.8; padding: 0 10px; border-bottom: 1px solid var(--bdr); padding-bottom: 10px; }
+        .input-shares { text-align: center !important; appearance: textfield !important; max-width: 60px; }
+        .input-shares::-webkit-outer-spin-button, .input-shares::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+        /* SECTION DECOR */
         .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
-        .sec-title { font-family: var(--fh); font-size: 11px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; border-bottom: 1px solid var(--bdr); padding-bottom: 5px; }
+        .sec-title { font-family: var(--fh); font-size: 11px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+        .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
         .highlight { color: var(--bn); font-weight: bold; }
 
         /* OUTPUT TABLE */
@@ -55,7 +61,7 @@
 <body>
 
 <div id="splash" class="panel" style="display:block;">
-    <h2>SOL PROVISION</h2>
+    <h2 style="margin-bottom:10px;">SOL PROVISION</h2>
     <div style="font-size:9px; letter-spacing:2px; color:var(--kh); margin-bottom:30px;">PAYMENT LEDGER</div>
     <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
     <div style="margin: 15px 0; opacity: 0.3; font-size: 10px;">— OR —</div>
@@ -64,12 +70,14 @@
     <button class="splash-btn" onclick="devLogin()">Secure Access</button>
     <br><br>
     <button class="admin-link" onclick="toggleModal('privacyModal', true)">Security Protocol</button><br>
-    <button class="admin-link" style="margin-top:20px;" onclick="adminLogin()">Board Member Access</button>
+    <button class="admin-link" style="margin-top:20px; opacity:0.3;" onclick="adminLogin()">Board Member Access</button>
 </div>
 
 <div id="registerScreen" class="panel">
     <h2 style="color:var(--bn);">WELCOME TO THE FLEET</h2>
-    <p style="font-size: 10px; color: #ff4444; margin-bottom: 20px;">SECURITY: Call Signs are unique and permanent.</p>
+    <p style="font-size: 10px; color: #ff4444; margin-bottom: 20px; background: rgba(255,68,68,0.1); padding: 10px; border: 1px solid rgba(255,68,68,0.3);">
+        SECURITY: Call Signs are unique and permanent.
+    </p>
     <input type="text" id="newCallSign" class="input-main" placeholder="ENTER CALL SIGN">
     <button class="splash-btn" onclick="registerCallSign()">Lock In Call Sign</button>
 </div>
@@ -102,7 +110,7 @@
     <div style="display:flex; justify-content:space-between; align-items:center; background:#000; padding:12px; border:1px solid var(--bdr); margin-bottom:20px;">
         <div style="display:flex; align-items:center; gap:15px; font-family: var(--fh); font-size: 11px; color: var(--kh);">
             <div>MISSION: <span id="sessionId" class="highlight">----</span></div>
-            <button class="btn-add" onclick="copyActiveSessionId()">Copy ID</button>
+            <button class="btn-add" id="topCopyBtn" onclick="copyActiveSessionId()">Copy ID</button>
             <span id="userIdentity" style="border:1px solid var(--kh); padding:2px 5px;">----</span>
         </div>
         <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
@@ -112,21 +120,26 @@
     
     <section class="sec">
         <div class="sec-title">01. Fleet Roster</div>
-        <div class="row header-row"><div class="col-pilot">Pilot</div><div class="col-role">Role</div><div class="col-shares">Shares</div><div class="col-tools"></div></div>
+        <div class="row header-row">
+            <div class="col-pilot">Pilot</div>
+            <div class="col-role">Role</div>
+            <div class="col-shares">Shares</div>
+            <div class="col-tools"></div>
+        </div>
         <div id="crewContainer"></div>
-        <button class="btn-add" onclick="addCrew(); pushState();">+ Add Pilot</button>
+        <button id="addCrewBtn" class="btn-add" onclick="addCrew(); pushState();">+ Add Pilot</button>
     </section>
 
     <section class="sec">
         <div class="sec-title">02. Expenses</div>
         <div id="expenseContainer"></div>
-        <button class="btn-add" onclick="addExpense(); pushState();">+ Log Expense</button>
+        <button id="addExpBtn" class="btn-add" onclick="addExpense(); pushState();">+ Log Expense</button>
     </section>
 
     <section class="sec">
         <div class="sec-title">03. Haul Log</div>
         <div id="saleContainer"></div>
-        <button class="btn-add" onclick="addSale(); pushState();">+ Record Sale</button>
+        <button id="addSaleBtn" class="btn-add" onclick="addSale(); pushState();">+ Record Sale</button>
         <div class="row" style="margin-top:15px; border-top:1px solid #333; padding-top:10px;">
             <span style="font-size:10px;">MO.TRADER FEE %:</span>
             <input type="number" id="feeRate" value="0.5" style="max-width:60px;" oninput="pushState()">
@@ -134,32 +147,34 @@
         </div>
     </section>
 
-    <button class="btn-calc" onclick="runCalculation(true);">EXECUTE FINAL LEDGER</button>
+    <button id="calcBtn" class="btn-calc" onclick="runCalculation(true);">EXECUTE FINAL LEDGER</button>
     <div id="ledgerOutput"></div>
 
     <div id="exportSuite" style="display:none; margin-top:20px; border-top:1px solid var(--kh); padding-top:20px; display:flex; gap:10px; justify-content:center;">
         <button class="btn-add" onclick="exportToJSON()">Download JSON</button>
-        <button class="btn-add" style="background:var(--discord); color:#fff; border:none;" onclick="postToDiscord()">Post to Discord</button>
+        <button class="btn-add" style="background:var(--discord); color:#fff; border:none;" onclick="copyDiscordLedger()">Copy Discord Ledger</button>
     </div>
 </div>
 
 <div id="privacyModal" class="overlay">
     <div class="modal-content">
         <h3 style="font-family:var(--fh); color:var(--bn);">SECURITY PROTOCOL</h3>
-        <p>This terminal uses Federated OIDC Identity for Discord verification. Manual accounts use encrypted Firebase authentication. Mission data is synchronized in real-time across the fleet.</p>
+        <p>This terminal uses Federated OIDC Identity for Discord verification. Manual accounts are vaulted via Google Firebase. Mission data is synchronized in real-time across the fleet.</p>
         <button class="btn-add" style="width:100%; margin-top:20px;" onclick="toggleModal('privacyModal', false)">Close</button>
     </div>
 </div>
 
 <script>
-    // CONFIGURATION
     const firebaseConfig = { apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E", authDomain: "sp-ledger.firebaseapp.com", databaseURL: "https://sp-ledger-default-rtdb.firebaseio.com", projectId: "sp-ledger", storageBucket: "sp-ledger.firebasestorage.app", messagingSenderId: "1013635822544", appId: "1:1013635822544:web:727ce761d058b5f7127fd5" };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database(), auth = firebase.auth();
     let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
 
-    // AUTH & NAME SECURITY
-    function loginWithDiscord() { const provider = new firebase.auth.OAuthProvider('oidc.discord'); auth.signInWithPopup(provider).catch(e => alert(e.message)); }
+    // 1. AUTHENTICATION & IDENTITY REGISTRY
+    function loginWithDiscord() { 
+        const provider = new firebase.auth.OAuthProvider('oidc.discord'); 
+        auth.signInWithPopup(provider).catch(e => alert(e.message)); 
+    }
     function devLogin() {
         const e = document.getElementById('emailInput').value.trim(), p = document.getElementById('passInput').value;
         if(e && p) auth.signInWithEmailAndPassword(e, p).catch(x => auth.createUserWithEmailAndPassword(e, p));
@@ -170,33 +185,51 @@
             myUid = user.uid;
             db.ref('users/' + myUid).once('value').then(snap => {
                 if (snap.exists() && snap.val().callsign) {
-                    myName = snap.val().callsign; document.getElementById('lobbyName').textContent = myName;
-                    document.getElementById('lobby').style.display = 'block'; loadLobby();
-                } else document.getElementById('registerScreen').style.display = 'block';
+                    myName = snap.val().callsign; 
+                    document.getElementById('lobbyName').textContent = myName;
+                    document.getElementById('lobby').style.display = 'block'; 
+                    loadLobby();
+                } else {
+                    document.getElementById('registerScreen').style.display = 'block';
+                }
             });
-        } else document.getElementById('splash').style.display = 'block';
+        } else {
+            document.getElementById('splash').style.display = 'block';
+        }
     });
 
     function registerCallSign() {
         const cs = document.getElementById('newCallSign').value.trim().toUpperCase();
         if(cs.length < 2) return;
+        // Restored Global Uniqueness Check
         db.ref('users').once('value').then(snap => {
-            let taken = false; snap.forEach(u => { if(u.val().callsign === cs) taken = true; });
-            if(taken) alert("SECURITY: CALL SIGN ALREADY CLAIMED");
-            else db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload());
+            let taken = false;
+            snap.forEach(u => { if(u.val().callsign === cs) taken = true; });
+            if(taken) {
+                alert("SECURITY ALERT: CALL SIGN ALREADY CLAIMED BY ANOTHER PILOT");
+            } else {
+                db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload());
+            }
         });
     }
 
-    // MISSION LOBBY & TERMINATION LOGIC
+    // 2. LOBBY & TERMINATION TIMER
     function loadLobby() {
         db.ref('sessions').on('value', snap => {
             let h = ""; const now = Date.now();
             Object.keys(snap.val() || {}).forEach(id => {
                 const s = snap.val()[id], isCmd = (s.commander === myName);
+                // Auto-Purge check
                 if(s.killAt && now > s.killAt) { db.ref('sessions/' + id).remove(); return; }
+                
                 if(isCmd || (s.crew || []).some(c => c.name === myName)) {
+                    let timerStatus = "";
+                    if(s.killAt) {
+                        const remaining = Math.max(0, Math.ceil((s.killAt - now) / 3600000));
+                        timerStatus = `<span style="color:#ff4444; font-size:10px;">[${remaining}H UNTIL PURGE]</span>`;
+                    }
                     h += `<div style="background:var(--d3); padding:12px; margin-bottom:10px; border:1px solid var(--bdr); display:flex; justify-content:space-between; align-items:center;">
-                            <span>${id} ${s.killAt ? '<span style="color:#ff4444;">[TERMINATING]</span>' : ''}</span>
+                            <span>${id} ${timerStatus}</span>
                             <div style="display:flex; gap:5px;">
                                 <button class="btn-add" onclick="resumeMission('${id}', ${isCmd})">ENTER</button>
                                 ${isCmd && !s.killAt ? `<button class="btn-add" style="color:#ff4444;" onclick="startKillTimer('${id}')">KILL</button>` : ''}
@@ -204,87 +237,164 @@
                         </div>`;
                 }
             });
-            document.getElementById('activeMissionsList').innerHTML = h || "NO ACTIVE MISSIONS";
+            document.getElementById('activeMissionsList').innerHTML = h || "NO ACTIVE COMMANDS";
         });
     }
-    function startKillTimer(id) { if(confirm("START 24 HOUR TERMINATION?")) db.ref('sessions/' + id).update({ killAt: Date.now() + 86400000 }); }
+
+    function startKillTimer(id) {
+        if(confirm("INITIATE 24-HOUR DECOMMISSION CLOCK? MISSION WILL REMAIN VISIBLE UNTIL EXPIRED.")) {
+            db.ref('sessions/' + id).update({ killAt: Date.now() + 86400000 });
+        }
+    }
+
     function joinSessionManual() {
         const id = document.getElementById('joinIdInput').value.trim().toUpperCase();
         if(!id) return;
         db.ref('sessions/' + id).once('value').then(snap => {
             if(snap.exists()) { 
                 activeID = id; let s = snap.val(), crew = s.crew || []; 
-                if(!crew.some(c => c.name === myName)) { crew.push({name: myName, role: 'Pilot', share: 1}); db.ref('sessions/' + id).update({ crew: crew }); } 
+                if(!crew.some(c => c.name === myName)) { crew.push({name: myName, role: 'Pilot', share: 1, canEdit: false}); db.ref('sessions/' + id).update({ crew: crew }); } 
                 resumeMission(id, (s.commander === myName)); 
-            } else alert("MISSION ID NOT FOUND");
+            } else { alert("MISSION ID NOT FOUND"); }
         });
     }
-    function initiateMission() { activeID = "SP-" + Math.floor(1000 + Math.random() * 9000); db.ref('sessions/' + activeID).set({ commander: myName, createdAt: Date.now(), fee: 0.5, crew: [{ name: myName, role: 'COMMANDER', share: 1 }] }).then(() => resumeMission(activeID, true)); }
+
+    function initiateMission() {
+        activeID = "SP-" + Math.floor(1000 + Math.random() * 9000);
+        db.ref('sessions/' + activeID).set({ commander: myName, createdAt: Date.now(), fee: 0.5, crew: [{ name: myName, role: 'COMMANDER', share: 1, canEdit: true }] }).then(() => resumeMission(activeID, true));
+    }
     function resumeMission(id, cmd) { activeID = id; isCommander = cmd; document.querySelectorAll('.panel').forEach(p => p.style.display = 'none'); document.getElementById('app').style.display = 'block'; document.getElementById('sessionId').textContent = id; document.getElementById('userIdentity').textContent = myName; db.ref('sessions/' + id).on('value', v => pullState(v.val())); }
 
-    // REAL-TIME SYNC LOGIC
+    // 3. SYNC ENGINE & EDITOR DELEGATION
     function pushState() {
         if (!activeID || remoteUpdateInProgress) return;
         db.ref('sessions/' + activeID).update({
             fee: document.getElementById('feeRate').value,
-            crew: Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, role: r.querySelector('.c-role').value, share: r.querySelector('.c-share').value })),
-            expenses: Array.from(document.querySelectorAll('#expenseContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, amt: r.querySelectorAll('input')[1].value, who: r.querySelector('.claimant-select').value })),
-            sales: Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, amt: r.querySelectorAll('input')[1].value, payer: r.querySelector('.payer-select').value })),
+            crew: Array.from(document.querySelectorAll('.crew-row')).map(r => ({ 
+                name: r.querySelector('.c-name').value, 
+                role: r.querySelector('.c-role').value, 
+                share: r.querySelector('.c-share').value,
+                canEdit: r.querySelector('.perm-check').checked 
+            })),
+            expenses: Array.from(document.querySelectorAll('#expenseContainer .row')).map(r => ({ 
+                item: r.querySelectorAll('input')[0].value, 
+                amt: r.querySelectorAll('input')[1].value, 
+                who: r.querySelector('.claimant-select').value 
+            })),
+            sales: Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ 
+                item: r.querySelectorAll('input')[0].value, 
+                amt: r.querySelectorAll('input')[1].value, 
+                payer: r.querySelector('.payer-select').value 
+            })),
             lastUpdatedBy: myUid
         });
     }
+
     function pullState(d) {
         if (!d || remoteUpdateInProgress || (d.lastUpdatedBy === myUid && !isFirstPull)) { updateGross(); return; }
         remoteUpdateInProgress = true;
+        
+        // Editor Security Logic
+        const canEditTerminal = (isCommander || (d.crew || []).find(c => c.name === myName)?.canEdit);
+        
         document.getElementById('feeRate').value = d.fee || 0.5;
-        document.getElementById('crewContainer').innerHTML = ""; (d.crew || []).forEach(c => addCrewRow(c));
-        document.getElementById('expenseContainer').innerHTML = ""; (d.expenses || []).forEach(e => { addExpense(); const r = document.getElementById('expenseContainer').lastElementChild; r.querySelectorAll('input')[0].value = e.item; r.querySelectorAll('input')[1].value = e.amt; r.querySelector('.claimant-select').value = e.who; });
-        document.getElementById('saleContainer').innerHTML = ""; (d.sales || []).forEach(s => { addSale(); const r = document.getElementById('saleContainer').lastElementChild; r.querySelectorAll('input')[0].value = s.item; r.querySelectorAll('input')[1].value = s.amt; r.querySelector('.payer-select').value = s.payer; });
+        document.getElementById('feeRate').disabled = !canEditTerminal;
+        ['addCrewBtn', 'calcBtn', 'addExpBtn', 'addSaleBtn'].forEach(id => { 
+            const el = document.getElementById(id);
+            if (el) el.style.display = canEditTerminal ? 'inline-block' : 'none'; 
+        });
+
+        // Rebuild containers
+        rebuildRoster(d.crew, canEditTerminal);
+        rebuildExpenses(d.expenses, canEditTerminal);
+        rebuildSales(d.sales, canEditTerminal);
+        
         updateGross(); isFirstPull = false; remoteUpdateInProgress = false;
     }
 
-    // LEDGER MATH (MO.TRADER BONUS)
-    function runCalculation(m) {
-        const fee = parseFloat(document.getElementById('feeRate').value) / 100, crew = Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 })), sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ payer: r.querySelector('.payer-select').value, amt: parseFloat(r.querySelectorAll('input')[1].value) || 0 }));
-        let mE = {}; document.querySelectorAll('#expenseContainer .row').forEach(r => { const a = parseFloat(r.querySelectorAll('input')[1].value) || 0, w = r.querySelector('.claimant-select').value; if(w) mE[w] = (mE[w] || 0) + a; });
-        const gross = sales.reduce((a,b) => a+b.amt, 0), payers = [...new Set(sales.map(s => s.payer).filter(p => p))];
-        let sRW = 0, sSW = 0; crew.forEach(c => { const r_i = mE[c.name] || 0, w_i = 1 + (payers.includes(c.name) ? 0 : fee); sRW += (r_i * w_i); sSW += (c.share * w_i); });
-        const K = sSW > 0 ? (gross - sRW) / sSW : 0;
-        let h = `<table class="ledger-table"><thead><tr><th>Pilot</th><th>Exp</th>`; payers.forEach(p => h += `<th>From ${p}</th>`); h += `<th>Final Payout</th></tr></thead><tbody>`;
-        crew.forEach(m => {
-            const r_i = mE[m.name] || 0, base = r_i + (K * m.share); h += `<tr><td>${m.name}</td><td>${r_i.toLocaleString()}</td>`;
-            let tB = 0; payers.forEach(pn => { const pot = sales.filter(s => s.payer === pn).reduce((a,b) => a+b.amt, 0), sOP = (pot / (gross || 1)) * base; h += `<td class="highlight">${(m.name !== pn ? Math.round(sOP).toLocaleString() : '--')}</td>`; });
-            if (payers.includes(m.name)) { const mG = sales.filter(s => s.payer === m.name).reduce((a,b) => a+b.amt, 0); crew.forEach(o => { if (o.name !== m.name) tB += ((mG / (gross || 1)) * ( (mE[o.name] || 0) + (K * o.share) ) * fee); }); }
-            h += `<td class="highlight" style="color:var(--bn);">${Math.round(base + tB).toLocaleString()}</td></tr>`;
-        });
-        document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`; document.getElementById('exportSuite').style.display = 'flex'; if(m) pushState();
-    }
-
-    // EXPORTS
-    function exportToJSON() { db.ref('sessions/' + activeID).once('value', snap => { const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snap.val()))); dl.setAttribute("download", activeID + ".json"); dl.click(); }); }
-    function postToDiscord() {
-        const webhook = prompt("PASTE DISCORD WEBHOOK URL:"); if(!webhook) return;
-        const payload = { embeds: [{ title: "SOL PROVISION LOGISTICS: " + activeID, color: 0x7E2619, fields: [] }] };
-        document.querySelectorAll('.ledger-table tr').forEach((tr, i) => { if(i === 0) return; const tds = tr.querySelectorAll('td'); payload.embeds[0].fields.push({ name: tds[0].innerText, value: "Final Wallet: " + tds[tds.length-1].innerText + " aUEC", inline: true }); });
-        fetch(webhook, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(() => alert("LOGS POSTED")).catch(e => alert(e.message));
-    }
-
-    // UI GENERATORS
-    function addCrewRow(c) {
-        const d = c || {name:'', role:'', share:1}, div = document.createElement('div'); div.className = 'row crew-row';
-        div.innerHTML = `<div class="col-pilot"><input type="text" class="c-name" value="${d.name}" oninput="pushState()"></div><div class="col-role"><input type="text" class="c-role" value="${d.role}" oninput="pushState()"></div><div class="col-shares"><input type="number" class="c-share input-shares" value="${d.share}" oninput="pushState()"></div><div class="col-tools"><button class="btn-add" style="color:#ff4444;" onclick="this.parentElement.parentElement.remove(); pushState();">X</button></div>`;
+    function addCrewRow(c, canEdit) {
+        const d = c || {name:'', role:'', share:1, canEdit: false}, div = document.createElement('div'); div.className = 'row crew-row';
+        div.innerHTML = `<div class="col-pilot"><input type="text" class="c-name" value="${d.name}" ${canEdit?'':'disabled'} oninput="pushState()"></div>
+            <div class="col-role"><input type="text" class="c-role" value="${d.role}" ${canEdit?'':'disabled'} oninput="pushState()"></div>
+            <div class="col-shares"><input type="number" class="c-share input-shares" value="${d.share}" ${canEdit?'':'disabled'} oninput="pushState()"></div>
+            <div class="col-tools">
+                <div style="display:${isCommander?'flex':'none'}; align-items:center; font-size:8px;"><input type="checkbox" class="perm-check" ${d.canEdit?'checked':''} onchange="pushState()"> Ed</div>
+                <button class="btn-add" style="color:#ff4444; display:${canEdit?'block':'none'}" onclick="this.parentElement.parentElement.remove(); pushState();">X</button>
+            </div>`;
         document.getElementById('crewContainer').appendChild(div); syncDropdowns();
     }
-    function addCrew() { addCrewRow(null); }
-    function addExpense() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Item" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="pushState()"><select class="claimant-select" onchange="pushState()"></select><button class="btn-add" onclick="this.parentElement.remove(); pushState();">X</button>`; document.getElementById('expenseContainer').appendChild(div); syncDropdowns(); }
-    function addSale() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Sale" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="updateGross(); pushState()"><select class="payer-select" onchange="pushState()"></select><button class="btn-add" onclick="this.parentElement.remove(); updateGross(); pushState();">X</button>`; document.getElementById('saleContainer').appendChild(div); syncDropdowns(); }
-    function syncDropdowns() { const n = Array.from(document.querySelectorAll('.c-name')).map(i => i.value || "PILOT"); document.querySelectorAll('.claimant-select, .payer-select').forEach(s => { const v = s.value; s.innerHTML = '<option value="">Member</option>'; n.forEach(x => { s.innerHTML += `<option value="${x}">${x}</option>`; }); s.value = v; }); }
-    function updateGross() { let t = 0; document.querySelectorAll('#saleContainer input[type="number"]').forEach(i => t += parseFloat(i.value) || 0); document.getElementById('grossDisp').textContent = t.toLocaleString(); }
-    function exitToLobby() { location.reload(); }
-    function copyActiveSessionId() { if(activeID) navigator.clipboard.writeText(activeID).then(() => alert("ID COPIED")); }
-    function toggleModal(id, show) { document.getElementById(id).style.display = show ? 'flex' : 'none'; }
-    function adminLogin() { const p = prompt("BOARD PIN:"); db.ref('admin_config/master_pin').once('value').then(snap => { if(p === snap.val()){ document.getElementById('lobby').style.display='none'; document.getElementById('adminPanel').style.display='block'; db.ref('sessions').on('value', s => { let h = ""; Object.keys(s.val()||{}).forEach(id => { h += `<div class="row"><span>${id}</span><button class="btn-add" onclick="db.ref('sessions/${id}').remove()">NUKE</button></div>`; }); document.getElementById('adminList').innerHTML = h; }); } }); }
-    function purgeOldSessions() { db.ref('sessions').once('value').then(snap => { const limit = Date.now() - (30 * 24 * 60 * 60 * 1000); Object.keys(snap.val() || {}).forEach(id => { if (snap.val()[id].createdAt < limit) db.ref('sessions/'+id).remove(); }); alert("PURGE COMPLETE"); }); }
-</script>
-</body>
-</html>
+
+    function rebuildRoster(d, can) { document.getElementById('crewContainer').innerHTML = ""; (d || []).forEach(c => addCrewRow(c, can)); }
+    function rebuildExpenses(d, can) { 
+        document.getElementById('expenseContainer').innerHTML = ""; 
+        (d || []).forEach(x => { 
+            addExpense(); 
+            const r = document.getElementById('expenseContainer').lastElementChild; 
+            r.querySelectorAll('input')[0].value = x.item; r.querySelectorAll('input')[1].value = x.amt; r.querySelector('.claimant-select').value = x.who; 
+            if(!can) r.querySelectorAll('input, select').forEach(i=>i.disabled=true); 
+        }); 
+    }
+    function rebuildSales(d, can) { 
+        document.getElementById('saleContainer').innerHTML = ""; 
+        (d || []).forEach(x => { 
+            addSale(); 
+            const r = document.getElementById('saleContainer').lastElementChild; 
+            r.querySelectorAll('input')[0].value = x.item; r.querySelectorAll('input')[1].value = x.amt; r.querySelector('.payer-select').value = x.payer; 
+            if(!can) r.querySelectorAll('input, select').forEach(i=>i.disabled=true); 
+        }); 
+    }
+
+    // 4. THE BRAIN: MO.TRADER MATH
+    function runCalculation(m) {
+        const fee = parseFloat(document.getElementById('feeRate').value) / 100;
+        const crew = Array.from(document.querySelectorAll('.crew-row')).map(r => ({ name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 }));
+        const sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(r => ({ payer: r.querySelector('.payer-select').value, amt: parseFloat(r.querySelectorAll('input')[1].value) || 0 }));
+        let memberExpenses = {}; document.querySelectorAll('#expenseContainer .row').forEach(r => { const a = parseFloat(r.querySelectorAll('input')[1].value) || 0, w = r.querySelector('.claimant-select').value; if(w) memberExpenses[w] = (memberExpenses[w] || 0) + a; });
+        
+        const gross = sales.reduce((a,b) => a+b.amt, 0);
+        const payers = [...new Set(sales.map(s => s.payer).filter(p => p))];
+        let sumRW = 0, sumSW = 0;
+        
+        crew.forEach(c => {
+            const r_i = memberExpenses[c.name] || 0;
+            const w_i = 1 + (payers.includes(c.name) ? 0 : fee);
+            sumRW += (r_i * w_i); sumSW += (c.share * w_i);
+        });
+        
+        const K = sumSW > 0 ? (gross - sumRW) / sumSW : 0;
+
+        let h = `<table class="ledger-table"><thead><tr><th>Pilot</th><th>Exp</th>`;
+        payers.forEach(p => h += `<th>From ${p}</th>`);
+        h += `<th>Final Wallet</th></tr></thead><tbody>`;
+        
+        crew.forEach(m => {
+            const r_i = memberExpenses[m.name] || 0;
+            const basePayout = r_i + (K * m.share);
+            h += `<tr><td>${m.name}</td><td>${r_i.toLocaleString()}</td>`;
+            let taxTotalBonus = 0;
+            payers.forEach(pn => {
+                const pot = sales.filter(s => s.payer === pn).reduce((a,b) => a+b.amt, 0);
+                const shareOfPot = (pot / (gross || 1)) * basePayout;
+                h += `<td class="highlight">${(m.name !== pn ? Math.round(shareOfPot).toLocaleString() : '--')}</td>`;
+            });
+            if (payers.includes(m.name)) {
+                const myGrossHandled = sales.filter(s => s.payer === m.name).reduce((a,b) => a+b.amt, 0);
+                crew.forEach(other => { 
+                    if (other.name !== m.name) {
+                        taxTotalBonus += ((myGrossHandled / (gross || 1)) * ( (memberExpenses[other.name] || 0) + (K * other.share) ) * fee); 
+                    }
+                });
+            }
+            h += `<td class="highlight" style="color:var(--bn);">${Math.round(basePayout + taxTotalBonus).toLocaleString()}</td></tr>`;
+        });
+        
+        document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
+        document.getElementById('exportSuite').style.display = 'flex';
+        if (m) pushState();
+    }
+
+    // 5. EXPORTS & UTILS
+    function copyDiscordLedger() {
+        let text = "
+http://googleusercontent.com/immersive_entry_chip/0
+
