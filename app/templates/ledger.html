@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Sol Provision — Fleet Payout Terminal</title>
+  <title>Sol Provision — Fleet Payout Terminal v24.6</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -69,12 +69,6 @@
 <div id="splash" class="panel" style="display:block;">
   <h2 style="margin-bottom:30px;">SOL PROVISION</h2>
   <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
-  <div style="margin: 15px 0; opacity: 0.3; font-size: 10px;">— OR USE EMAIL —</div>
-  <div>
-    <input type="email" id="emailInput" class="input-main" placeholder="TEST EMAIL" autocomplete="off"><br>
-    <input type="password" id="passInput" class="input-main" placeholder="PASSWORD" autocomplete="off" onkeydown="if(event.keyCode==13) devLogin()">
-    <button class="splash-btn" onclick="devLogin()">Authenticate</button>
-  </div>
   <button class="admin-link" onclick="toggleModal('privacyModal', true)">Security Protocol</button><br>
   <button class="admin-link" style="margin-top:20px;" onclick="adminLogin()">Board Member Access</button>
 </div>
@@ -161,8 +155,8 @@
   
   <div id="ledgerOutput"></div>
   <div id="utilButtons" class="util-bar" style="display:none;">
-      <button class="btn-util" style="background:var(--discord); color:#fff; border:none;" onclick="copyDiscord()">Copy for Discord</button>
-      <button class="btn-util" onclick="exportJSON()">Export JSON File</button>
+    <button class="btn-util" style="background:var(--discord); color:#fff; border:none;" onclick="copyDiscord()">Copy for Discord</button>
+    <button class="btn-util" onclick="exportJSON()">Export JSON File</button>
   </div>
 </div>
 
@@ -195,17 +189,6 @@
     });
   }
 
-  function devLogin() {
-    const email = document.getElementById('emailInput').value.trim();
-    const pass = document.getElementById('passInput').value;
-    if(!email || !pass) return;
-    auth.signInWithEmailAndPassword(email, pass).catch(function(e) {
-      if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-login-credentials') {
-        auth.createUserWithEmailAndPassword(email, pass).catch(function(err) { alert(err.message); });
-      } else { alert(e.message); }
-    });
-  }
-
   auth.onAuthStateChanged(function(user) {
     hideAllPanels();
     if (user) {
@@ -225,8 +208,10 @@
       const upper = name.trim().toUpperCase();
       db.ref('users').once('value').then(function(snap) {
           let taken = false;
-          snap.forEach(function(u) { if (u.key !== myUid && u.val().callsign === upper) taken = true; });
+          snap.forEach(function(u) { if (u.key !== myUid && u.val() && u.val().callsign === upper) taken = true; });
           callback(!taken);
+      }).catch(function(error) {
+          alert("Database Error (Check Firebase Rules): " + error.message);
       });
   }
 
@@ -240,6 +225,8 @@
               document.getElementById('lobbyName').textContent = myName;
               document.getElementById('lobby').style.display = 'block';
               loadActiveCommands();
+            }).catch(function(error) {
+                alert("Save Error: " + error.message);
             });
         } else { alert("ERROR: Name claimed by another pilot."); }
     });
@@ -250,7 +237,9 @@
       if (newName && newName.trim().length >= 2) {
           const upper = newName.trim().toUpperCase();
           checkNameUniqueness(upper, function(isUnique) {
-              if (isUnique) { db.ref('users/' + myUid).update({ callsign: upper }).then(function() { location.reload(); }); }
+              if (isUnique) { 
+                  db.ref('users/' + myUid).update({ callsign: upper }).then(function() { location.reload(); }).catch(function(error) { alert("Update Error: " + error.message); }); 
+              }
               else { alert("ERROR: Name taken."); }
           });
       }
@@ -369,18 +358,28 @@
     if (!data || remoteUpdateInProgress || (data.lastUpdatedBy === myName && !isFirstPull)) { updateGross(); return; }
     remoteUpdateInProgress = true; currentStatus = data.status || 'open';
     const canIEdit = (isCommander || (data.crew || []).find(function(c) { return c.name === myName; })?.canEdit) && currentStatus === 'open';
+    
     document.getElementById('feeRate').value = data.fee || 0.5; document.getElementById('feeRate').disabled = !canIEdit;
     document.getElementById('addCrewBtn').style.display = canIEdit ? 'inline-block' : 'none';
     document.getElementById('calcBtn').style.display = canIEdit ? 'block' : 'none';
     document.getElementById('addExpBtn').style.display = canIEdit ? 'inline-block' : 'none';
     document.getElementById('addSaleBtn').style.display = canIEdit ? 'inline-block' : 'none';
-    if (data.finalLedgerHTML) { document.getElementById('ledgerOutput').innerHTML = data.finalLedgerHTML; document.getElementById('utilButtons').style.display = 'flex'; }
-    rebuildRoster(data.crew, canIEdit); rebuildExpenses(data.expenses, canIEdit); rebuildSales(data.sales, canIEdit);
+    
+    if (data.finalLedgerHTML) { 
+        document.getElementById('ledgerOutput').innerHTML = data.finalLedgerHTML; 
+        document.getElementById('utilButtons').style.display = 'flex'; 
+    }
+    
+    rebuildRoster(data.crew, canIEdit); 
+    rebuildExpenses(data.expenses, canIEdit); 
+    rebuildSales(data.sales, canIEdit);
+    
     if (!data.finalLedgerHTML) { runCalculation(false); }
     updateGross(); isFirstPull = false; remoteUpdateInProgress = false;
   }
 
   function rebuildRoster(d, canEdit) { const b = document.getElementById('crewContainer'); b.innerHTML = ""; (d || []).forEach(function(c) { addCrewRow(c, canEdit); }); syncDropdowns(); }
+  
   function addCrewRow(c, canEdit) {
     const cData = c || {name:'', role:'', share:1, canEdit:false};
     const div = document.createElement('div'); div.className = 'row crew-row';
@@ -390,7 +389,7 @@
       <div class="col-shares"><input type="number" class="c-share input-shares" value="${cData.share}" ${canEdit?'':'disabled'} oninput="pushState()"></div>
       <div class="col-tools">
           <div style="display:${isCommander?'flex':'none'}; align-items:center; gap:3px; font-size:9px;"><input type="checkbox" class="perm-check" ${cData.canEdit?'checked':''} onchange="pushState()"> Ed</div>
-          <button class="btn-del" style="background:transparent; border:1px solid #ff4444; color:#ff4444; font-family:var(--fh); font-size:9px; padding:8px 12px; display:${canEdit?'block':'none'}" onclick="this.parentElement.parentElement.remove(); pushState();">X</button>
+          <button class="btn-del" style="display:${canEdit?'block':'none'}" onclick="this.parentElement.parentElement.remove(); pushState();">X</button>
       </div>`;
     document.getElementById('crewContainer').appendChild(div);
   }
@@ -399,8 +398,8 @@
   function rebuildSales(d, e) { const b = document.getElementById('saleContainer'); b.innerHTML = ""; (d || []).forEach(function(x) { addSale(); const r = b.lastElementChild; r.querySelectorAll('input')[0].value = x.item; r.querySelectorAll('input')[1].value = x.amt; r.querySelector('.payer-select').value = x.payer; if(!e) r.querySelectorAll('input, select').forEach(function(i){i.disabled=true;}); }); }
 
   function addCrew() { addCrewRow(null, true); syncDropdowns(); }
-  function addExpense() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Fuel/Cargo" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="pushState()"><select class="claimant-select" onchange="pushState()"></select><button class="btn-del" style="background:transparent; border:1px solid #ff4444; color:#ff4444; font-family:var(--fh); font-size:9px; padding:8px 12px;" onclick="this.parentElement.remove(); pushState();">X</button>`; document.getElementById('expenseContainer').appendChild(div); syncDropdowns(); }
-  function addSale() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Haul Item" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="updateGross(); pushState()"><select class="payer-select" onchange="pushState()"></select><button class="btn-del" style="background:transparent; border:1px solid #ff4444; color:#ff4444; font-family:var(--fh); font-size:9px; padding:8px 12px;" onclick="this.parentElement.remove(); updateGross(); pushState();">X</button>`; document.getElementById('saleContainer').appendChild(div); syncDropdowns(); }
+  function addExpense() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Fuel/Cargo" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="pushState()"><select class="claimant-select" onchange="pushState()"></select><button class="btn-del" onclick="this.parentElement.remove(); pushState();">X</button>`; document.getElementById('expenseContainer').appendChild(div); syncDropdowns(); }
+  function addSale() { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Haul Item" oninput="pushState()"><input type="number" placeholder="aUEC" oninput="updateGross(); pushState()"><select class="payer-select" onchange="pushState()"></select><button class="btn-del" onclick="this.parentElement.remove(); updateGross(); pushState();">X</button>`; document.getElementById('saleContainer').appendChild(div); syncDropdowns(); }
 
   function syncDropdowns() { const names = Array.from(document.querySelectorAll('.c-name')).map(function(input) { return input.value || "Unknown"; }); document.querySelectorAll('.claimant-select, .payer-select').forEach(function(s) { const v = s.value; s.innerHTML = '<option value="">Crew Member</option>'; names.forEach(function(n) { const o = document.createElement('option'); o.value = n; o.textContent = n; s.appendChild(o); }); s.value = v; }); }
   function updateGross() { let t = 0; document.querySelectorAll('#saleContainer input[type="number"]').forEach(function(i) { t += parseFloat(i.value) || 0; }); document.getElementById('grossDisp').textContent = t.toLocaleString(); }
@@ -410,6 +409,7 @@
     const crew = Array.from(document.querySelectorAll('.crew-row')).map(function(r) { return { name: r.querySelector('.c-name').value, share: parseFloat(r.querySelector('.c-share').value) || 0 }; });
     const sales = Array.from(document.querySelectorAll('#saleContainer .row')).map(function(r) { return { payer: r.querySelector('.payer-select').value, amt: parseFloat(r.querySelectorAll('input')[1].value) || 0 }; });
     let mE = {}; document.querySelectorAll('#expenseContainer .row').forEach(function(r) { const a = parseFloat(r.querySelectorAll('input')[1].value) || 0; const w = r.querySelector('.claimant-select').value; if(w && w !== "Crew Member") mE[w] = (mE[w] || 0) + a; });
+    
     const totalGross = sales.reduce(function(a,b) { return a+b.amt; }, 0);
     const payers = [...new Set(sales.map(function(s) { return s.payer; }).filter(function(p) { return p && p !== "Crew Member"; }))];
     let sRW = 0; let sSW = 0;
@@ -418,9 +418,11 @@
       sRW += (reimb * weight); sSW += (c.share * weight);
     });
     const K = sSW > 0 ? (totalGross - sRW) / sSW : 0;
+    
     let h = `<table class="ledger-table"><thead><tr><th>PAID</th><th>Member</th><th>Exp</th>`;
     payers.forEach(function(p) { h += `<th>From ${p}</th>`; });
     h += `<th>Wallet</th></tr></thead><tbody>`;
+    
     crew.forEach(function(member) {
       const reimb = mE[member.name] || 0; const targetWallet = reimb + (K * member.share);
       h += `<tr><td><input type="checkbox" class="paid-check" data-member="${member.name}" onchange="pushState()"></td><td>${member.name}</td><td>${reimb.toLocaleString()}</td>`;
@@ -444,6 +446,7 @@
       if (myTaxBuffer > 0) { h += `<br><span style="font-size:9px; color:#ff4444; opacity:0.8;">INCLUDES ${Math.round(myTaxBuffer).toLocaleString()} TAX BUF</span>`; }
       h += `</td></tr>`;
     });
+    
     document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
     document.getElementById('utilButtons').style.display = 'flex';
     if (isManualTrigger === true) { pushState(); }
