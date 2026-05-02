@@ -66,7 +66,6 @@ COMP_PARAMS = {
 # ── Page routes ───────────────────────────────────────────────────────────────
 @app.route("/")
 def index(): return render_template("index.html", active_page="/")
-@app.route("/ships/<entity_name>")
 @app.route("/ships")
 def ships_page():
     return render_template("ships.html", active_page="/ships")
