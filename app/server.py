@@ -66,7 +66,6 @@ COMP_PARAMS = {
 # ── Page routes ───────────────────────────────────────────────────────────────
 @app.route("/")
 def index(): return render_template("index.html", active_page="/")
-@app.route("/ships/<entity_name>")
 @app.route("/ships")
 def ships_page():
     return render_template("ships.html", active_page="/ships")
@@ -221,7 +220,9 @@ def api_counts():
         if where: sql += f" AND {where}"
         return conn.execute(sql, (p,)+params).fetchone()["n"]
     ships = conn.execute(
-        f"SELECT COUNT(*) as n FROM ships WHERE patch_version=? AND {EXCLUDE}", (p,)
+        "SELECT COUNT(*) as n FROM ships s "
+        "JOIN ships_index si ON si.entity_name = s.entity_name "
+        "WHERE s.patch_version = ?", (p,)
     ).fetchone()["n"]
     result = {
         "ships":        ships,
@@ -258,9 +259,12 @@ def api_ships():
     if sort_by not in {"entity_name","cargo_scu","crew_size","length_m","career","display_name"}:
         sort_by = "entity_name"
 
-    sql = f"""SELECT uuid, entity_name, display_name, vehicle_name, career, role,
-                     crew_size, cargo_scu, length_m, beam_m, height_m
-              FROM ships WHERE patch_version=? AND {EXCLUDE}"""
+    sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name, 
+                 s.career, s.role, s.crew_size, s.cargo_scu, 
+                 s.length_m, s.beam_m, s.height_m
+          FROM ships s
+          JOIN ships_index si ON si.entity_name = s.entity_name
+          WHERE s.patch_version = ?"""
     params = [p]
     if career:   sql += " AND career LIKE ?";   params.append(f"%{career}%")
     if min_scu:  sql += " AND cargo_scu >= ?";  params.append(min_scu)
