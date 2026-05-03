@@ -589,7 +589,7 @@
     document.getElementById('sb-scm').textContent = fc ? `${fc.scm_speed} m/s` : 'data gap';
 
     const qd = ship.components.quantum_drives[0];
-    document.getElementById('sb-qd').textContent = qd ? `${qd.drive_speed} Mm/s` : 'data gap';
+    document.getElementById('sb-qd').textContent = qd ? `${qd.drive_speed} km/s` : 'data gap';
 
     const mainList = ship.components.thrusters['Main'] || ship.components.thrusters['main'] || [];
     const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
@@ -628,7 +628,7 @@
     setStatBlock('ov-scm', 'ov-scm-u', fc ? fc.scm_speed : null, 0, 'm/s');
 
     const qd = ship.components.quantum_drives[0];
-    setStatBlock('ov-qd', 'ov-qd-u', qd ? qd.drive_speed : null, 0, 'Mm/s');
+    setStatBlock('ov-qd', 'ov-qd-u', qd ? qd.drive_speed : null, 0, 'km/s');
 
     const mainList = ship.components.thrusters['Main'] || ship.components.thrusters['main'] || [];
     const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
@@ -701,7 +701,7 @@
 
     const qd = ship.components.quantum_drives[0];
     document.getElementById('qd-content').innerHTML = qd
-      ? dr('Drive Speed', qd.drive_speed, 0, 'Mm/s') +
+      ? dr('Drive Speed', qd.drive_speed, 0, 'km/s') +
         dr('Spool Time', qd.spool_up_time, 1, 's') +
         dr('Cooldown', qd.cooldown_time, 1, 's') +
         dr('Fuel / Jump', qd.quantum_fuel_req, 2, 'SCU') +
@@ -795,7 +795,7 @@
       c.quantum_drives.forEach((qd, i) => {
         html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
           qd.display_name || qd.entity_name, qd.size, qd.grade, qd.item_sub_type,
-          stat('Drive Speed', qd.drive_speed, 0, 'Mm/s', true) +
+          stat('Drive Speed', qd.drive_speed, 0, 'km/s', true) +
           stat('Spool Up', qd.spool_up_time, 1, 's') +
           stat('Cooldown', qd.cooldown_time, 1, 's') +
           stat('Fuel / Jump', qd.quantum_fuel_req, 2, 'SCU') +
