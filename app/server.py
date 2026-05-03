@@ -356,7 +356,7 @@ def get_ship_components(conn, ship_entity, patch):
 
     quantum_drives = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
-               t.drive_speed, t.spool_up_time, t.cooldown_time,
+               t.drive_speed / 1000, t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
                t.quantum_fuel_req, t.jump_range,
                t.power_draw, t.em_signature, t.health
@@ -473,7 +473,7 @@ def api_ship_detail(entity_name):
         FROM ships s
         LEFT JOIN ships_index si ON si.entity_name = s.entity_name
         WHERE s.entity_name = ? AND s.patch_version = ?
-    """, (entity_name, patch)).fetchone()
+    """, (entity_name, p)).fetchone()
     if not ship: conn.close(); return jsonify({"error":"Not found"}), 404
 
     grids = conn.execute(
