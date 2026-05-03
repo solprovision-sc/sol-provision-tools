@@ -304,7 +304,7 @@ def get_ship_components(conn, ship_entity, patch):
         return f"""
         FROM ship_hardpoints sh
         JOIN item_components ic
-          ON ic.entity_name = sh.installed_name
+          ON LOWER(ic.entity_name) = LOWER(sh.installed_name)
          AND ic.patch_version = :patch
         JOIN {tbl} t
           ON t.uuid = ic.uuid
