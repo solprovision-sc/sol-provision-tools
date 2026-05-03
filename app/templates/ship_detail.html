@@ -538,7 +538,9 @@
     if (v === null || v === undefined || v === '') return null;
     const n = parseFloat(v);
     if (isNaN(n)) return null;
-    const s = dec !== undefined ? n.toFixed(dec) : Math.round(n).toLocaleString();
+    const s = dec !== undefined 
+		? n.toFixed(dec).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+		: Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     return unit ? `${s} ${unit}` : s;
   }
 
