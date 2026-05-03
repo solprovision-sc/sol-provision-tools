@@ -473,7 +473,7 @@ def api_ship_detail(entity_name):
         FROM ships s
         LEFT JOIN ships_index si ON si.entity_name = s.entity_name
         WHERE s.entity_name = ? AND s.patch_version = ?
-    """, (entity_name, patch)).fetchone()
+    """, (entity_name, patch_version)).fetchone()
     if not ship: conn.close(); return jsonify({"error":"Not found"}), 404
 
     grids = conn.execute(
