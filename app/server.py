@@ -258,6 +258,7 @@ def api_ships():
     limit    = request.args.get("limit", 500, type=int)
     if sort_by not in {"entity_name","cargo_scu","crew_size","length_m","career","display_name"}:
         sort_by = "entity_name"
+    sort_by = f"s.{sort_by}"
 
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name, 
                  s.career, s.role, s.crew_size, s.cargo_scu, 
@@ -266,9 +267,9 @@ def api_ships():
           JOIN ships_index si ON si.entity_name = s.entity_name
           WHERE s.patch_version = ?"""
     params = [p]
-    if career:   sql += " AND career LIKE ?";   params.append(f"%{career}%")
-    if min_scu:  sql += " AND cargo_scu >= ?";  params.append(min_scu)
-    if max_crew: sql += " AND crew_size <= ?";  params.append(max_crew)
+    if career:   sql += " AND s.career LIKE ?";   params.append(f"%{career}%")
+    if min_scu:  sql += " AND s.cargo_scu >= ?";  params.append(min_scu)
+    if max_crew: sql += " AND s.crew_size <= ?";  params.append(max_crew)
     sql += f" ORDER BY {sort_by} NULLS LAST LIMIT ?"; params.append(limit)
 
     rows = conn.execute(sql, params).fetchall(); conn.close()
