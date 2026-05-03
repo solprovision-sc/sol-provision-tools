@@ -468,9 +468,12 @@ def get_ship_components(conn, ship_entity, patch):
 @app.route("/api/ship/<entity_name>")
 def api_ship_detail(entity_name):
     conn = get_db(); p = PATCH or latest_patch(conn)
-    ship = conn.execute(
-        "SELECT * FROM ships WHERE entity_name=? AND patch_version=?", (entity_name, p)
-    ).fetchone()
+    ship = conn.execute("""
+        SELECT s.*, si.lineart_file
+        FROM ships s
+        LEFT JOIN ships_index si ON si.entity_name = s.entity_name
+        WHERE s.entity_name = ? AND s.patch_version = ?
+    """, (entity_name, patch)).fetchone()
     if not ship: conn.close(); return jsonify({"error":"Not found"}), 404
 
     grids = conn.execute(
@@ -517,6 +520,7 @@ def api_ship_detail(entity_name):
         "cargo_grids":            [dict(g) for g in grids],
         "hardpoints":             hardpoints,
         "components":             components,
+        "lineart_file":           ship["lineart_file"] or None,
     })
 
 @app.route("/api/compare")

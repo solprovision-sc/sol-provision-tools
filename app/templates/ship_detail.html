@@ -364,13 +364,12 @@
         </div>
         <div class="overview-layout">
           <div class="silhouette" id="sil-container">
-            <img id="sil-img" src="" alt="Ship silhouette"
-              onerror="this.style.display='none'; document.getElementById('sil-fallback').style.display='flex';">
-            <div class="sil-placeholder" id="sil-fallback" style="display:none;">
-              <div class="sil-label">Ortho Silhouette</div>
-              <div class="sil-sub">Line art pending</div>
-            </div>
-          </div>
+			<img id="sil-img" src="" alt="Ship silhouette" style="display:none;">
+			<div class="sil-placeholder" id="sil-fallback" style="display:flex;">
+				<div class="sil-label">Ortho Silhouette</div>
+				<div class="sil-sub">Lineart not yet available for this vessel</div>
+			</div>
+		  </div>
           <div class="stat-grid-right">
             <div class="stat-block">
               <div class="st-lbl">Cargo Capacity</div>
@@ -604,8 +603,15 @@
     document.getElementById('ov-entity-note').textContent = ENTITY_NAME;
 
     const img = document.getElementById('sil-img');
-    img.src = `/static/lineart/${ENTITY_NAME}_ortho.png`;
-    img.alt = `${ship.display_name} orthographic silhouette`;
+	if (ship.lineart_file) {
+		img.src = `/static/img/ship_silhouette/${ship.lineart_file}`;
+		img.alt = `${ship.display_name} orthographic silhouette`;
+		img.style.display = 'block';
+		document.getElementById('sil-fallback').style.display = 'none';
+	} else {
+		img.style.display = 'none';
+		document.getElementById('sil-fallback').style.display = 'flex';
+	}
 
     if (ship.cargo_scu > 0) {
       setStatBlock('ov-cargo', 'ov-cargo-u', ship.cargo_scu, 0, 'SCU');
