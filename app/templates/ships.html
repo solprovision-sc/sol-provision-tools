@@ -766,7 +766,7 @@
       const mfr    = getMfr(s.entity_name);
       const career = toTitleCase(cleanCareer(s.career));
       const role   = toTitleCase(cleanRole(s.role));
-      const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
+      const cargo = s.cargo_scu > 0 ? `${parseFloat(s.cargo_scu).toFixed(1)} SCU` : '—';
       const crew   = s.crew_min === s.crew_max ? `${s.crew_min}` : `${s.crew_min}–${s.crew_max}`;
       const len    = s.length_m ? `${s.length_m}m` : '—';
 
