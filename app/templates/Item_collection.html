@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acquisitions — Sol Provision</title>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── ORIGINAL SOL PROVISION STYLING ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --cr: #7E2619; --kh: #9A8C64; --bn: #E8855C; --pc: #CBB8AA;
+      --d1: #0d0b0a; --d2: #1a1512; --d3: #231e1a;
+      --bdr: rgba(126,38,25,0.22);
+      --fh: 'Orbitron', sans-serif; --fm: 'Share Tech Mono', monospace;
+      --discord: #5865F2;
+    }
+    html, body { min-height: 100vh; background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; overflow-x: hidden; }
+    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+    
+    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
+    .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
+    
+    /* Buttons & Inputs */
+    .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+    .splash-btn:hover { background: var(--cr); color: #fff; }
+    .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
+    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
+    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
+    input { background: #000; border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 10px; width: 100%; }
+    input:focus { border-color: var(--bn); outline: none; }
+    label { font-size: 9px; color: var(--kh); text-transform: uppercase; display: block; margin-bottom: 5px; letter-spacing: 1px; }
+
+    /* App Layout */
+    #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; }
+    .session-bar { display: flex; justify-content: space-between; align-items: center; background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px; }
+    .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
+    .sec-title { font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+    .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+    .highlight { color: var(--bn); font-weight: bold; }
+    .admin-link { margin-top: 40px; font-size: 9px; color: var(--kh); opacity: 0.4; cursor: pointer; text-decoration: underline; border: none; background: none; }
+  </style>
+</head>
+<body>
+
+<div class="page-content">
+
+  <div id="splash" class="panel">
+    <h2 style="margin-bottom:30px; font-family:var(--fh); letter-spacing:4px;">SOL PROVISION</h2>
+    <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
+    <button class="admin-link" onclick="adminLogin()">Board Member Access</button>
+  </div>
+
+  <div id="registerScreen" class="panel">
+    <h2 style="margin-bottom:30px; color:var(--bn); font-family:var(--fh);">REGISTER CALL SIGN</h2>
+    <input type="text" id="newCallSign" placeholder="ENTER CALL SIGN" style="text-align:center; padding:15px; margin-bottom:15px;">
+    <button class="splash-btn" onclick="registerCallSign()">Lock In</button>
+  </div>
+
+  <div id="lobby" class="panel">
+    <div style="font-family:var(--fh); color:var(--bn); margin-bottom:20px; letter-spacing:2px;">WELCOME, <span id="lobbyName"></span></div>
+    <button class="splash-btn" onclick="initiateMission()">+ Initiate New Mission</button>
+    <div style="margin:20px 0; opacity:0.3; font-size:10px;">— OR SYNC TO EXISTING —</div>
+    <div class="row" style="justify-content:center;">
+      <input type="text" id="joinIdInput" placeholder="MISSION ID" style="width:150px; text-align:center;">
+      <button class="btn-add" style="padding:12px;" onclick="joinMission()">Sync</button>
+    </div>
+    <div id="activeMissionsList" style="margin-top:25px; text-align:left; max-height:300px; overflow-y:auto;"></div>
+    <button class="btn-add" style="margin-top:20px; border-color:#ff4444; color:#ff4444;" onclick="auth.signOut()">Logout</button>
+  </div>
+
+  <div id="adminPanel" class="panel">
+    <h2 style="color:var(--cr); font-family:var(--fh);">BOARD OVERRIDE</h2>
+    <div id="adminList" style="text-align:left; margin:20px 0; background:#000; padding:10px;"></div>
+    <button class="splash-btn" onclick="location.reload()">Exit Admin</button>
+  </div>
+
+  <div id="app">
+    <div class="session-bar">
+      <div style="display:flex; align-items:center; gap:15px; font-family:var(--fh); font-size:11px; color:var(--kh);">
+        <div>MISSION: <span id="sessionId" class="highlight" style="font-size:16px;">----</span></div>
+        <button class="btn-add" id="topCopyBtn" onclick="copyActiveSessionId()">Copy ID</button>
+        <span id="userIdentity" style="border:1px solid var(--kh); padding:2px 5px; margin-left:10px;">----</span>
+      </div>
+      <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
+    </div>
+
+    <h2 style="font-family:var(--fh); letter-spacing:4px; margin-bottom:20px; border-bottom:1px solid var(--bdr); padding-bottom:10px;">FLEET ACQUISITION CONTROL</h2>
+
+    <section class="sec">
+      <div class="sec-title">00. Mission Intelligence</div>
+      <div class="row">
+        <div style="flex:1;"><label>Event</label><input type="text" id="intel-event" placeholder="Hathor" oninput="pushState()"></div>
+        <div style="flex:1;"><label>System</label><input type="text" id="intel-system" placeholder="Stanton" oninput="pushState()"></div>
+        <div style="flex:1;"><label>Primary</label><input type="text" id="intel-planet" placeholder="Crusader" oninput="pushState()"></div>
+        <div style="flex:1;"><label>Location/LZ</label><input type="text" id="intel-location" placeholder="Daymar" oninput="pushState()"></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">01. Fleet Roster</div>
+      <div id="crewContainer"></div>
+      <button class="btn-add" onclick="addCrewRow(); pushState();">+ Manual Add</button>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">02. Fleet Composition</div>
+      <div id="fleetContainer"></div>
+      <button class="btn-add" onclick="addShipRow(); pushState();">+ Log Ship</button>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">03. Acquisitions Log</div>
+      <div id="lootContainer"></div>
+      <button class="btn-add" onclick="addLootRow(); pushState();">+ Record Item</button>
+      <div style="margin-top:15px; text-align:right; font-family:var(--fh); font-size:12px; color:var(--kh);">
+        AVG QUALITY INDEX: <span id="avgQualDisp" class="highlight">0</span>
+      </div>
+    </section>
+
+    <button id="calcBtn" class="btn-calc" onclick="runCalculation(true)">GENERATE FINAL MANIFEST</button>
+    <div id="ledgerOutput"></div>
+  </div>
+
+</div>
+
+<script>
+  // --- FIREBASE CONFIG (SAME AS YOUR ORIGINAL) ---
+  const firebaseConfig = { 
+    apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E", 
+    authDomain: "sp-ledger.firebaseapp.com", 
+    databaseURL: "https://sp-ledger-default-rtdb.firebaseio.com", 
+    projectId: "sp-ledger", 
+    storageBucket: "sp-ledger.firebasestorage.app", 
+    messagingSenderId: "1013635822544", 
+    appId: "1:1013635822544:web:727ce761d058b5f7127fd5" 
+  };
+  
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const auth = firebase.auth();
+
+  let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
+
+  // --- AUTH & LOBBY LOGIC ---
+  auth.onAuthStateChanged(user => {
+    // DEV BYPASS FOR LOCALHOST
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      myUid = "DEV-ADMIN"; myName = "JENNER-DEV"; 
+      document.getElementById('lobbyName').textContent = myName;
+      hideAllPanels(); document.getElementById('lobby').style.display = 'block';
+      loadMissions(); return;
+    }
+
+    hideAllPanels();
+    if (user) {
+      myUid = user.uid;
+      db.ref('users/' + myUid).once('value').then(snap => {
+        if (snap.exists() && snap.val().callsign) {
+          myName = snap.val().callsign;
+          document.getElementById('lobbyName').textContent = myName;
+          document.getElementById('lobby').style.display = 'block';
+          loadMissions();
+        } else { document.getElementById('registerScreen').style.display = 'block'; }
+      });
+    } else { document.getElementById('splash').style.display = 'block'; }
+  });
+
+  function loginWithDiscord() {
+    const provider = new firebase.auth.OAuthProvider('oidc.discord');
+    auth.signInWithPopup(provider).catch(e => alert("Auth Error: " + e.message));
+  }
+
+  function registerCallSign() {
+    const cs = document.getElementById('newCallSign').value.trim().toUpperCase();
+    if (cs.length < 2) return;
+    db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload());
+  }
+
+  function loadMissions() {
+    db.ref('loot_sessions').on('value', snap => {
+      const all = snap.val() || {}; let h = "";
+      Object.keys(all).forEach(id => {
+        const s = all[id];
+        if (s.commander === myName || (s.crew && s.crew.some(c => c.name === myName))) {
+          h += `<div style="background:var(--d3); padding:10px; margin-bottom:10px; border:1px solid var(--bdr); display:flex; justify-content:space-between; align-items:center;">
+                  <div style="color:var(--bn); font-family:var(--fh);">${id}</div>
+                  <div style="display:flex; gap:5px;">
+                    <button class="btn-add" onclick="resumeMission('${id}', ${s.commander === myName})">Resume</button>
+                    ${s.commander === myName ? `<button class="btn-add" style="color:#ff4444;" onclick="killSession('${id}')">Kill</button>` : ''}
+                  </div>
+                </div>`;
+        }
+      });
+      document.getElementById('activeMissionsList').innerHTML = h || "<div style='font-size:10px; opacity:0.5;'>No active missions.</div>";
+    });
+  }
+
+  function killSession(id) { if(confirm("Permanently delete this mission?")) db.ref('loot_sessions/'+id).remove(); }
+
+  function initiateMission() {
+    isCommander = true; activeID = "AQ-" + Math.floor(1000 + Math.random() * 9000);
+    db.ref('loot_sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now() })
+      .then(() => { showApp(); syncWithFirebase(); });
+  }
+
+  function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; showApp(); syncWithFirebase(); }
+
+  function joinMission() {
+    const code = document.getElementById('joinIdInput').value.trim().toUpperCase();
+    if(!code) return;
+    db.ref('loot_sessions/'+code).once('value').then(snap => {
+      if(!snap.exists()) { alert("ID Not Found"); return; }
+      activeID = code; isCommander = (snap.val().commander === myName);
+      showApp(); syncWithFirebase();
+    });
+  }
+
+  function showApp() {
+    hideAllPanels(); document.getElementById('app').style.display = 'block';
+    document.getElementById('sessionId').textContent = activeID;
+    document.getElementById('userIdentity').textContent = myName + (isCommander ? " (CMD)" : "");
+  }
+
+  function exitToLobby() { activeID = null; hideAllPanels(); document.getElementById('lobby').style.display = 'block'; }
+  function hideAllPanels() { ['splash','registerScreen','lobby','app','adminPanel'].forEach(id => document.getElementById(id).style.display = 'none'); }
+
+  function copyActiveSessionId() {
+    navigator.clipboard.writeText(activeID).then(() => {
+      const btn = document.getElementById('topCopyBtn'); btn.textContent = "COPIED!";
+      setTimeout(() => btn.textContent = "Copy ID", 1500);
+    });
+  }
+
+  // --- DYNAMIC ROWS ---
+  function addCrewRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Pilot Name" value="${data?.name || ''}" oninput="pushState()"><input type="text" placeholder="Role" value="${data?.role || ''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`;
+    document.getElementById('crewContainer').appendChild(div);
+  }
+  function addShipRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Ship Model" value="${data?.model || ''}" oninput="pushState()"><input type="text" placeholder="Ship Role" value="${data?.role || ''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`;
+    document.getElementById('fleetContainer').appendChild(div);
+  }
+  function addLootRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Item Name" value="${data?.item || ''}" oninput="pushState()"><input type="number" placeholder="Quality (0-1000)" value="${data?.qual || ''}" oninput="updateStats(); pushState()"><button class="btn-add" onclick="this.parentElement.remove(); updateStats(); pushState()">X</button>`;
+    document.getElementById('lootContainer').appendChild(div);
+  }
+
+  function updateStats() {
+    let t = 0, c = 0;
+    document.querySelectorAll('#lootContainer input[type="number"]').forEach(i => { t += parseFloat(i.value) || 0; c++; });
+    document.getElementById('avgQualDisp').textContent = c > 0 ? Math.round(t / c) : 0;
+  }
+
+  // --- SYNC ENGINE ---
+  function pushState() {
+    if(!activeID || remoteUpdateInProgress) return;
+    const state = {
+      event: document.getElementById('intel-event').value,
+      system: document.getElementById('intel-system').value,
+      planet: document.getElementById('intel-planet').value,
+      location: document.getElementById('intel-location').value,
+      crew: Array.from(document.querySelectorAll('#crewContainer .row')).map(r => ({ name: r.querySelectorAll('input')[0].value, role: r.querySelectorAll('input')[1].value })),
+      fleet: Array.from(document.querySelectorAll('#fleetContainer .row')).map(r => ({ model: r.querySelectorAll('input')[0].value, role: r.querySelectorAll('input')[1].value })),
+      loot: Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value })),
+      lastUpdatedBy: myName
+    };
+    db.ref('loot_sessions/' + activeID).update(state);
+  }
+
+  function syncWithFirebase() {
+    db.ref('loot_sessions/' + activeID).on('value', snap => {
+      const data = snap.val(); if(!data || (data.lastUpdatedBy === myName && !isFirstPull)) return;
+      remoteUpdateInProgress = true;
+      document.getElementById('intel-event').value = data.event || "";
+      document.getElementById('intel-system').value = data.system || "";
+      document.getElementById('intel-planet').value = data.planet || "";
+      document.getElementById('intel-location').value = data.location || "";
+      
+      document.getElementById('crewContainer').innerHTML = ""; (data.crew || []).forEach(c => addCrewRow(c));
+      document.getElementById('fleetContainer').innerHTML = ""; (data.fleet || []).forEach(f => addShipRow(f));
+      document.getElementById('lootContainer').innerHTML = ""; (data.loot || []).forEach(l => addLootRow(l));
+      
+      updateStats(); isFirstPull = false; remoteUpdateInProgress = false;
+    });
+  }
+
+  function adminLogin() {
+    const pin = prompt("Board PIN:");
+    db.ref('admin_config/master_pin').once('value').then(snap => {
+      if(pin === snap.val()) {
+        hideAllPanels(); document.getElementById('adminPanel').style.display = 'block';
+        db.ref('loot_sessions').on('value', s => {
+          let h = ""; Object.keys(s.val() || {}).forEach(id => {
+            h += `<div class="row" style="border-bottom:1px solid #333; padding:8px;"><span class="highlight" style="flex:1;">${id}</span><button class="btn-add" onclick="db.ref('loot_sessions/${id}').remove()">Nuke</button></div>`;
+          });
+          document.getElementById('adminList').innerHTML = h || "Empty.";
+        });
+      } else { alert("Access Denied"); }
+    });
+  }
+
+  function runCalculation(isManual) {
+    const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({ name: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value }));
+    let h = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:12px;">
+              <tr style="border-bottom:1px solid var(--cr); color:var(--kh); text-align:left;"><th>ITEM</th><th style="text-align:right;">QUALITY</th></tr>`;
+    items.forEach(i => { h += `<tr style="border-bottom:1px solid #333;"><td style="padding:10px;">${i.name.toUpperCase()}</td><td style="text-align:right; padding:10px;" class="highlight">${i.qual}</td></tr>`; });
+    document.getElementById('ledgerOutput').innerHTML = h + `</table>`;
+    if(isManual) pushState();
+  }
+</script>
+</body>
+</html>
