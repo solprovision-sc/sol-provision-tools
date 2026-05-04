@@ -88,13 +88,13 @@ function logoHTML() {
 function navHTML(active) {
 	const links = [
 	{ href: '/',              label: 'Dashboard' },
-	{ href: '/ships',         label: 'Ships' },
+	// { href: '/ships',         label: 'Ships' },
 	// { href: '/components',    label: 'Components' },
 	// { href: '/weapons/ship',  label: 'Ship Weapons' },
 	// { href: '/weapons/fps',   label: 'FPS Weapons' },
 	// { href: '/armor',         label: 'Armor' },
 	// { href: '/shops',         label: 'Shops' },
-	{ href: '/crafting', 	  label: 'Crafting'},
+	// { href: '/crafting', 	  label: 'Crafting'},
 	// { href: '/cargo-planner', label: 'Cargo Planner' },
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	{ href: '/ledger', label: 'Ledger' },
