@@ -12,43 +12,144 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
   <style>
-    /* ── ORIGINAL SOL PROVISION STYLING ── */
+    /* ── SOL PROVISION CORE STYLING ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
       --cr: #7E2619; --kh: #9A8C64; --bn: #E8855C; --pc: #CBB8AA;
       --d1: #0d0b0a; --d2: #1a1512; --d3: #231e1a;
       --bdr: rgba(126,38,25,0.22);
-      --fh: 'Orbitron', sans-serif; --fm: 'Share Tech Mono', monospace;
+      --fh: 'Orbitron', sans-serif;
+      --fm: 'Share Tech Mono', monospace;
       --discord: #5865F2;
     }
-    html, body { min-height: 100vh; background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; overflow-x: hidden; }
-    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
-    
-    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
-    .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
-    
-    /* Buttons & Inputs */
-    .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+
+    html, body {
+      min-height: 100vh;
+      background: var(--d1);
+      color: var(--pc);
+      font-family: var(--fm);
+      font-size: 14px;
+    }
+
+    /* Scan Grid Background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .page-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      text-align: center;
+      width: 450px;
+      padding: 40px;
+      background: var(--d2);
+      border: 1px solid var(--bdr);
+      border-top: 3px solid var(--cr);
+      display: none;
+    }
+
+    .splash-btn {
+      background: var(--d3); border: 1px solid var(--kh); color: var(--kh);
+      padding: 18px; width: 100%; margin-top: 15px;
+      font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+    }
     .splash-btn:hover { background: var(--cr); color: #fff; }
-    .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
-    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
-    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
-    input { background: #000; border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 10px; width: 100%; }
+
+    .discord-btn {
+      background: var(--discord); color: #fff; border: none;
+      padding: 20px; width: 100%;
+      font-family: var(--fh); font-weight: 700; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px;
+    }
+
+    .btn-add {
+      background: transparent; border: 1px solid var(--kh); color: var(--kh);
+      font-family: var(--fh); font-size: 9px; padding: 8px 12px;
+      text-transform: uppercase; cursor: pointer;
+    }
+
+    .btn-calc {
+      background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700;
+      font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+      border: none; padding: 20px; width: 100%; cursor: pointer;
+    }
+
+    .admin-link {
+      margin-top: 40px; font-size: 9px; color: var(--kh); opacity: 0.4;
+      cursor: pointer; text-decoration: underline; border: none; background: none;
+    }
+
+    /* ── INPUTS ── */
+    input {
+      background: #000; border: 1px solid var(--bdr); color: var(--pc);
+      font-family: var(--fm); padding: 10px; font-size: 13px; width: 100%;
+    }
     input:focus { border-color: var(--bn); outline: none; }
     label { font-size: 9px; color: var(--kh); text-transform: uppercase; display: block; margin-bottom: 5px; letter-spacing: 1px; }
 
-    /* App Layout */
-    #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; }
-    .session-bar { display: flex; justify-content: space-between; align-items: center; background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px; }
+    /* ── MAIN APP ── */
+    #app {
+      display: none;
+      width: 95%;
+      max-width: 1400px;
+      margin: 20px auto;
+      background: var(--d2);
+      border: 1px solid var(--bdr);
+      border-top: 3px solid var(--cr);
+      padding: 25px;
+    }
+
+    .session-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px;
+    }
+
     .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
-    .sec-title { font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .sec-title {
+      font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh);
+      text-transform: uppercase; margin-bottom: 15px;
+      display: flex; align-items: center; gap: 10px;
+    }
     .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+
     .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .highlight { color: var(--bn); font-weight: bold; }
-    .admin-link { margin-top: 40px; font-size: 9px; color: var(--kh); opacity: 0.4; cursor: pointer; text-decoration: underline; border: none; background: none; }
+
+    .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; }
+    .ledger-table th {
+      font-family: var(--fh); color: var(--kh); text-transform: uppercase;
+      padding: 12px; text-align: left; border-bottom: 1px solid var(--cr);
+    }
+    .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
   </style>
 </head>
 <body>
+
+<div id="sp-header-mount"></div>
+<script src="/static/js/common.js" onerror="console.warn('Common JS not found.')"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof renderHeader === "function") renderHeader('loot');
+  });
+</script>
 
 <div class="page-content">
 
@@ -97,10 +198,10 @@
     <section class="sec">
       <div class="sec-title">00. Mission Intelligence</div>
       <div class="row">
-        <div style="flex:1;"><label>Event</label><input type="text" id="intel-event" placeholder="Hathor" oninput="pushState()"></div>
+        <div style="flex:1.5;"><label>Event / Operation</label><input type="text" id="intel-event" placeholder="Hathor" oninput="pushState()"></div>
         <div style="flex:1;"><label>System</label><input type="text" id="intel-system" placeholder="Stanton" oninput="pushState()"></div>
-        <div style="flex:1;"><label>Primary</label><input type="text" id="intel-planet" placeholder="Crusader" oninput="pushState()"></div>
-        <div style="flex:1;"><label>Location/LZ</label><input type="text" id="intel-location" placeholder="Daymar" oninput="pushState()"></div>
+        <div style="flex:1.2;"><label>Primary (Planet/Station)</label><input type="text" id="intel-planet" placeholder="Crusader" oninput="pushState()"></div>
+        <div style="flex:1.2;"><label>Specific Location (Moon/LZ)</label><input type="text" id="intel-location" placeholder="Daymar" oninput="pushState()"></div>
       </div>
     </section>
 
@@ -132,7 +233,7 @@
 </div>
 
 <script>
-  // --- FIREBASE CONFIG (SAME AS YOUR ORIGINAL) ---
+  // --- FIREBASE CONFIG ---
   const firebaseConfig = { 
     apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E", 
     authDomain: "sp-ledger.firebaseapp.com", 
@@ -151,8 +252,13 @@
 
   // --- AUTH & LOBBY LOGIC ---
   auth.onAuthStateChanged(user => {
-    // DEV BYPASS FOR LOCALHOST
-    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    // DEV BYPASS: Localhost & tools-dev subdomain
+    const isDev = window.location.hostname === "localhost" || 
+                  window.location.hostname === "127.0.0.1" || 
+                  window.location.hostname.includes("tools-dev");
+
+    if (isDev && !user) {
+      console.log("Dev Mode: Bypassing Auth Handshake");
       myUid = "DEV-ADMIN"; myName = "JENNER-DEV"; 
       document.getElementById('lobbyName').textContent = myName;
       hideAllPanels(); document.getElementById('lobby').style.display = 'block';
@@ -207,11 +313,11 @@
 
   function initiateMission() {
     isCommander = true; activeID = "AQ-" + Math.floor(1000 + Math.random() * 9000);
-    db.ref('loot_sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now() })
+    db.ref('loot_sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now(), lastUpdatedBy: myName })
       .then(() => { showApp(); syncWithFirebase(); });
   }
 
-  function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; showApp(); syncWithFirebase(); }
+  function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; isFirstPull = true; showApp(); syncWithFirebase(); }
 
   function joinMission() {
     const code = document.getElementById('joinIdInput').value.trim().toUpperCase();
@@ -252,7 +358,7 @@
   }
   function addLootRow(data) {
     const div = document.createElement('div'); div.className = 'row';
-    div.innerHTML = `<input type="text" placeholder="Item Name" value="${data?.item || ''}" oninput="pushState()"><input type="number" placeholder="Quality (0-1000)" value="${data?.qual || ''}" oninput="updateStats(); pushState()"><button class="btn-add" onclick="this.parentElement.remove(); updateStats(); pushState()">X</button>`;
+    div.innerHTML = `<input type="text" placeholder="Item Name" value="${data?.item || ''}" oninput="pushState()"><input type="number" placeholder="0-1000" value="${data?.qual || ''}" oninput="updateStats(); pushState()"><button class="btn-add" onclick="this.parentElement.remove(); updateStats(); pushState()">X</button>`;
     document.getElementById('lootContainer').appendChild(div);
   }
 
@@ -287,11 +393,12 @@
       document.getElementById('intel-planet').value = data.planet || "";
       document.getElementById('intel-location').value = data.location || "";
       
-      document.getElementById('crewContainer').innerHTML = ""; (data.crew || []).forEach(c => addCrewRow(c));
-      document.getElementById('fleetContainer').innerHTML = ""; (data.fleet || []).forEach(f => addShipRow(f));
-      document.getElementById('lootContainer').innerHTML = ""; (data.loot || []).forEach(l => addLootRow(l));
+      const cBox = document.getElementById('crewContainer'); cBox.innerHTML = ""; (data.crew || []).forEach(c => addCrewRow(c));
+      const fBox = document.getElementById('fleetContainer'); fBox.innerHTML = ""; (data.fleet || []).forEach(f => addShipRow(f));
+      const lBox = document.getElementById('lootContainer'); lBox.innerHTML = ""; (data.loot || []).forEach(l => addLootRow(l));
       
-      updateStats(); isFirstPull = false; remoteUpdateInProgress = false;
+      updateStats(); runCalculation(false);
+      isFirstPull = false; remoteUpdateInProgress = false;
     });
   }
 
@@ -312,10 +419,9 @@
 
   function runCalculation(isManual) {
     const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({ name: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value }));
-    let h = `<table style="width:100%; border-collapse:collapse; margin-top:20px; font-size:12px;">
-              <tr style="border-bottom:1px solid var(--cr); color:var(--kh); text-align:left;"><th>ITEM</th><th style="text-align:right;">QUALITY</th></tr>`;
-    items.forEach(i => { h += `<tr style="border-bottom:1px solid #333;"><td style="padding:10px;">${i.name.toUpperCase()}</td><td style="text-align:right; padding:10px;" class="highlight">${i.qual}</td></tr>`; });
-    document.getElementById('ledgerOutput').innerHTML = h + `</table>`;
+    let h = `<table class="ledger-table"><thead><tr><th>ACQUISITION</th><th style="text-align:right;">QUALITY INDEX</th></tr></thead><tbody>`;
+    items.forEach(i => { h += `<tr><td>${i.name.toUpperCase()}</td><td style="text-align:right;" class="highlight">${i.qual}</td></tr>`; });
+    document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
     if(isManual) pushState();
   }
 </script>
