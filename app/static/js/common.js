@@ -98,7 +98,7 @@ function navHTML(active) {
 	// { href: '/cargo-planner', label: 'Cargo Planner' },
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	{ href: '/ledger', label: 'Ledger' },
-	{ href: '/patchnotes',    label: 'Patch Notes' },
+	{ href: '/item_collection',    label: 'Item Collection' },
 	];
   return `<nav class="section-nav">` +
     links.map(l =>
