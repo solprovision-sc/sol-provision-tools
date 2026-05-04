@@ -112,7 +112,7 @@ async function renderHeader(activePage) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
     document.getElementById('header-meta').innerHTML =
-      `<div>Patch <span>${meta.patch_version}</span></div>;
+      `<div>Patch <span>${meta.patch_version}</span></div>`;
   } catch(e) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
