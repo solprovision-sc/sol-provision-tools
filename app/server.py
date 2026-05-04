@@ -88,8 +88,8 @@ def crafting(): return render_template("crafting.html", active_page="/crafting")
 #    return send_from_directory("templates", "cargo_planner.html")
 @app.route("/ledger")
 def ledger(): return render_template("ledger.html", active_page="ledger")
-@app.route("/patchnotes")
-def patchnotes_page(): return render_template("patchnotes.html", active_page="/patchnotes")
+@app.route("/item_collection")
+def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
 # ── Meta / counts ─────────────────────────────────────────────────────────────
 @app.route("/api/meta")
