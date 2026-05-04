@@ -24,38 +24,132 @@
       --discord: #5865F2;
     }
 
-    html, body { min-height: 100vh; background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; }
-    body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+    html, body {
+      min-height: 100vh;
+      background: var(--d1);
+      color: var(--pc);
+      font-family: var(--fm);
+      font-size: 14px;
+    }
 
-    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
-    .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
+    /* Scan Grid Background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+    .page-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      text-align: center;
+      width: 450px;
+      padding: 40px;
+      background: var(--d2);
+      border: 1px solid var(--bdr);
+      border-top: 3px solid var(--cr);
+      display: none;
+    }
+
+    .splash-btn {
+      background: var(--d3); border: 1px solid var(--kh); color: var(--kh);
+      padding: 18px; width: 100%; margin-top: 15px;
+      font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px;
+    }
     .splash-btn:hover { background: var(--cr); color: #fff; }
-    .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
 
-    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
-    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; }
-    .btn-util { background: #333; color: var(--kh); border: 1px solid var(--kh); padding: 10px 15px; font-family: var(--fh); font-size: 10px; cursor: pointer; text-transform: uppercase; }
+    .discord-btn {
+      background: var(--discord); color: #fff; border: none;
+      padding: 20px; width: 100%;
+      font-family: var(--fh); font-weight: 700; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px;
+    }
 
-    input { background: #000; border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 10px; font-size: 13px; width: 100%; }
+    .btn-add {
+      background: transparent; border: 1px solid var(--kh); color: var(--kh);
+      font-family: var(--fh); font-size: 9px; padding: 8px 12px;
+      text-transform: uppercase; cursor: pointer;
+    }
+
+    .btn-calc {
+      background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700;
+      font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+      border: none; padding: 20px; width: 100%; cursor: pointer;
+    }
+
+    .admin-link {
+      margin-top: 40px; font-size: 9px; color: var(--kh); opacity: 0.4;
+      cursor: pointer; text-decoration: underline; border: none; background: none;
+    }
+
+    /* ── INPUTS ── */
+    input {
+      background: #000; border: 1px solid var(--bdr); color: var(--pc);
+      font-family: var(--fm); padding: 10px; font-size: 13px; width: 100%;
+    }
     input:focus { border-color: var(--bn); outline: none; }
     label { font-size: 9px; color: var(--kh); text-transform: uppercase; display: block; margin-bottom: 5px; letter-spacing: 1px; }
 
-    #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; }
-    .session-bar { display: flex; justify-content: space-between; align-items: center; background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px; }
+    /* ── MAIN APP ── */
+    #app {
+      display: none;
+      width: 95%;
+      max-width: 1400px;
+      margin: 20px auto;
+      background: var(--d2);
+      border: 1px solid var(--bdr);
+      border-top: 3px solid var(--cr);
+      padding: 25px;
+    }
+
+    .session-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px;
+    }
+
     .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
-    .sec-title { font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .sec-title {
+      font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh);
+      text-transform: uppercase; margin-bottom: 15px;
+      display: flex; align-items: center; gap: 10px;
+    }
     .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+
     .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
     .highlight { color: var(--bn); font-weight: bold; }
+
     .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; }
-    .ledger-table th { font-family: var(--fh); color: var(--kh); text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 1px solid var(--cr); }
+    .ledger-table th {
+      font-family: var(--fh); color: var(--kh); text-transform: uppercase;
+      padding: 12px; text-align: left; border-bottom: 1px solid var(--cr);
+    }
     .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
-    .util-bar { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
   </style>
 </head>
 <body>
+
+<div id="sp-header-mount"></div>
+<script src="/static/js/common.js" onerror="console.warn('Common JS not found.')"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof renderHeader === "function") renderHeader('loot');
+  });
+</script>
 
 <div class="page-content">
 
@@ -92,10 +186,10 @@
     <section class="sec">
       <div class="sec-title">00. Mission Intelligence</div>
       <div class="row">
-        <div style="flex:1.5;"><label>Event</label><input type="text" id="intel-event" oninput="pushState()"></div>
-        <div style="flex:1;"><label>System</label><input type="text" id="intel-system" oninput="pushState()"></div>
-        <div style="flex:1.2;"><label>Primary</label><input type="text" id="intel-planet" oninput="pushState()"></div>
-        <div style="flex:1.2;"><label>Specific Location</label><input type="text" id="intel-location" oninput="pushState()"></div>
+        <div style="flex:1.5;"><label>Event / Operation</label><input type="text" id="intel-event" placeholder="Hathor" oninput="pushState()"></div>
+        <div style="flex:1;"><label>System</label><input type="text" id="intel-system" placeholder="Stanton" oninput="pushState()"></div>
+        <div style="flex:1.2;"><label>Primary (Planet/Station)</label><input type="text" id="intel-planet" placeholder="Crusader" oninput="pushState()"></div>
+        <div style="flex:1.2;"><label>Specific Location (Moon/LZ)</label><input type="text" id="intel-location" placeholder="Daymar" oninput="pushState()"></div>
       </div>
     </section>
 
@@ -187,8 +281,13 @@
   let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
 
   auth.onAuthStateChanged(user => {
-    const isDev = window.location.hostname.includes("tools-dev") || window.location.hostname === "localhost";
+    // DEV BYPASS: Localhost & tools-dev subdomain
+    const isDev = window.location.hostname === "localhost" || 
+                  window.location.hostname === "127.0.0.1" || 
+                  window.location.hostname.includes("tools-dev");
+
     if (isDev && !user) {
+      console.log("Dev Mode: Bypassing Auth Handshake");
       myUid = "DEV-ADMIN"; myName = "JENNER-DEV"; 
       document.getElementById('lobbyName').textContent = myName;
       hideAllPanels(); document.getElementById('lobby').style.display = 'block';
@@ -208,17 +307,69 @@
     } else { document.getElementById('splash').style.display = 'block'; }
   });
 
-  function loginWithDiscord() { auth.signInWithPopup(new firebase.auth.OAuthProvider('oidc.discord')); }
-  function registerCallSign() { const cs = document.getElementById('newCallSign').value.trim().toUpperCase(); if(cs.length >= 2) db.ref('users/'+myUid).set({callsign:cs}).then(()=>location.reload()); }
-  function loadMissions() { db.ref('loot_sessions').on('value', snap => {
-    let h = ""; Object.keys(snap.val() || {}).forEach(id => {
-      const s = snap.val()[id]; if(s.commander === myName || (s.crew && s.crew.some(c=>c.name===myName))) {
-        h += `<div class="row" style="background:var(--d3); padding:10px; border:1px solid var(--bdr); justify-content:space-between;">
-                <span style="color:var(--bn);">${id}</span>
-                <div><button class="btn-add" onclick="resumeMission('${id}', ${s.commander===myName})">Resume</button>
-                ${s.commander===myName ? `<button class="btn-add" style="color:red;" onclick="killSession('${id}')">Kill</button>` : ''}</div>
-              </div>`;
-      }
+  function loginWithDiscord() {
+    const provider = new firebase.auth.OAuthProvider('oidc.discord');
+    auth.signInWithPopup(provider).catch(e => alert("Auth Error: " + e.message));
+  }
+
+  function registerCallSign() {
+    const cs = document.getElementById('newCallSign').value.trim().toUpperCase();
+    if (cs.length < 2) return;
+    db.ref('users/' + myUid).set({ callsign: cs }).then(() => location.reload());
+  }
+
+  function loadMissions() {
+    db.ref('loot_sessions').on('value', snap => {
+      const all = snap.val() || {}; let h = "";
+      Object.keys(all).forEach(id => {
+        const s = all[id];
+        if (s.commander === myName || (s.crew && s.crew.some(c => c.name === myName))) {
+          h += `<div style="background:var(--d3); padding:10px; margin-bottom:10px; border:1px solid var(--bdr); display:flex; justify-content:space-between; align-items:center;">
+                  <div style="color:var(--bn); font-family:var(--fh);">${id}</div>
+                  <div style="display:flex; gap:5px;">
+                    <button class="btn-add" onclick="resumeMission('${id}', ${s.commander === myName})">Resume</button>
+                    ${s.commander === myName ? `<button class="btn-add" style="color:#ff4444;" onclick="killSession('${id}')">Kill</button>` : ''}
+                  </div>
+                </div>`;
+        }
+      });
+      document.getElementById('activeMissionsList').innerHTML = h || "<div style='font-size:10px; opacity:0.5;'>No active missions.</div>";
+    });
+  }
+
+  function killSession(id) { if(confirm("Permanently delete this mission?")) db.ref('loot_sessions/'+id).remove(); }
+
+  function initiateMission() {
+    isCommander = true; activeID = "AQ-" + Math.floor(1000 + Math.random() * 9000);
+    db.ref('loot_sessions/' + activeID).set({ commander: myName, status: 'open', createdAt: Date.now(), lastUpdatedBy: myName })
+      .then(() => { showApp(); syncWithFirebase(); });
+  }
+
+  function resumeMission(id, isCmd) { activeID = id; isCommander = isCmd; isFirstPull = true; showApp(); syncWithFirebase(); }
+
+  function joinMission() {
+    const code = document.getElementById('joinIdInput').value.trim().toUpperCase();
+    if(!code) return;
+    db.ref('loot_sessions/'+code).once('value').then(snap => {
+      if(!snap.exists()) { alert("ID Not Found"); return; }
+      activeID = code; isCommander = (snap.val().commander === myName);
+      showApp(); syncWithFirebase();
+    });
+  }
+
+  function showApp() {
+    hideAllPanels(); document.getElementById('app').style.display = 'block';
+    document.getElementById('sessionId').textContent = activeID;
+    document.getElementById('userIdentity').textContent = myName + (isCommander ? " (CMD)" : "");
+  }
+
+  function exitToLobby() { activeID = null; hideAllPanels(); document.getElementById('lobby').style.display = 'block'; }
+  function hideAllPanels() { ['splash','registerScreen','lobby','app','adminPanel'].forEach(id => document.getElementById(id).style.display = 'none'); }
+
+  function copyActiveSessionId() {
+    navigator.clipboard.writeText(activeID).then(() => {
+      const btn = document.getElementById('topCopyBtn'); btn.textContent = "COPIED!";
+      setTimeout(() => btn.textContent = "Copy ID", 1500);
     });
     document.getElementById('activeMissionsList').innerHTML = h || "<div style='font-size:10px; opacity:0.5;'>No active missions.</div>";
   }); }
@@ -266,32 +417,60 @@
     if(manual) pushState();
   }
 
-  function exportJSON() { db.ref('loot_sessions/'+activeID).once('value').then(s => {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(s.val(),null,2)],{type:'application/json'}));
-    a.download = `${activeID}_Manifest.json`; a.click();
-  }); }
+  // --- DYNAMIC ROWS ---
+  function addCrewRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Pilot Name" value="${data?.name || ''}" oninput="pushState()"><input type="text" placeholder="Role" value="${data?.role || ''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`;
+    document.getElementById('crewContainer').appendChild(div);
+  }
+  function addShipRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Ship Model" value="${data?.model || ''}" oninput="pushState()"><input type="text" placeholder="Ship Role" value="${data?.role || ''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`;
+    document.getElementById('fleetContainer').appendChild(div);
+  }
+  function addLootRow(data) {
+    const div = document.createElement('div'); div.className = 'row';
+    div.innerHTML = `<input type="text" placeholder="Item Name" value="${data?.item || ''}" oninput="pushState()"><input type="number" placeholder="0-1000" value="${data?.qual || ''}" oninput="updateStats(); pushState()"><button class="btn-add" onclick="this.parentElement.remove(); updateStats(); pushState()">X</button>`;
+    document.getElementById('lootContainer').appendChild(div);
+  }
 
-  function copyDiscordImage() {
-    const ev = document.getElementById('intel-event').value || "UNSPECIFIED";
-    const loc = `${document.getElementById('intel-system').value} > ${document.getElementById('intel-planet').value} > ${document.getElementById('intel-location').value}`;
-    const crew = Array.from(document.querySelectorAll('#crewContainer .row')).map(r => ({name: r.querySelectorAll('input')[0].value, role: r.querySelectorAll('input')[1].value}));
-    const ships = document.querySelectorAll('#fleetContainer .row').length;
-    const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({name: r.querySelectorAll('input')[0].value, qual: parseFloat(r.querySelectorAll('input')[1].value)||0}));
-    const avg = items.length > 0 ? Math.round(items.reduce((a,b)=>a+b.qual,0)/items.length) : 0;
+  function updateStats() {
+    let t = 0, c = 0;
+    document.querySelectorAll('#lootContainer input[type="number"]').forEach(i => { t += parseFloat(i.value) || 0; c++; });
+    document.getElementById('avgQualDisp').textContent = c > 0 ? Math.round(t / c) : 0;
+  }
 
-    document.getElementById('img-session-id').innerText = activeID;
-    document.getElementById('img-event').innerText = ev.toUpperCase();
-    document.getElementById('img-location').innerText = loc.toUpperCase();
-    document.getElementById('img-total-items').innerText = items.length;
-    document.getElementById('img-fleet-size').innerText = ships;
-    document.getElementById('img-avg-qual').innerText = avg;
+  // --- SYNC ENGINE ---
+  function pushState() {
+    if(!activeID || remoteUpdateInProgress) return;
+    const state = {
+      event: document.getElementById('intel-event').value,
+      system: document.getElementById('intel-system').value,
+      planet: document.getElementById('intel-planet').value,
+      location: document.getElementById('intel-location').value,
+      crew: Array.from(document.querySelectorAll('#crewContainer .row')).map(r => ({ name: r.querySelectorAll('input')[0].value, role: r.querySelectorAll('input')[1].value })),
+      fleet: Array.from(document.querySelectorAll('#fleetContainer .row')).map(r => ({ model: r.querySelectorAll('input')[0].value, role: r.querySelectorAll('input')[1].value })),
+      loot: Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({ item: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value })),
+      lastUpdatedBy: myName
+    };
+    db.ref('loot_sessions/' + activeID).update(state);
+  }
 
-    let rHtml = ''; crew.forEach(c => rHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(154,140,100,0.1); padding:10px 5px; color:#CBB8AA;"><div style="flex:1;">${c.name}</div><div style="flex:1; text-align:right; color:#9A8C64;">${c.role}</div></div>`);
-    document.getElementById('img-roster').innerHTML = rHtml;
-
-    let mHtml = ''; items.forEach(i => {
-      const pct = (i.qual / 1000) * 100;
-      mHtml += `<div style="margin-bottom:12px;"><div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>${i.name.toUpperCase()}</span><span>${i.qual} INDEX</span></div><div style="background:#0d0b0a; height:8px; border:1px solid rgba(126,38,25,0.3);"><div style="background:#7E2619; width:${pct}%; height:100%;"></div></div></div>`;
+  function syncWithFirebase() {
+    db.ref('loot_sessions/' + activeID).on('value', snap => {
+      const data = snap.val(); if(!data || (data.lastUpdatedBy === myName && !isFirstPull)) return;
+      remoteUpdateInProgress = true;
+      document.getElementById('intel-event').value = data.event || "";
+      document.getElementById('intel-system').value = data.system || "";
+      document.getElementById('intel-planet').value = data.planet || "";
+      document.getElementById('intel-location').value = data.location || "";
+      
+      const cBox = document.getElementById('crewContainer'); cBox.innerHTML = ""; (data.crew || []).forEach(c => addCrewRow(c));
+      const fBox = document.getElementById('fleetContainer'); fBox.innerHTML = ""; (data.fleet || []).forEach(f => addShipRow(f));
+      const lBox = document.getElementById('lootContainer'); lBox.innerHTML = ""; (data.loot || []).forEach(l => addLootRow(l));
+      
+      updateStats(); runCalculation(false);
+      isFirstPull = false; remoteUpdateInProgress = false;
     });
     document.getElementById('img-manifest').innerHTML = mHtml;
 
@@ -303,6 +482,14 @@
         navigator.clipboard.write([item]).then(()=>alert("MANIFEST COPIED! Paste into Discord."));
       });
     });
+  }
+
+  function runCalculation(isManual) {
+    const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({ name: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value }));
+    let h = `<table class="ledger-table"><thead><tr><th>ACQUISITION</th><th style="text-align:right;">QUALITY INDEX</th></tr></thead><tbody>`;
+    items.forEach(i => { h += `<tr><td>${i.name.toUpperCase()}</td><td style="text-align:right;" class="highlight">${i.qual}</td></tr>`; });
+    document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
+    if(isManual) pushState();
   }
 </script>
 </body>
