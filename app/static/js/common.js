@@ -75,7 +75,7 @@ function logoHTML() {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
-        <img src="/static/img/SPlogo_round_1080_transparent-02_white.png" alt="Sol Provision" />
+        <img src="/static/img/sp_logo_2026.png" alt="Sol Provision" />
       </div>
       <div>
         <div class="logo-text">Sol Provision</div>
@@ -98,7 +98,6 @@ function navHTML(active) {
 	// { href: '/cargo-planner', label: 'Cargo Planner' },
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	{ href: '/ledger', label: 'Ledger' },
-	{ href: '/patchnotes',    label: 'Patch Notes' },
 	];
   return `<nav class="section-nav">` +
     links.map(l =>
@@ -113,8 +112,7 @@ async function renderHeader(activePage) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
     document.getElementById('header-meta').innerHTML =
-      `<div>Patch <span>${meta.patch_version}</span></div>
-       <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+      `<div>Patch <span>${meta.patch_version}</span></div>;
   } catch(e) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
