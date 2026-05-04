@@ -3,28 +3,20 @@
 
 {% block extra_css %}
 <style>
-  /* ── Landing page overrides — no sidebar layout on this page ── */
-  body {
-    min-height: 100vh;
-  }
-
-  /* scan bg */
+  /* ── scan bg ── */
   body::before {
     content: '';
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background-image:
       linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
       linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
     background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
+    pointer-events: none; z-index: 0;
   }
 
   /* ── Page ── */
   .landing-page {
-    position: relative;
-    z-index: 1;
+    position: relative; z-index: 1;
     min-height: calc(100vh - 52px);
     display: flex;
     flex-direction: column;
@@ -33,10 +25,10 @@
     padding: 48px 32px;
   }
 
-  /* ── Hero text ── */
+  /* ── Hero ── */
   .hero {
     text-align: center;
-    margin-bottom: 56px;
+    margin-bottom: 52px;
   }
   .hero-title {
     font-family: var(--font-ui);
@@ -47,10 +39,7 @@
     text-transform: uppercase;
     margin-bottom: 10px;
   }
-  .hero-title em {
-    color: #7E2619;
-    font-style: normal;
-  }
+  .hero-title em { color: #7E2619; font-style: normal; }
   .hero-sub {
     font-size: 11px;
     letter-spacing: 3px;
@@ -58,170 +47,172 @@
     text-transform: uppercase;
   }
   .hero-divider {
-    width: 120px;
-    height: 1px;
+    width: 120px; height: 1px;
     background: linear-gradient(90deg, transparent, #7E2619, transparent);
     margin: 20px auto 0;
   }
 
-  /* ── Card grid ── */
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
+  /* ── Section group ── */
+  .card-section {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1100px;
+    margin-bottom: 36px;
   }
 
-  /* ── Hero card ── */
+  /* ── Section header ── */
+  .section-hdr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-hdr-bar {
+    width: 3px;
+    height: 18px;
+    background: #7E2619;
+    flex-shrink: 0;
+  }
+  .section-hdr-title {
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #CBB8AA;
+    text-transform: uppercase;
+  }
+  .section-hdr-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(126,38,25,0.22);
+  }
+
+  /* ── Card row ── */
+  .card-row {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  /* ── Base hero card ── */
   .hero-card {
+    width: 280px;
+    flex-shrink: 0;
     background: #231e1a;
     border: 1px solid rgba(126,38,25,0.22);
     position: relative;
-    cursor: pointer;
     overflow: hidden;
-    transition: all 0.25s;
-    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
+    transition: all 0.22s;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
     text-decoration: none;
     display: block;
   }
   .hero-card::before {
     content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
+    position: absolute; top: 0; left: 0; right: 0;
     height: 2px;
     background: #7E2619;
-    transition: background 0.25s;
+    transition: background 0.22s;
   }
   .hero-card::after {
     content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 30% 0%, rgba(126,38,25,0.1) 0%, transparent 65%);
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 30% 0%, rgba(126,38,25,0.08) 0%, transparent 65%);
     opacity: 0;
     transition: opacity 0.3s;
   }
-  .hero-card:hover {
+  .hero-card:not(.wip):hover {
     border-color: rgba(126,38,25,0.6);
-    transform: translateY(-4px);
+    transform: translateY(-3px);
   }
-  .hero-card:hover::before { background: #E8855C; }
-  .hero-card:hover::after { opacity: 1; }
-  .hero-card:hover .card-arrow { opacity: 1; transform: translateX(4px); }
-  .hero-card:hover .card-number { opacity: 0.15; }
+  .hero-card:not(.wip):hover::before { background: #E8855C; }
+  .hero-card:not(.wip):hover::after { opacity: 1; }
+  .hero-card:not(.wip):hover .mode-arrow { opacity: 1; transform: translateX(4px); }
 
-  /* corner accents */
   .card-corner {
-    position: absolute;
-    top: 0; right: 0;
-    width: 20px; height: 20px;
+    position: absolute; top: 0; right: 0;
+    width: 16px; height: 16px;
     border-top: 2px solid #7E2619;
     border-right: 2px solid #7E2619;
   }
-  .card-corner-bl {
-    position: absolute;
-    bottom: 0; left: 0;
-    width: 20px; height: 20px;
-    border-bottom: 2px solid rgba(126,38,25,0.22);
-    border-left: 2px solid rgba(126,38,25,0.22);
-  }
-
-  /* card body */
-  .card-body { padding: 32px 28px 28px; }
+  .card-body { padding: 28px 24px 20px; }
   .card-eyebrow {
-    font-size: 8px;
-    letter-spacing: 2.5px;
-    color: #7E2619;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    font-size: 8px; letter-spacing: 2.5px; color: #7E2619;
+    text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
   }
   .card-eyebrow::before {
-    content: '';
-    display: inline-block;
-    width: 16px; height: 1px;
-    background: #7E2619;
+    content: ''; display: inline-block;
+    width: 14px; height: 1px; background: #7E2619;
   }
   .card-name {
-    font-family: var(--font-ui);
-    font-weight: 900;
-    font-size: 22px;
-    letter-spacing: 3px;
-    color: #fff;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    line-height: 1.2;
+    font-family: var(--font-ui); font-weight: 900;
+    font-size: 20px; letter-spacing: 3px;
+    color: #fff; text-transform: uppercase;
+    margin-bottom: 10px; line-height: 1.2;
   }
   .card-desc {
-    font-size: 11px;
-    color: #9A8C64;
-    letter-spacing: 0.5px;
-    line-height: 1.8;
+    font-size: 11px; color: #9A8C64;
+    letter-spacing: 0.5px; line-height: 1.7;
   }
-
-  /* card footer */
   .card-footer {
-    padding: 16px 28px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-top: 1px solid rgba(126,38,25,0.22);
-    margin-top: 8px;
+    padding: 14px 24px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-top: 1px solid rgba(126,38,25,0.15);
+    margin-top: 4px;
   }
   .card-cta {
-    font-family: var(--font-ui);
-    font-size: 8px;
-    letter-spacing: 2px;
-    color: #E8855C;
-    text-transform: uppercase;
+    font-family: var(--font-ui); font-size: 8px;
+    letter-spacing: 2px; color: #E8855C; text-transform: uppercase;
   }
-  .card-arrow {
-    font-size: 14px;
-    color: #E8855C;
-    opacity: 0;
-    transition: all 0.2s;
+  .mode-arrow {
+    font-size: 14px; color: #E8855C;
+    opacity: 0; transition: all 0.2s;
   }
 
-  /* ghost number */
-  .card-number {
-    position: absolute;
-    bottom: -10px; right: 16px;
-    font-family: var(--font-ui);
-    font-weight: 900;
-    font-size: 80px;
-    color: rgba(126,38,25,0.07);
-    letter-spacing: -2px;
+  /* ── Coming soon card variant ── */
+  .hero-card.wip {
+    opacity: 0.45;
+    cursor: default;
     pointer-events: none;
-    transition: opacity 0.3s;
-    user-select: none;
-    line-height: 1;
   }
 
-  /* bottom rule */
+  /* ── Diagonal ribbon ── */
+  .wip-ribbon {
+    position: absolute;
+    top: 30px;
+    right: -34px;
+    width: 140px;
+    padding: 5px 0;
+    background: #7E2619;
+    color: #CBB8AA;
+    font-family: var(--font-ui);
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-align: center;
+    text-transform: uppercase;
+    transform: rotate(45deg);
+    z-index: 10;
+    pointer-events: none;
+    opacity: 1;
+  }
+
+  /* ── Bottom rule ── */
   .page-rule {
-    margin-top: 56px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    max-width: 1200px;
+    margin-top: 16px;
+    display: flex; align-items: center; gap: 16px;
+    width: 100%; max-width: 1100px;
   }
   .rule-line {
-    flex: 1;
-    height: 1px;
+    flex: 1; height: 1px;
     background: linear-gradient(90deg, transparent, rgba(126,38,25,0.22));
   }
   .rule-line.right {
     background: linear-gradient(270deg, transparent, rgba(126,38,25,0.22));
   }
   .rule-text {
-    font-size: 8px;
-    letter-spacing: 2px;
-    color: #7E2619;
-    text-transform: uppercase;
-    white-space: nowrap;
+    font-size: 8px; letter-spacing: 2px;
+    color: #7E2619; text-transform: uppercase; white-space: nowrap;
   }
 </style>
 {% endblock %}
@@ -236,73 +227,69 @@
     <div class="hero-divider"></div>
   </div>
 
-  <!-- Card Grid -->
-  <div class="card-grid">
+  <!-- ── TOOLS section ── -->
+  <div class="card-section">
+    <div class="section-hdr">
+      <div class="section-hdr-bar"></div>
+      <div class="section-hdr-title">Tools</div>
+      <div class="section-hdr-line"></div>
+    </div>
+    <div class="card-row">
 
-    <!-- Ships -->
-    <a class="hero-card" href="/ships">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">01</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Fleet Registry</div>
-        <div class="card-name">Ships</div>
-        <div class="card-desc">Complete vessel registry — specs, components, and performance data</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Browse Fleet</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+      <a class="hero-card" href="/ledger">
+        <div class="card-corner"></div>
+        <div class="card-body">
+          <div class="card-eyebrow">Operations</div>
+          <div class="card-name">Ledger</div>
+          <div class="card-desc">Mission payout tool — distribute earnings across org members</div>
+        </div>
+        <div class="card-footer">
+          <div class="card-cta">Open Ledger</div>
+          <div class="mode-arrow">→</div>
+        </div>
+      </a>
 
-    <!-- Crafting -->
-    <a class="hero-card" href="/crafting">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">02</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Industry</div>
-        <div class="card-name">Crafting</div>
-        <div class="card-desc">Blueprint index — materials, slots, and crafting requirements</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">View Blueprints</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+    </div>
+  </div>
 
-    <!-- Ledger -->
-    <a class="hero-card" href="/ledger">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">03</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Operations</div>
-        <div class="card-name">Ledger</div>
-        <div class="card-desc">Mission payout tool — distribute earnings across org members</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Open Ledger</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+  <!-- ── INTELLIGENCE section ── -->
+  <div class="card-section">
+    <div class="section-hdr">
+      <div class="section-hdr-bar"></div>
+      <div class="section-hdr-title">Intelligence</div>
+      <div class="section-hdr-line"></div>
+    </div>
+    <div class="card-row">
 
-    <!-- Patch Notes -->
-    <a class="hero-card" href="/patchnotes">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">04</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Intelligence</div>
-        <div class="card-name">Patch Notes</div>
-        <div class="card-desc">Patch diff tracker — changes between game versions</div>
+      <div class="hero-card wip">
+        <div class="card-corner"></div>
+        <div class="wip-ribbon">In Development</div>
+        <div class="card-body">
+          <div class="card-eyebrow">Fleet Registry</div>
+          <div class="card-name">Ships</div>
+          <div class="card-desc">Complete vessel registry — specs, components, and performance data</div>
+        </div>
+        <div class="card-footer">
+          <div class="card-cta">Browse Fleet</div>
+          <div class="mode-arrow">→</div>
+        </div>
       </div>
-      <div class="card-footer">
-        <div class="card-cta">View Changes</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
 
+      <div class="hero-card wip">
+        <div class="card-corner"></div>
+        <div class="wip-ribbon">In Development</div>
+        <div class="card-body">
+          <div class="card-eyebrow">Industry</div>
+          <div class="card-name">Crafting</div>
+          <div class="card-desc">Blueprint index — materials, slots, and crafting requirements</div>
+        </div>
+        <div class="card-footer">
+          <div class="card-cta">View Blueprints</div>
+          <div class="mode-arrow">→</div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <!-- Bottom rule -->
