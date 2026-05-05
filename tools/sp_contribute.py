@@ -236,7 +236,21 @@ def step_create_branch():
 
     if code == 0:
         success(f"Feature branch '{c(CYAN, branch)}' created and checked out.")
+
     time.sleep(STEP_DELAY)
+
+    # ── Pause for user to make their changes ──────────────────────────────────
+    print()
+    divider()
+    print(f"\n  {c(BOLD + YELLOW, '  ✎  Time to make your changes.')}\n")
+    print(f"  {c(DIM, 'Go to your editor and make whatever changes you need.')}")
+    print(f"  {c(DIM, 'This terminal will wait here until you are ready.')}")
+    print(f"  {c(DIM, 'Remember: index.html and common.js are protected — changes')}")
+    print(f"  {c(DIM, 'to those files will be excluded automatically.')}")
+    print()
+    input(f"  {c(CYAN, '▶')} {c(BOLD, 'Press Enter when you are done editing and ready to stage...')} ")
+    print()
+
     return branch
 
 
@@ -254,6 +268,12 @@ def step_stage_files():
     )
     status = result.stdout.strip()
 
+    # Debug — show raw git output so path parsing issues are immediately visible
+    if status:
+        print(f"  {c(DIM, 'Raw git status:')}")
+        for line in status.splitlines():
+            print(f"    {c(DIM, repr(line))}")
+
     if not status:
         warn("No changed files detected. Nothing to stage or commit.")
         if confirm("Exit without committing?"):
@@ -262,10 +282,18 @@ def step_stage_files():
     # Parse file list
     all_files = []
     for line in status.splitlines():
-        parts = line[3:].strip()
-        if " -> " in parts:
-            parts = parts.split(" -> ")[1]
-        all_files.append(parts)
+        # porcelain format: 'XY filepath' — status code is always first 2 chars
+        # split on the space after the status code rather than hardcoding index
+        if len(line) < 4:
+            continue
+        # status code = line[:2], space = line[2], path = line[3:]
+        # but strip any leading/trailing whitespace from the path to be safe
+        raw_path = line[3:].strip()
+        if " -> " in raw_path:
+            # renamed file: 'old -> new' — we want the new name
+            raw_path = raw_path.split(" -> ")[1].strip()
+        if raw_path:
+            all_files.append(raw_path)
 
     # Separate protected from stageable
     protected_found = []
