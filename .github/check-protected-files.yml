@@ -1,0 +1,41 @@
+name: Warn on branch-specific files in dev→main PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-protected-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for branch-specific files in diff
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD)
+          echo "Files changed in this PR:"
+          echo "$CHANGED"
+          echo ""
+
+          WARNINGS=0
+
+          if echo "$CHANGED" | grep -q "^app/templates/index\.html$"; then
+            echo "::warning::⚠️  index.html is included in this PR. VERIFY this is intentional — prod (main) has Coming Soon cards, dev has the full landing page. If merging dev → main, exclude this file."
+            WARNINGS=$((WARNINGS + 1))
+          fi
+
+          if echo "$CHANGED" | grep -q "^app/static/js/common\.js$"; then
+            echo "::warning::⚠️  common.js is included in this PR. VERIFY this is intentional — prod (main) nav shows live pages only, dev nav shows all pages including work-in-progress. If merging dev → main, exclude this file unless you are intentionally launching a new nav item."
+            WARNINGS=$((WARNINGS + 1))
+          fi
+
+          if [ "$WARNINGS" -eq 0 ]; then
+            echo "✅ No branch-specific files detected in this PR. Safe to merge."
+          else
+            echo ""
+            echo "⚠️  $WARNINGS branch-specific file(s) detected. Review the warnings above before merging."
+          fi
