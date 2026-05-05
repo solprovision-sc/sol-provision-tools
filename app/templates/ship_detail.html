@@ -710,13 +710,18 @@
       : dr('Pitch Rate', null);
 
     const qd = ship.components.quantum_drives[0];
-    document.getElementById('qd-content').innerHTML = qd
-      ? dr('Drive Speed', qd.drive_speed, 0, 'km/s') +
-        dr('Spool Time', qd.spool_up_time, 1, 's') +
-        dr('Cooldown', qd.cooldown_time, 1, 's') +
-        dr('Fuel / Jump', qd.quantum_fuel_req, 2, 'SCU') +
-        dr('Jump Range', qd.jump_range, 0, 'Mm')
-      : dr('Drive Speed', null);
+	const qt = ship.components.quantum_fuel_tanks[0];
+    const qdRange = (qd && qt && qd.fuel_per_gm_mscu && qt.capacity_scu)
+    ? qt.capacity_scu / (qd.fuel_per_gm_mscu / 1000)
+    : null;
+
+	document.getElementById('qd-content').innerHTML = qd
+		? dr('Drive Speed', qd.drive_speed, 0, 'Mm/s') +
+		  dr('Spool Time', qd.spool_up_time, 1, 's') +
+		  dr('Cooldown', qd.cooldown_time, 1, 's') +
+		  dr('Fuel per GM', qd.fuel_per_gm_mscu, 4, 'mSCU') +
+		  dr('Range', qdRange, 0, 'Gm')
+		: dr('Drive Speed', null);
 
     let thrHtml = '';
     for (const [type, list] of Object.entries(ship.components.thrusters)) {
@@ -801,18 +806,22 @@
 
     // Quantum Drives
     if (c.quantum_drives.length) {
-      html += `<div class="cg-title">Quantum Drive</div>`;
-      c.quantum_drives.forEach((qd, i) => {
-        html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
-          qd.display_name || qd.entity_name, qd.size, qd.grade, qd.item_sub_type,
-          stat('Drive Speed', qd.drive_speed, 0, 'km/s', true) +
-          stat('Spool Up', qd.spool_up_time, 1, 's') +
-          stat('Cooldown', qd.cooldown_time, 1, 's') +
-          stat('Fuel / Jump', qd.quantum_fuel_req, 2, 'SCU') +
-          stat('Jump Range', qd.jump_range, 0, 'Mm')
-        );
-      });
-    }
+	  html += `<div class="cg-title">Quantum Drive</div>`;
+	  c.quantum_drives.forEach((qd, i) => {
+		const qt = c.quantum_fuel_tanks[0];
+		const qdRange = (qt && qd.fuel_per_gm_mscu && qt.capacity_scu)
+			? qt.capacity_scu / (qd.fuel_per_gm_mscu / 1000)
+			: null;
+		html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
+		  qd.display_name || qd.entity_name, qd.size, qd.grade, qd.item_sub_type,
+		  stat('Drive Speed', qd.drive_speed, 0, 'Mm/s', true) +
+		  stat('Spool Up', qd.spool_up_time, 1, 's') +
+		  stat('Cooldown', qd.cooldown_time, 1, 's') +
+		  stat('Fuel per GM', qd.fuel_per_gm_mscu, 4, 'mSCU') +
+		  stat('Est. Range', qdRange, 0, 'Gm')
+		);
+	  });
+	}
 
     // Flight Controllers
     if (c.flight_controllers.length) {
