@@ -66,14 +66,19 @@
 
   <div id="registerScreen" class="panel">
     <h2 style="margin-bottom:30px; color:var(--bn); font-family:var(--fh);">REGISTER CALL SIGN</h2>
-    <input type="text" id="newCallSign" placeholder="ENTER CALL SIGN" style="text-align:center;">
+    <input type="text" id="newCallSign" placeholder="ENTER CALL SIGN" style="text-align:center; padding:15px; margin-bottom:15px;">
     <button class="splash-btn" onclick="registerCallSign()">Lock In</button>
   </div>
 
   <div id="lobby" class="panel">
-    <div style="font-family:var(--fh); color:var(--bn); margin-bottom:20px;">WELCOME, <span id="lobbyName"></span></div>
+    <div style="font-family:var(--fh); color:var(--bn); margin-bottom:20px; letter-spacing:2px;">WELCOME, <span id="lobbyName"></span></div>
     <button class="splash-btn" onclick="initiateMission()">+ Initiate New Mission</button>
-    <div id="activeMissionsList" style="margin-top:25px; text-align:left;"></div>
+    <div style="margin:20px 0; opacity:0.3; font-size:10px;">— OR SYNC TO EXISTING —</div>
+    <div class="row" style="justify-content:center;">
+      <input type="text" id="joinIdInput" placeholder="MISSION ID" style="width:150px; text-align:center;">
+      <button class="btn-add" style="padding:12px;" onclick="joinMission()">Sync</button>
+    </div>
+    <div id="activeMissionsList" style="margin-top:25px; text-align:left; max-height:300px; overflow-y:auto;"></div>
     <button class="btn-add" style="margin-top:20px; border-color:#ff4444; color:#ff4444;" onclick="auth.signOut()">Logout</button>
   </div>
 
@@ -87,7 +92,7 @@
       <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
     </div>
 
-    <h2 style="font-family:var(--fh); letter-spacing:4px; margin-bottom:20px; border-bottom:1px solid var(--bdr);">FLEET ACQUISITION CONTROL</h2>
+    <h2 style="font-family:var(--fh); letter-spacing:4px; margin-bottom:20px; border-bottom:1px solid var(--bdr); padding-bottom:10px;">FLEET ACQUISITION CONTROL</h2>
 
     <section class="sec">
       <div class="sec-title">00. Mission Intelligence</div>
@@ -139,31 +144,18 @@
     </div>
     <div style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:20px; color:#E8855C;">ID: <span id="img-session-id"></span></div>
   </div>
-  
   <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:30px; font-size:16px;">
     <div><span style="color:#9A8C64; width:120px; display:inline-block;">OPERATION:</span> <span id="img-event" style="color:#CBB8AA; font-weight:bold; font-family:'Orbitron',sans-serif;"></span></div>
     <div><span style="color:#9A8C64; width:120px; display:inline-block;">LOCATION:</span> <span id="img-location" style="color:#CBB8AA;"></span></div>
   </div>
-
   <div style="position:relative; padding:20px; margin-bottom:40px; display:flex; justify-content:space-between; background:#0d0b0a;">
     <div style="position:absolute; top:-10px; left:20px; background:#1a1512; padding:0 10px; color:#E8855C; font-size:12px;">MISSION INTELLIGENCE</div>
-    <div style="text-align:left;">
-      <div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">TOTAL ACQUISITIONS</div>
-      <div style="color:#CBB8AA; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-total-items">0</div>
-    </div>
-    <div style="text-align:left;">
-      <div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">FLEET SIZE</div>
-      <div style="color:#7E2619; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-fleet-size">0</div>
-    </div>
-    <div style="text-align:left;">
-      <div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">AVG QUALITY INDEX</div>
-      <div style="color:#E8855C; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-avg-qual">0</div>
-    </div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">TOTAL ACQUISITIONS</div><div style="color:#CBB8AA; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-total-items">0</div></div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">FLEET SIZE</div><div style="color:#7E2619; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-fleet-size">0</div></div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">AVG QUALITY INDEX</div><div style="color:#E8855C; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-avg-qual">0</div></div>
   </div>
-
   <div style="font-family:'Orbitron',sans-serif; font-size:18px; color:#E8855C; border-bottom:1px solid #7E2619; padding-bottom:10px; margin-bottom:15px;">FLEET ROSTER</div>
   <div id="img-roster" style="margin-bottom:40px; font-size:16px;"></div>
-
   <div style="font-family:'Orbitron',sans-serif; font-size:18px; color:#E8855C; border-bottom:1px solid #7E2619; padding-bottom:10px; margin-bottom:15px;">ACQUISITION MANIFEST</div>
   <div id="img-manifest" style="margin-bottom:40px; font-size:14px;"></div>
 </div>
@@ -186,14 +178,8 @@
 
   let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
 
+  // --- IDENTITY & LOBBY (MIRROR OF LEDGER LOGIC) ---
   auth.onAuthStateChanged(user => {
-    const isDev = window.location.hostname.includes("tools-dev") || window.location.hostname === "localhost";
-    if (isDev && !user) {
-      myUid = "DEV-ADMIN"; myName = "JENNER-DEV"; 
-      document.getElementById('lobbyName').textContent = myName;
-      hideAllPanels(); document.getElementById('lobby').style.display = 'block';
-      loadMissions(); return;
-    }
     hideAllPanels();
     if (user) {
       myUid = user.uid;
@@ -210,29 +196,37 @@
 
   function loginWithDiscord() { auth.signInWithPopup(new firebase.auth.OAuthProvider('oidc.discord')); }
   function registerCallSign() { const cs = document.getElementById('newCallSign').value.trim().toUpperCase(); if(cs.length >= 2) db.ref('users/'+myUid).set({callsign:cs}).then(()=>location.reload()); }
+  
   function loadMissions() { db.ref('loot_sessions').on('value', snap => {
     let h = ""; Object.keys(snap.val() || {}).forEach(id => {
       const s = snap.val()[id]; if(s.commander === myName || (s.crew && s.crew.some(c=>c.name===myName))) {
-        h += `<div class="row" style="background:var(--d3); padding:10px; border:1px solid var(--bdr); justify-content:space-between;">
-                <span style="color:var(--bn);">${id}</span>
-                <div><button class="btn-add" onclick="resumeMission('${id}', ${s.commander===myName})">Resume</button>
-                ${s.commander===myName ? `<button class="btn-add" style="color:red;" onclick="killSession('${id}')">Kill</button>` : ''}</div>
+        h += `<div class="row" style="background:var(--d3); padding:10px; border:1px solid var(--bdr); justify-content:space-between; margin-bottom:10px;">
+                <span style="color:var(--bn); font-family:var(--fh);">${id}</span>
+                <div style="display:flex; gap:5px;"><button class="btn-add" onclick="resumeMission('${id}', ${s.commander===myName})">Resume</button>
+                ${s.commander===myName ? `<button class="btn-add" style="color:red; border-color:rgba(255,0,0,0.3);" onclick="killSession('${id}')">Kill</button>` : ''}</div>
               </div>`;
       }
     });
     document.getElementById('activeMissionsList').innerHTML = h || "<div style='font-size:10px; opacity:0.5;'>No active missions.</div>";
   }); }
 
+  function killSession(id) { if(confirm("Permanently delete this acquisition mission?")) db.ref('loot_sessions/'+id).remove(); }
   function initiateMission() { isCommander = true; activeID = "AQ-" + Math.floor(1000 + Math.random() * 9000); db.ref('loot_sessions/'+activeID).set({commander:myName, createdAt:Date.now(), lastUpdatedBy:myName}).then(()=>{showApp(); syncWithFirebase();}); }
   function resumeMission(id, cmd) { activeID = id; isCommander = cmd; isFirstPull = true; showApp(); syncWithFirebase(); }
-  function killSession(id) { if(confirm("Nuke session?")) db.ref('loot_sessions/'+id).remove(); }
-  function showApp() { hideAllPanels(); document.getElementById('app').style.display = 'block'; document.getElementById('sessionId').textContent = activeID; document.getElementById('userIdentity').textContent = myName + (isCommander ? " (CMD)" : ""); }
+  function joinMission() { const code = document.getElementById('joinIdInput').value.trim().toUpperCase(); if(!code) return; db.ref('loot_sessions/'+code).once('value').then(snap => { if(!snap.exists()){alert("ID Not Found"); return;} activeID = code; isCommander = (snap.val().commander===myName); showApp(); syncWithFirebase(); }); }
+  
+  function showApp() { 
+    hideAllPanels(); 
+    document.getElementById('app').style.display = 'block'; 
+    document.getElementById('sessionId').textContent = activeID; 
+    document.getElementById('userIdentity').textContent = myName + (isCommander ? " (CMD)" : ""); 
+  }
   function exitToLobby() { location.reload(); }
   function hideAllPanels() { ['splash','registerScreen','lobby','app'].forEach(id => document.getElementById(id).style.display = 'none'); }
   function copyActiveSessionId() { navigator.clipboard.writeText(activeID).then(() => { const btn = document.getElementById('topCopyBtn'); btn.textContent = "COPIED!"; setTimeout(()=>btn.textContent="Copy ID", 1500); }); }
 
   function addCrewRow(d) { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Pilot Name" value="${d?.name||''}" oninput="pushState()"><input type="text" placeholder="Role" value="${d?.role||''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`; document.getElementById('crewContainer').appendChild(div); }
-  function addShipRow(d) { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Ship Model" value="${d?.model||''}" oninput="pushState()"><input type="text" placeholder="Role" value="${d?.role||''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`; document.getElementById('fleetContainer').appendChild(div); }
+  function addShipRow(d) { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Ship Model" value="${d?.model||''}" oninput="pushState()"><input type="text" placeholder="Ship Role" value="${d?.role||''}" oninput="pushState()"><button class="btn-add" onclick="this.parentElement.remove(); pushState()">X</button>`; document.getElementById('fleetContainer').appendChild(div); }
   function addLootRow(d) { const div = document.createElement('div'); div.className = 'row'; div.innerHTML = `<input type="text" placeholder="Item Name" value="${d?.item||''}" oninput="pushState()"><input type="number" placeholder="0-1000" value="${d?.qual||''}" oninput="updateStats(); pushState()"><button class="btn-add" onclick="this.parentElement.remove(); updateStats(); pushState()">X</button>`; document.getElementById('lootContainer').appendChild(div); }
 
   function updateStats() { let t = 0, c = 0; document.querySelectorAll('#lootContainer input[type="number"]').forEach(i => { t += parseFloat(i.value)||0; c++; }); document.getElementById('avgQualDisp').textContent = c > 0 ? Math.round(t/c) : 0; }
@@ -259,7 +253,7 @@
 
   function runCalculation(manual) {
     const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({name: r.querySelectorAll('input')[0].value, qual: r.querySelectorAll('input')[1].value}));
-    let h = `<table class="ledger-table"><thead><tr><th>ITEM</th><th style="text-align:right;">INDEX</th></tr></thead><tbody>`;
+    let h = `<table class="ledger-table"><thead><tr><th>ACQUISITION</th><th style="text-align:right;">QUALITY INDEX</th></tr></thead><tbody>`;
     items.forEach(i => h += `<tr><td>${i.name.toUpperCase()}</td><td style="text-align:right;" class="highlight">${i.qual}</td></tr>`);
     document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
     document.getElementById('utilButtons').style.display = 'flex';
@@ -278,30 +272,20 @@
     const ships = document.querySelectorAll('#fleetContainer .row').length;
     const items = Array.from(document.querySelectorAll('#lootContainer .row')).map(r => ({name: r.querySelectorAll('input')[0].value, qual: parseFloat(r.querySelectorAll('input')[1].value)||0}));
     const avg = items.length > 0 ? Math.round(items.reduce((a,b)=>a+b.qual,0)/items.length) : 0;
-
     document.getElementById('img-session-id').innerText = activeID;
     document.getElementById('img-event').innerText = ev.toUpperCase();
     document.getElementById('img-location').innerText = loc.toUpperCase();
     document.getElementById('img-total-items').innerText = items.length;
     document.getElementById('img-fleet-size').innerText = ships;
     document.getElementById('img-avg-qual').innerText = avg;
-
     let rHtml = ''; crew.forEach(c => rHtml += `<div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(154,140,100,0.1); padding:10px 5px; color:#CBB8AA;"><div style="flex:1;">${c.name}</div><div style="flex:1; text-align:right; color:#9A8C64;">${c.role}</div></div>`);
     document.getElementById('img-roster').innerHTML = rHtml;
-
-    let mHtml = ''; items.forEach(i => {
-      const pct = (i.qual / 1000) * 100;
-      mHtml += `<div style="margin-bottom:12px;"><div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>${i.name.toUpperCase()}</span><span>${i.qual} INDEX</span></div><div style="background:#0d0b0a; height:8px; border:1px solid rgba(126,38,25,0.3);"><div style="background:#7E2619; width:${pct}%; height:100%;"></div></div></div>`;
-    });
+    let mHtml = ''; items.forEach(i => { const pct = (i.qual / 1000) * 100; mHtml += `<div style="margin-bottom:12px;"><div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;"><span>${i.name.toUpperCase()}</span><span>${i.qual} INDEX</span></div><div style="background:#0d0b0a; height:8px; border:1px solid rgba(126,38,25,0.3);"><div style="background:#7E2619; width:${pct}%; height:100%;"></div></div></div>`; });
     document.getElementById('img-manifest').innerHTML = mHtml;
-
     const el = document.getElementById('render-receipt'); el.style.display = 'block';
     html2canvas(el, {backgroundColor:'#1a1512', scale:2}).then(canvas => {
       el.style.display = 'none';
-      canvas.toBlob(blob => {
-        const item = new ClipboardItem({'image/png': blob});
-        navigator.clipboard.write([item]).then(()=>alert("MANIFEST COPIED! Paste into Discord."));
-      });
+      canvas.toBlob(blob => { const item = new ClipboardItem({'image/png': blob}); navigator.clipboard.write([item]).then(()=>alert("MANIFEST COPIED! Paste into Discord.")); });
     });
   }
 </script>
