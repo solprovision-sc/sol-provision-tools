@@ -288,7 +288,7 @@ def step_stage_files():
             continue
         # status code = line[:2], space = line[2], path = line[3:]
         # but strip any leading/trailing whitespace from the path to be safe
-        raw_path = line[3:].strip()
+        raw_path = line[2:].lstrip()
         if " -> " in raw_path:
             # renamed file: 'old -> new' — we want the new name
             raw_path = raw_path.split(" -> ")[1].strip()
