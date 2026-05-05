@@ -714,12 +714,14 @@
     const qdRange = (qd && qt && qd.fuel_per_gm_mscu && qt.capacity_scu)
     ? qt.capacity_scu / (qd.fuel_per_gm_mscu / 1000)
     : null;
-
+	const qdCap = (qd.fuel_per_gm_mscu)
+	? qd.fuel_per_gm_mscu / 1000
+	: null;
 	document.getElementById('qd-content').innerHTML = qd
 		? dr('Drive Speed', qd.drive_speed, 0, 'Mm/s') +
 		  dr('Spool Time', qd.spool_up_time, 1, 's') +
 		  dr('Cooldown', qd.cooldown_time, 1, 's') +
-		  dr('Fuel per GM', qd.fuel_per_gm_mscu, 4, 'mSCU') +
+		  dr('Fuel per GM', qdCap, 4, 'SCU') +
 		  dr('Range', qdRange, 0, 'Gm')
 		: dr('Drive Speed', null);
 
@@ -812,12 +814,15 @@
 		const qdRange = (qt && qd.fuel_per_gm_mscu && qt.capacity_scu)
 			? qt.capacity_scu / (qd.fuel_per_gm_mscu / 1000)
 			: null;
+		const qdCap = (qd.fuel_per_gm_mscu)
+			? qd.fuel_per_gm_mscu / 1000
+			: null;
 		html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
 		  qd.display_name || qd.entity_name, qd.size, qd.grade, qd.item_sub_type,
 		  stat('Drive Speed', qd.drive_speed, 0, 'Mm/s', true) +
 		  stat('Spool Up', qd.spool_up_time, 1, 's') +
 		  stat('Cooldown', qd.cooldown_time, 1, 's') +
-		  stat('Fuel per GM', qd.fuel_per_gm_mscu, 4, 'mSCU') +
+		  stat('Fuel per GM', qdCap, 3, 'SCU') +
 		  stat('Est. Range', qdRange, 0, 'Gm')
 		);
 	  });
