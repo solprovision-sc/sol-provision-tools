@@ -358,8 +358,8 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
                t.drive_speed / 1000 as drive_speed, t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
-               t.quantum_fuel_req, t.jump_range,
-               t.power_draw, t.em_signature, t.health
+               t.fuel_per_gm_mscu,t.power_draw, 
+               t.em_signature, t.health
         {join("item_quantum_drives")}""")
 
     fuel_tanks = q(f"""
