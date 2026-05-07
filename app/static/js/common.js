@@ -146,17 +146,17 @@ class CompareManager {
     this.onUpdate(this.items);
   }
   clear() { this.items = []; this.onUpdate(this.items); }
-  //renderChips(containerId, btnId) {
-    //const list = document.getElementById(containerId);
-    //const btn  = document.getElementById(btnId);
-    //if (!list) return;
-    //list.innerHTML = this.items.map(i => `
-      //<div class="compare-chip">
-        //<span>${cleanName(i.entity_name)}</span>
-        //<button onclick="compareMgr.remove('${i.entity_name}')">✕</button>
-      //</div>`).join('');
-    //const count = document.getElementById('compare-count');
-    //if (count) count.textContent = `(${this.items.length}/${this.max})`;
-    //if (btn) btn.style.display = this.items.length >= 2 ? 'block' : 'none';
-  //}
+  renderChips(containerId, btnId) {
+    const list = document.getElementById(containerId);
+    const btn  = document.getElementById(btnId);
+    if (!list) return;
+    list.innerHTML = this.items.map(i => `
+      <div class="compare-chip">
+        <span>${cleanName(i.entity_name)}</span>
+        <button onclick="compareMgr.remove('${i.entity_name}')">✕</button>
+      </div>`).join('');
+    const count = document.getElementById('compare-count');
+    if (count) count.textContent = `(${this.items.length}/${this.max})`;
+    if (btn) btn.style.display = this.items.length >= 2 ? 'block' : 'none';
+  }
 }
