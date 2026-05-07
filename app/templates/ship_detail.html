@@ -167,10 +167,16 @@
   }
   .st-lbl { font-size: 8px; letter-spacing: 1.5px; color: #CBB8AA; text-transform: uppercase; margin-bottom: 5px; }
   .st-val-row { display: flex; align-items: baseline; gap: 5px; }
+  .st-val-row.hi { display: flex; align-items: baseline; gap: 5px; color: #E8855C; }
   .st-val {
     font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
     color: #CBB8AA; letter-spacing: 1px; line-height: 1;
   }
+  .st-val.hi {
+    font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
+    color: #E8855C; letter-spacing: 1px; line-height: 1;
+  }
+  .st-val.hi { color: #E8855C; }
   .st-unit { font-size: 10px; color: #CBB8AA; letter-spacing: 1px; }
   .st-val.gap-val {
     color: #b06020; font-size: 11px; font-family: 'Share Tech Mono', monospace;
@@ -326,7 +332,6 @@
       <div class="s-mfr" id="sb-mfr">—</div>
       <div class="s-name" id="sb-name">Loading...</div>
       <div class="s-tags" id="sb-tags"></div>
-      <div class="patch">Entity: <b id="sb-entity">{{ entity_name }}</b></div>
     </div>
 
     <div class="sb-stats">
@@ -380,12 +385,12 @@
 		  </div>
           <div class="stat-grid-right">
             <div class="stat-block">
-              <div class="st-lbl">Cargo Capacity</div>
-              <div class="st-val-row"><div class="st-val" id="ov-cargo">—</div><div class="st-unit" id="ov-cargo-u"></div></div>
+              <div class="st-lbl">Role</div>
+              <div class="st-val-row"><div class="st-val hi" id="ov-role">—</div></div>
             </div>
             <div class="stat-block">
-              <div class="st-lbl">Shield HP</div>
-              <div class="st-val-row"><div class="st-val" id="ov-shield">—</div><div class="st-unit" id="ov-shield-u"></div></div>
+              <div class="st-lbl">Cargo Capacity</div>
+              <div class="st-val-row"><div class="st-val" id="ov-cargo">—</div><div class="st-unit" id="ov-cargo-u"></div></div>
             </div>
             <div class="stat-block">
               <div class="st-lbl">SCM Speed</div>
@@ -630,6 +635,8 @@
       document.getElementById('ov-cargo').textContent = 'NONE';
       document.getElementById('ov-cargo-u').textContent = '';
     }
+	
+	document.getElementById('ov-role').textContent = ship.length_m  ? `${ship.length_m} m` : '—';
 
     const shield = ship.components.shields[0];
     setStatBlock('ov-shield', 'ov-shield-u', shield ? shield.max_shield_health : null, 0, 'HP');

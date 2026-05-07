@@ -261,10 +261,11 @@ def api_ships():
     sort_by = f"s.{sort_by}"
 
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name, 
-                 s.career, s.role, s.crew_size, s.cargo_scu, 
+                 s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu, 
                  s.length_m, s.beam_m, s.height_m
           FROM ships s
           JOIN ships_index si ON si.entity_name = s.entity_name
+          LEFT JOIN vehicle_roles vr ON vr.role_key = s.role
           WHERE s.patch_version = ?"""
     params = [p]
     if career:   sql += " AND s.career LIKE ?";   params.append(f"%{career}%")
@@ -286,7 +287,7 @@ def api_ships():
             "display_name": disp,
             "manufacturer": get_mfr(name),
             "career":       clean_career(r["career"] or ""),
-            "role":         clean_role(r["role"] or ""),
+            "role":         r["role"],
             "crew_size":    r["crew_size"],
             "cargo_scu":    r["cargo_scu"],
             "length_m":     r["length_m"],
@@ -509,7 +510,7 @@ def api_ship_detail(entity_name):
         "display_name":           best_name(ship["display_name"], entity_name),
         "manufacturer":           get_mfr(entity_name),
         "career":                 clean_career(ship["career"] or ""),
-        "role":                   clean_role(ship["role"] or ""),
+        "role":                   ship["role"],
         "crew_size":              ship["crew_size"],
         "cargo_scu":              ship["cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
