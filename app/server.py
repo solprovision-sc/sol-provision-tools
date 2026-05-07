@@ -524,6 +524,11 @@ def api_ship_detail(entity_name):
         "hardpoints":             hardpoints,
         "components":             components,
         "lineart_file":           ship["lineart_file"] or None,
+        "insurance": {
+            "claim_time_mins":    ship["insurance_claim_time_mins"],
+            "expedite_time_mins": ship["insurance_expedite_time_mins"],
+            "expedite_fee":       ship["insurance_expedite_fee"],
+        },
     })
 
 @app.route("/api/compare")
