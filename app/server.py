@@ -470,9 +470,11 @@ def get_ship_components(conn, ship_entity, patch):
 def api_ship_detail(entity_name):
     conn = get_db(); p = PATCH or latest_patch(conn)
     ship = conn.execute("""
-        SELECT s.*, si.lineart_file
+        SELECT s.*, si.lineart_file,
+               COALESCE(vr.display_name, s.role) AS role_display
         FROM ships s
         LEFT JOIN ships_index si ON si.entity_name = s.entity_name
+        LEFT JOIN vehicle_roles vr ON vr.role_key = s.role
         WHERE s.entity_name = ? AND s.patch_version = ?
     """, (entity_name, p)).fetchone()
     if not ship: conn.close(); return jsonify({"error":"Not found"}), 404
@@ -510,7 +512,7 @@ def api_ship_detail(entity_name):
         "display_name":           best_name(ship["display_name"], entity_name),
         "manufacturer":           get_mfr(entity_name),
         "career":                 clean_career(ship["career"] or ""),
-        "role":                   ship["role"],
+        "role": ship["role_display"] or clean_role(ship["role"] or ""),
         "crew_size":              ship["crew_size"],
         "cargo_scu":              ship["cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
