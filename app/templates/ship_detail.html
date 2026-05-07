@@ -636,7 +636,7 @@
       document.getElementById('ov-cargo-u').textContent = '';
     }
 	
-	document.getElementById('ov-role').textContent = ship.length_m  ? `${ship.length_m} m` : '—';
+	document.getElementById('ov-role').textContent = ship.role  ? `${ship.role}` : '-';
 
     const shield = ship.components.shields[0];
     setStatBlock('ov-shield', 'ov-shield-u', shield ? shield.max_shield_health : null, 0, 'HP');
