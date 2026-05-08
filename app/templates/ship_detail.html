@@ -427,7 +427,7 @@
           <div class="panel">
             <div class="panel-title">Structure</div>
             <div class="dr"><span class="dr-l">Dimensions (L×W×H)</span><span class="dr-v" id="hull-dims">—</span></div>
-            <div class="dr"><span class="dr-l">Mass</span><span class="dr-v gap-val">data gap</span></div>
+            <div class="dr"><span class="dr-l">Mass</span><span class="dr-v" id="hull-mass">-</span></div>
             <div class="dr"><span class="dr-l">Total Hull HP</span><span class="dr-v gap-val">data gap</span></div>
           </div>
           <div class="panel">
@@ -673,6 +673,8 @@
     const dims = [ship.length_m, ship.beam_m, ship.height_m];
     document.getElementById('hull-dims').textContent =
       dims.every(d => d) ? dims.map(d => `${d}m`).join(' × ') : 'data gap';
+	document.getElementById('hull-mass').textContent = ship.mass_kg  ? `${ship.mass_kg} kg` : '-';
+
 
     const armor = ship.components.armor[0];
     document.getElementById('armor-content').innerHTML = armor
