@@ -750,6 +750,18 @@
     document.getElementById('thruster-summary-content').innerHTML = thrHtml || dr('Main Thrust', null);
   }
 
+  // ── Component Names ───────────────────────────────────────────────────────────────
+  function formatComponentName(name) {
+	  if (!name) return '—';
+	  // Remove _scitem suffix, split on underscore, take everything after the first 3 segments
+	  const clean = name.replace(/_scitem$/i, '');
+	  const parts = clean.split('_');
+	  if (parts.length < 4) return clean.replace(/_/g, ' ');
+	  // Join everything from index 3 onwards (handles multi-word names like "star_runner_flight_blade")
+	  return parts.slice(3).join(' ').replace(/\b\w/g, c => c.toUpperCase());
+	}
+
+
   // ── Components ───────────────────────────────────────────────────────────────
   function populateComponents(ship) {
     const c = ship.components;
@@ -783,7 +795,7 @@
       html += `<div class="cg-title">Shields</div>`;
       c.shields.forEach((s, i) => {
         html += slotCard(`Shield Generator ${String(i+1).padStart(2,'0')}`,
-          s.display_name || s.entity_name, s.size, s.grade, s.item_sub_type,
+          s.display_name || formatComponentName(s.entity_name), s.size, s.grade, s.item_sub_type,
           stat('Total HP', s.max_shield_health, 0, null, true) +
           stat('Regen', s.max_shield_regen, 0, 'HP/s') +
           stat('Regen Delay', s.damaged_regen_delay, 1, 's') +
@@ -802,7 +814,7 @@
       html += `<div class="cg-title">Coolers</div>`;
       c.coolers.forEach((co, i) => {
         html += slotCard(`Cooler ${String(i+1).padStart(2,'0')}`,
-          co.display_name || co.entity_name, co.size, co.grade, co.item_sub_type,
+          co.display_name || formatComponentName(co.entity_name), co.size, co.grade, co.item_sub_type,
           stat('Cooling Output', co.cooling_output, 1, 'units', true) +
           stat('Power Draw', co.power_draw, 0, 'EU') +
           stat('IR Sig', co.ir_signature, 0) +
@@ -816,7 +828,7 @@
       html += `<div class="cg-title">Power Plant</div>`;
       c.powerplants.forEach((pp, i) => {
         html += slotCard(`Power Plant ${String(i+1).padStart(2,'0')}`,
-          pp.display_name || pp.entity_name, pp.size, pp.grade, pp.item_sub_type,
+          pp.display_name || formatComponentName(pp.entity_name), pp.size, pp.grade, pp.item_sub_type,
           stat('Output', pp.power_output, 0, 'seg', true) +
           stat('EM Sig', pp.em_signature, 0)
         );
@@ -835,7 +847,7 @@
 			? qd.fuel_per_gm_mscu / 1000
 			: null;
 		html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
-		  qd.display_name || qd.entity_name, qd.size, qd.grade, qd.item_sub_type,
+		  qd.display_name || formatComponentName(qd.entity_name), qd.size, qd.grade, qd.item_sub_type,
 		  stat('Drive Speed', qd.drive_speed, 0, 'Mm/s', true) +
 		  stat('Spool Up', qd.spool_up_time, 1, 's') +
 		  stat('Cooldown', qd.cooldown_time, 1, 's') +
@@ -850,7 +862,7 @@
       html += `<div class="cg-title">Flight Controller</div>`;
       c.flight_controllers.forEach((fc, i) => {
         html += slotCard(`Flight Controller ${String(i+1).padStart(2,'0')}`,
-          fc.display_name || fc.entity_name, null, null, null,
+          fc.display_name || formatComponentName(fc.entity_name), null, null, null,
           stat('SCM Speed', fc.scm_speed, 0, 'm/s', true) +
           stat('NAV Speed', fc.max_speed, 0, 'm/s') +
           stat('Boost Fwd', fc.boost_speed_forward, 0, 'm/s') +
@@ -867,7 +879,7 @@
       html += `<div class="cg-title">Radar</div>`;
       c.radars.forEach((r, i) => {
         html += slotCard(`Radar ${String(i+1).padStart(2,'0')}`,
-          r.display_name || r.entity_name, r.size, r.grade, null,
+          r.display_name || formatComponentName(r.entity_name), r.size, r.grade, null,
           stat('Power Draw', r.power_draw, 0, 'EU') +
           stat('EM Sig', r.em_signature, 0)
         );
@@ -901,7 +913,7 @@
       html += `<div class="cg-title">Armor</div>`;
       c.armor.forEach(a => {
         html += slotCard('Hull Armor',
-          a.display_name || a.entity_name, a.size, a.grade, 'Ship-integrated',
+          a.display_name || formatComponentName(a.entity_name), a.size, a.grade, 'Ship-integrated',
           stat('Armor HP', a.health, 0, null, true) +
           stat('Deflect Phys', a.deflect_physical, 1) +
           stat('Deflect Energy', a.deflect_energy, 1) +
