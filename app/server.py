@@ -520,6 +520,7 @@ def api_ship_detail(entity_name):
         "length_m":               ship["length_m"],
         "beam_m":                 ship["beam_m"],
         "height_m":               ship["height_m"],
+        "mass_kg":                ship["mass_kg"],
         "cargo_grids":            [dict(g) for g in grids],
         "hardpoints":             hardpoints,
         "components":             components,
