@@ -333,11 +333,11 @@
       <div class="s-name" id="sb-name">Loading...</div>
       <div class="sb-row"><span class="sb-lbl">Career</span><span class="sb-val" id="sb-career"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Role</span><span class="sb-val" id="sb-role"></span></div>
+	  <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size"></span></div>
     </div>
 
     <div class="sb-stats">
       <div class="sb-lbl-header">At a Glance</div>
-      <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">Cargo</span><span class="sb-val hi" id="sb-cargo">—</span></div>
       <div class="sb-row"><span class="sb-lbl">Crew</span><span class="sb-val" id="sb-crew">—</span></div>
       <div class="sb-row"><span class="sb-lbl">SCM Speed</span><span class="sb-val" id="sb-scm">—</span></div>
@@ -397,17 +397,17 @@
               <div class="st-val-row"><div class="st-val" id="ov-scm">—</div><div class="st-unit" id="ov-scm-u"></div></div>
             </div>
             <div class="stat-block">
-              <div class="st-lbl">QD Speed</div>
-              <div class="st-val-row"><div class="st-val" id="ov-qd">—</div><div class="st-unit" id="ov-qd-u"></div></div>
+              <div class="st-lbl">NAV Speed</div>
+              <div class="st-val-row"><div class="st-val" id="ov-nav">—</div><div class="st-unit" id="ov-nav-u"></div></div>
             </div>
-            <div class="stat-block">
-              <div class="st-lbl">Pilot DPS</div>
-              <div class="st-val-row"><div class="st-val gap-val">DATA GAP</div></div>
-            </div>
-            <div class="stat-block">
-              <div class="st-lbl">Main Thrust</div>
-              <div class="st-val-row"><div class="st-val" id="ov-thrust">—</div><div class="st-unit" id="ov-thrust-u"></div></div>
-            </div>
+			<div class="stat-block">
+			  <div class="st-lbl">Insurance</div>
+			  <div class="st-val-row"><div class="st-val" id="ov-ins">—</div><div class="st-unit" id="ov-ins-u"></div></div>
+			</div>
+			<div class="stat-block">
+			  <div class="st-lbl">Insurance</div>
+			  <div class="st-val-row"><div class="st-val" id="ov-ins">—</div><div class="st-unit" id="ov-ins-u"></div></div>
+			</div>
             <div class="stat-block">
               <div class="st-lbl">H2 Fuel</div>
               <div class="st-val-row"><div class="st-val" id="ov-h2">—</div><div class="st-unit" id="ov-h2-u"></div></div>
@@ -513,7 +513,7 @@
         </div>
       </section>
 
-      <!-- Hardpoint Manifest -->
+      <!-- COMMENTED OUT Hardpoint Manifest [removed section]
       <section class="sec" id="sec-hardpoints">
         <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hardpoint Manifest</div><div class="sec-note" id="hp-count-note">—</div></div>
         <div class="manifest-wrap">
@@ -523,8 +523,9 @@
           </table>
         </div>
       </section>
+	  -->
 
-      <!-- Insurance -->
+      <!-- COMMENTED OUT Insurance [moved to Overview Section]
       <section class="sec" id="sec-insurance">
         <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Insurance</div></div>
 		<div id="insurance-gap-block" style="display:none;" class="insurance-gap">
@@ -547,6 +548,7 @@
 		  </div>
 		</div>
       </section>
+	  -->
 
     </div><!-- end ship-content -->
   </main>
@@ -618,6 +620,7 @@
 
   // ── Overview ─────────────────────────────────────────────────────────────────
   function populateOverview(ship) {
+	  
     document.title = `${ship.display_name} — Sol Provision`;
     document.getElementById('ov-entity-note').textContent = ENTITY_NAME;
 
@@ -647,6 +650,7 @@
 
     const fc = ship.components.flight_controllers[0];
     setStatBlock('ov-scm', 'ov-scm-u', fc ? fc.scm_speed : null, 0, 'm/s');
+	setStatBlock('ov-nav', 'ov-nav-u', fc ? fc.max_speed : null, 0, 'm/s');
 
     const qd = ship.components.quantum_drives[0];
     setStatBlock('ov-qd', 'ov-qd-u', qd ? qd.drive_speed : null, 0, 'km/s');
@@ -660,6 +664,20 @@
 
     const qt = ship.components.quantum_fuel_tanks[0];
     setStatBlock('ov-qt', 'ov-qt-u', qt ? qt.capacity_scu : null, 1, 'SCU');
+	
+	const ins = ship.insurance || {};
+	if (ins.claim_time_mins) {
+	  const claimTime = fmt(ins.claim_time_mins, 1);
+	  const expTime = fmt(ins.expedite_time_mins, 1);
+	  const expFee = fmt(ins.expedite_fee, 0);
+	  const insText = `${claimTime} mins | ${expTime} mins (${expFee} aUEC)`;
+	  document.getElementById('ov-ins').textContent = insText;
+	  document.getElementById('ov-ins-u').textContent = ''; // empty unit
+	} else {
+	  document.getElementById('ov-ins').textContent = '—';
+	  document.getElementById('ov-ins-u').textContent = '';
+	}	
+	
   }
 
   // ── Hull & Survivability ─────────────────────────────────────────────────────
@@ -1038,6 +1056,8 @@
   }
 
   // ── Hardpoints ───────────────────────────────────────────────────────────────
+  /*
+  // Commented out Hardpoint manifest section
   function populateHardpoints(ship) {
     let rows = ''; let total = 0;
     for (const [type, list] of Object.entries(ship.hardpoints)) {
@@ -1054,8 +1074,11 @@
     document.getElementById('hardpoint-tbody').innerHTML  = rows ||
       `<tr><td colspan="4" style="padding:16px; color:#9A8C64;">No hardpoints indexed</td></tr>`;
   }
+  */
   
   // ── Insurance ───────────────────────────────────────────────────────────────
+  /*
+  // Commented out Insurance section, moved to Overview Section
   function populateInsurance(ship) {
 	  const ins      = ship.insurance || {};
 	  const claim    = ins.claim_time_mins;
@@ -1068,10 +1091,12 @@
 		return;
 	  }
 
+
 	  document.getElementById('ins-claim').textContent    = claim    ? `${claim} min`                        : '—';
 	  document.getElementById('ins-expedite').textContent = expedite ? `${expedite} min`                     : '—';
 	  document.getElementById('ins-fee').textContent      = fee      ? `${Math.round(fee).toLocaleString()} aUEC` : '—';
 	}
+  */
   
 
   // ── Scroll spy ───────────────────────────────────────────────────────────────
