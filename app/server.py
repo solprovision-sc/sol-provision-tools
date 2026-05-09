@@ -482,13 +482,13 @@ def api_ship_detail(entity_name):
     ship_damage_parts = conn.execute(
         """SELECT sdp.part_name, sdp.damage_max
            FROM ship_damage_parts sdp
-           WHERE sdp.ship_entity_name=? AND cg.patch_version=?
+           WHERE sdp.ship_entity_name=? AND sdp.patch_version=?
         """,(entity_name, p)
     ).fetchall()
     
     ship_parts = {}
     for sp in ship_damage_parts: ship_parts.setdefault(sp["part_name"], []).append(dict(sp))
-    hull_hp = sum(ship_damage_parts["damage_max"])
+    hull_hp = sum(row["damage_max"] or 0 for row in ship_damage_parts)
 
     grids = conn.execute(
         """SELECT cg.entity_name, cg.scu, cg.dim_x, cg.dim_y, cg.dim_z,
@@ -531,8 +531,8 @@ def api_ship_detail(entity_name):
         "length_m":               ship["length_m"],
         "beam_m":                 ship["beam_m"],
         "height_m":               ship["height_m"],
-        "mass_kg":                ship["mass_kg"],
-        "size":                   ship["size_class"],
+        "mass_kg":                ship["mass_kg"] if "mass_kg" in ship.keys() else None,
+        "size":                   ship["size_class"] if "size_class" in ship.keys() else None,
         "cargo_grids":            [dict(g) for g in grids],
         "hull_hp":                hull_hp,
         "ship_parts":             ship_parts,
