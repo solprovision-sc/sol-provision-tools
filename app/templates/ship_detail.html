@@ -344,6 +344,28 @@
       <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Fwd</span><span class="sb-val" id="sb-scm-fwd-boost">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Aft</span><span class="sb-val" id="sb-scm-aft-boost">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">NAV Speed</span><span class="sb-val" id="sb-nav">—</span></div>
+	  <div class="sb-row">
+	    <div class="sb-lbl">Pitch / Roll / Yaw</div>
+	    <div class="sb-val-multi">
+		  <span class="sb-val" id="sb-pitch">—</span>
+		  <span class="sb-sep">/</span>
+		  <span class="sb-val" id="sb-roll">—</span>
+		  <span class="sb-sep">/</span>
+		  <span class="sb-val" id="sb-yaw">—</span>
+		  <span class="sb-unit">deg/s</span>
+	    </div>
+	  </div>
+	  <div class="sb-row">
+	    <div class="sb-lbl">Boost Pitch / Roll / Yaw</div>
+	    <div class="sb-val-multi">
+		  <span class="sb-val" id="sb-boost-pitch">—</span>
+		  <span class="sb-sep">/</span>
+		  <span class="sb-val" id="sb-boost-roll">—</span>
+		  <span class="sb-sep">/</span>
+		  <span class="sb-val" id="sb-boost-yaw">—</span>
+		  <span class="sb-unit">deg/s</span>
+	    </div>
+	  </div>
 	  <div class="sb-row"><span class="sb-lbl">Total Hull HP</span><span class="sb-val" id="sb-hull-hp">—</span></div>
     </div>
 
@@ -611,11 +633,28 @@
     document.getElementById('sb-hull-hp').textContent   = ship.hull_hp ? `${fmt(ship.hull_hp, 0, 'HP')}` : '—';
 
     const fc = ship.components.flight_controllers[0];
+	const boostPitch = (fc && fc.ab_ang_mult_pitch && fc.max_pitch_speed)
+     ? fc.ab_ang_mult_pitch * fc.max_pitch_speed
+     : null;
+	const boostRoll = (fc && fc.ab_ang_mult_roll && fc.max_roll_speed)
+     ? fc.ab_ang_mult_roll * fc.max_roll_speed
+     : null;
+	const boostYaw = (fc && fc.ab_ang_mult_yaw && fc.max_yaw_speed)
+     ? fc.ab_ang_mult_yaw * fc.max_yaw_speed
+     : null;
 	document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fmt(fc.boost_speed_forward, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fmt(fc.boost_speed_backward, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
-
+	document.getElementById('sb-pitch').textContent = fc ? `${fmt(fc.max_pitch_speed, 1)}` : 'data gap';
+	document.getElementById('sb-roll').textContent = fc ? `${fmt(fc.max_roll_speed, 1)}` : 'data gap';
+	document.getElementById('sb-yaw').textContent = fc ? `${fmt(fc.max_yaw_speed, 1)}` : 'data gap';
+	document.getElementById('sb-boost-pitch').textContent = fc ? `${fmt(boostPitch, 1)}` : 'data gap';
+	document.getElementById('sb-boost-roll').textContent = fc ? `${fmt(boostRoll, 1)}` : 'data gap';
+	document.getElementById('sb-boost-yaw').textContent = fc ? `${fmt(boostYaw, 1)}` : 'data gap';
+	
+	
+	fc.ab_ang_mult_pitch
   }
 
   // ── Overview ─────────────────────────────────────────────────────────────────
