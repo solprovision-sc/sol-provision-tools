@@ -409,12 +409,12 @@
               <div class="st-val-row"><div class="st-val" id="ov-nav">—</div><div class="st-unit" id="ov-nav-u"></div></div>
             </div>
 			<div class="stat-block">
-			  <div class="st-lbl">Insurance</div>
+			  <div class="st-lbl">Insurance - Claim Time</div>
 			  <div class="st-val-row"><div class="st-val" id="ov-ins">—</div><div class="st-unit" id="ov-ins-u"></div></div>
 			</div>
 			<div class="stat-block">
-			  <div class="st-lbl">Insurance</div>
-			  <div class="st-val-row"><div class="st-val" id="ov-ins">—</div><div class="st-unit" id="ov-ins-u"></div></div>
+			  <div class="st-lbl">Insurance - Expedite</div>
+			  <div class="st-val-row"><div class="st-val" id="ov-ins-exp">—</div><div class="st-unit" id="ov-ins-u"></div></div>
 			</div>
             <div class="stat-block">
               <div class="st-lbl">H2 Fuel</div>
@@ -637,10 +637,10 @@
 
 	// Combined strings
 	const ins_mnv = (ratePitch && rateRoll && rateYaw)
-	  ? `${ratePitch} / ${rateRoll} / ${rateYaw} °/s`
+	  ? `${ratePitch} / ${rateRoll} / ${rateYaw} deg/s`
 	  : '—';
 	const ins_boost_mnv = (boostPitch && boostRoll && boostYaw)
-	  ? `${boostPitch} / ${boostRoll} / ${boostYaw} °/s`
+	  ? `${boostPitch} / ${boostRoll} / ${boostYaw} deg/s`
 	  : '—';
 	
 	document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
@@ -704,14 +704,17 @@
 	
 	const ins = ship.insurance || {};
 	if (ins.claim_time_mins) {
-	  const claimTime = fmt(ins.claim_time_mins, 1);
-	  const expTime = fmt(ins.expedite_time_mins, 1);
+	  const claimTime = fmt(ins.claim_time_mins, 0);
+	  const expTime = fmt(ins.expedite_time_mins, 0);
 	  const expFee = fmt(ins.expedite_fee, 0);
-	  const insText = `${claimTime} mins | ${expTime} mins (${expFee} aUEC)`;
-	  document.getElementById('ov-ins').textContent = insText;
+	  const insBase = `${claimTime} mins`;
+	  const insExp = `${expTime} mins | ${expFee} aUEC`;
+	  document.getElementById('ov-ins').textContent = insBase;
+	  document.getElementById('ov-ins-exp').textContent = insExp;
 	  document.getElementById('ov-ins-u').textContent = ''; // empty unit
 	} else {
 	  document.getElementById('ov-ins').textContent = '—';
+	  document.getElementById('ov-ins-exp').textContent = '—';
 	  document.getElementById('ov-ins-u').textContent = '';
 	}	
 	
