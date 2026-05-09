@@ -6,7 +6,7 @@
   /* ── Layout ── */
   .ship-detail-page {
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 300px 1fr;
     min-height: calc(100vh - 52px);
   }
 
@@ -345,26 +345,12 @@
 	  <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Aft</span><span class="sb-val" id="sb-scm-aft-boost">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">NAV Speed</span><span class="sb-val" id="sb-nav">—</span></div>
 	  <div class="sb-row">
-	    <div class="sb-lbl">Pitch / Roll / Yaw</div>
-	    <div class="sb-val-multi">
-		  <span class="sb-val" id="sb-pitch">—</span>
-		  <span class="sb-sep">/</span>
-		  <span class="sb-val" id="sb-roll">—</span>
-		  <span class="sb-sep">/</span>
-		  <span class="sb-val" id="sb-yaw">—</span>
-		  <span class="sb-unit">deg/s</span>
-	    </div>
+	    <div class="sb-lbl">Pitch/Roll/Yaw</div>
+	    <div class="sb-val" id="sb-mnv">—</div>
 	  </div>
 	  <div class="sb-row">
-	    <div class="sb-lbl">Boost Pitch / Roll / Yaw</div>
-	    <div class="sb-val-multi">
-		  <span class="sb-val" id="sb-boost-pitch">—</span>
-		  <span class="sb-sep">/</span>
-		  <span class="sb-val" id="sb-boost-roll">—</span>
-		  <span class="sb-sep">/</span>
-		  <span class="sb-val" id="sb-boost-yaw">—</span>
-		  <span class="sb-unit">deg/s</span>
-	    </div>
+	    <div class="sb-lbl">Boost Rates</div>
+	    <div class="sb-val" id="sb-boost-mnv">—</div>
 	  </div>
 	  <div class="sb-row"><span class="sb-lbl">Total Hull HP</span><span class="sb-val" id="sb-hull-hp">—</span></div>
     </div>
@@ -633,25 +619,37 @@
     document.getElementById('sb-hull-hp').textContent   = ship.hull_hp ? `${fmt(ship.hull_hp, 0, 'HP')}` : '—';
 
     const fc = ship.components.flight_controllers[0];
+	// Base rates
+	const ratePitch = fc && fc.max_pitch_speed ? fmt(fc.max_pitch_speed, 0) : null;
+	const rateRoll = fc && fc.max_roll_speed ? fmt(fc.max_roll_speed, 0) : null;
+	const rateYaw = fc && fc.max_yaw_speed ? fmt(fc.max_yaw_speed, 0) : null;
+
+	// Boost rates
 	const boostPitch = (fc && fc.ab_ang_mult_pitch && fc.max_pitch_speed)
-     ? fc.ab_ang_mult_pitch * fc.max_pitch_speed
-     : null;
+	  ? fmt(fc.ab_ang_mult_pitch * fc.max_pitch_speed, 0)
+	  : null;
 	const boostRoll = (fc && fc.ab_ang_mult_roll && fc.max_roll_speed)
-     ? fc.ab_ang_mult_roll * fc.max_roll_speed
-     : null;
+	  ? fmt(fc.ab_ang_mult_roll * fc.max_roll_speed, 0)
+	  : null;
 	const boostYaw = (fc && fc.ab_ang_mult_yaw && fc.max_yaw_speed)
-     ? fc.ab_ang_mult_yaw * fc.max_yaw_speed
-     : null;
+	  ? fmt(fc.ab_ang_mult_yaw * fc.max_yaw_speed, 0)
+	  : null;
+
+	// Combined strings
+	const ins_mnv = (ratePitch && rateRoll && rateYaw)
+	  ? `${ratePitch} / ${rateRoll} / ${rateYaw} °/s`
+	  : '—';
+	const ins_boost_mnv = (boostPitch && boostRoll && boostYaw)
+	  ? `${boostPitch} / ${boostRoll} / ${boostYaw} °/s`
+	  : '—';
+	
 	document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fmt(fc.boost_speed_forward, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fmt(fc.boost_speed_backward, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
-	document.getElementById('sb-pitch').textContent = fc ? `${fmt(fc.max_pitch_speed, 1)}` : 'data gap';
-	document.getElementById('sb-roll').textContent = fc ? `${fmt(fc.max_roll_speed, 1)}` : 'data gap';
-	document.getElementById('sb-yaw').textContent = fc ? `${fmt(fc.max_yaw_speed, 1)}` : 'data gap';
-	document.getElementById('sb-boost-pitch').textContent = fc ? `${fmt(boostPitch, 1)}` : 'data gap';
-	document.getElementById('sb-boost-roll').textContent = fc ? `${fmt(boostRoll, 1)}` : 'data gap';
-	document.getElementById('sb-boost-yaw').textContent = fc ? `${fmt(boostYaw, 1)}` : 'data gap';
+	document.getElementById('sb-mnv').textContent = ins_mnv;
+	document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
+	
 	
 	
 	fc.ab_ang_mult_pitch
