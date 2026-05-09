@@ -478,6 +478,17 @@ def api_ship_detail(entity_name):
         WHERE s.entity_name = ? AND s.patch_version = ?
     """, (entity_name, p)).fetchone()
     if not ship: conn.close(); return jsonify({"error":"Not found"}), 404
+    
+    ship_damage_parts = conn.execute(
+        """SELECT sdp.part_name, sdp.damage_max
+           FROM ship_damage_parts sdp
+           WHERE sdp.ship_entity_name=? AND cg.patch_version=?
+        """,(entity_name, p)
+    ).fetchall()
+    
+    ship_parts = {}
+    for sp in ship_damage_parts: ship_parts.setdefault(sp["part_name"], []).append(dict(sp))
+    hull_hp = sum(ship_damage_parts["damage_max"])
 
     grids = conn.execute(
         """SELECT cg.entity_name, cg.scu, cg.dim_x, cg.dim_y, cg.dim_z,
@@ -521,8 +532,10 @@ def api_ship_detail(entity_name):
         "beam_m":                 ship["beam_m"],
         "height_m":               ship["height_m"],
         "mass_kg":                ship["mass_kg"],
-        "size":                ship["size_class"],
+        "size":                   ship["size_class"],
         "cargo_grids":            [dict(g) for g in grids],
+        "hull_hp":                hull_hp,
+        "ship_parts":             ship_parts,
         "hardpoints":             hardpoints,
         "components":             components,
         "lineart_file":           ship["lineart_file"] or None,
