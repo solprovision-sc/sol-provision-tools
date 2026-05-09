@@ -344,8 +344,7 @@
       <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Fwd</span><span class="sb-val" id="sb-scm-fwd-boost">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Aft</span><span class="sb-val" id="sb-scm-aft-boost">—</span></div>
 	  <div class="sb-row"><span class="sb-lbl">NAV Speed</span><span class="sb-val" id="sb-nav">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">DPS (Pilot)</span><span class="sb-val gap">data gap</span></div>
-      <div class="sb-row"><span class="sb-lbl">Insurance</span><span class="sb-val gap">data gap</span></div>
+	  <div class="sb-row"><span class="sb-lbl">Total Hull HP</span><span class="sb-val" id="sb-hull-hp">—</span></div>
     </div>
 
     <nav class="nav-section">
@@ -607,9 +606,7 @@
 	document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${ship.cargo_scu} SCU` : '—';
     document.getElementById('sb-crew').textContent   = ship.crew_size ? `${ship.crew_size}` : '—';
 
-    const shield = ship.components.shields[0];
-    document.getElementById('sb-shield').textContent = shield
-      ? `${Math.round(shield.max_shield_health).toLocaleString()} HP` : 'data gap';
+    document.getElementById('sb-hull-hp').textContent   = ship.hull_hp ? `${ship.hull_hp}` : '—';
 
     const fc = ship.components.flight_controllers[0];
     document.getElementById('sb-scm').textContent = fc ? `${fc.scm_speed} m/s` : 'data gap';
@@ -617,10 +614,6 @@
 	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fc.boost_speed_backward} m/s` : 'data gap';
 	document.getElementById('sb-nav').textContent = fc ? `${fc.max_speed} m/s` : 'data gap';
 
-    const mainList = ship.components.thrusters['Main'] || ship.components.thrusters['main'] || [];
-    const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
-    document.getElementById('sb-thrust').textContent = mainThrust > 0
-      ? `${(mainThrust / 1000000).toFixed(2)} MN` : 'data gap';
   }
 
   // ── Overview ─────────────────────────────────────────────────────────────────
