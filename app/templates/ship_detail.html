@@ -606,7 +606,6 @@
     document.getElementById('sb-size').textContent  = ship.size > 0 ? `S${ship.size}` : '—';
 	document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${ship.cargo_scu} SCU` : '—';
     document.getElementById('sb-crew').textContent   = ship.crew_size ? `${ship.crew_size}` : '—';
-    document.getElementById('sb-length').textContent = ship.length_m  ? `${ship.length_m} m` : '—';
 
     const shield = ship.components.shields[0];
     document.getElementById('sb-shield').textContent = shield
@@ -617,12 +616,6 @@
 	document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fc.boost_speed_forward} m/s` : 'data gap';
 	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fc.boost_speed_backward} m/s` : 'data gap';
 	document.getElementById('sb-nav').textContent = fc ? `${fc.max_speed} m/s` : 'data gap';
-	
-	
-	
-
-    //const qd = ship.components.quantum_drives[0];
-    //document.getElementById('sb-qd').textContent = qd ? `${qd.drive_speed} km/s` : 'data gap';
 
     const mainList = ship.components.thrusters['Main'] || ship.components.thrusters['main'] || [];
     const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
