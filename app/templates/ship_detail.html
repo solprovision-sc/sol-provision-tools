@@ -331,18 +331,19 @@
       <a class="s-back" href="/ships">← Fleet Registry</a>
       <div class="s-mfr" id="sb-mfr">—</div>
       <div class="s-name" id="sb-name">Loading...</div>
-      <div class="s-tags" id="sb-tags"></div>
+      <div class="sb-row"><span class="sb-lbl">Career</span><span class="sb-val" id="sb-career"></span></div>
+	  <div class="sb-row"><span class="sb-lbl">Role</span><span class="sb-val" id="sb-role"></span></div>
     </div>
 
     <div class="sb-stats">
       <div class="sb-lbl-header">At a Glance</div>
-      <div class="sb-row"><span class="sb-lbl">Cargo</span><span class="sb-val hi" id="sb-cargo">—</span></div>
+      <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size">—</span></div>
+	  <div class="sb-row"><span class="sb-lbl">Cargo</span><span class="sb-val hi" id="sb-cargo">—</span></div>
       <div class="sb-row"><span class="sb-lbl">Crew</span><span class="sb-val" id="sb-crew">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">Shield HP</span><span class="sb-val ok" id="sb-shield">—</span></div>
       <div class="sb-row"><span class="sb-lbl">SCM Speed</span><span class="sb-val" id="sb-scm">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">QD Speed</span><span class="sb-val" id="sb-qd">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">Length</span><span class="sb-val" id="sb-length">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">Main Thrust</span><span class="sb-val" id="sb-thrust">—</span></div>
+      <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Fwd</span><span class="sb-val" id="sb-scm-fwd-boost">—</span></div>
+	  <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Aft</span><span class="sb-val" id="sb-scm-aft-boost">—</span></div>
+	  <div class="sb-row"><span class="sb-lbl">NAV Speed</span><span class="sb-val" id="sb-nav">—</span></div>
       <div class="sb-row"><span class="sb-lbl">DPS (Pilot)</span><span class="sb-val gap">data gap</span></div>
       <div class="sb-row"><span class="sb-lbl">Insurance</span><span class="sb-val gap">data gap</span></div>
     </div>
@@ -595,14 +596,15 @@
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   function populateSidebar(ship) {
     document.getElementById('sb-mfr').textContent  = ship.manufacturer || '—';
-    document.getElementById('sb-name').textContent = ship.display_name || ENTITY_NAME;
+    document.getElementById('sb-name').textContent = ship.display_name.includes(' ') 
+    ? ship.display_name.split(' ').slice(1).join(' ') 
+    : ship.display_name || ENTITY_NAME;
+	
+	document.getElementById('sb-career').innerHTML = `<span class="tag tag-c">${ship.career}</span>`;
+	document.getElementById('sb-role').innerHTML   = `<span class="tag tag-c">${ship.role}</span>`;
 
-    const tags = document.getElementById('sb-tags');
-    tags.innerHTML = '';
-    if (ship.career) tags.innerHTML += `<span class="tag tag-c">${ship.career}</span>`;
-    if (ship.role)   tags.innerHTML += `<span class="tag tag-c">${ship.role}</span>`;
-
-    document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${ship.cargo_scu} SCU` : '—';
+    document.getElementById('sb-size').textContent  = ship.size > 0 ? `S${ship.size}` : '—';
+	document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${ship.cargo_scu} SCU` : '—';
     document.getElementById('sb-crew').textContent   = ship.crew_size ? `${ship.crew_size}` : '—';
     document.getElementById('sb-length').textContent = ship.length_m  ? `${ship.length_m} m` : '—';
 
@@ -612,9 +614,15 @@
 
     const fc = ship.components.flight_controllers[0];
     document.getElementById('sb-scm').textContent = fc ? `${fc.scm_speed} m/s` : 'data gap';
+	document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fc.boost_speed_forward} m/s` : 'data gap';
+	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fc.boost_speed_backward} m/s` : 'data gap';
+	document.getElementById('sb-nav').textContent = fc ? `${fc.max_speed} m/s` : 'data gap';
+	
+	
+	
 
-    const qd = ship.components.quantum_drives[0];
-    document.getElementById('sb-qd').textContent = qd ? `${qd.drive_speed} km/s` : 'data gap';
+    //const qd = ship.components.quantum_drives[0];
+    //document.getElementById('sb-qd').textContent = qd ? `${qd.drive_speed} km/s` : 'data gap';
 
     const mainList = ship.components.thrusters['Main'] || ship.components.thrusters['main'] || [];
     const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
