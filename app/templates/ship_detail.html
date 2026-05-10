@@ -313,9 +313,11 @@
   
   
   /* ── Loadout Cards (component type containers) ── */
+
   .loadout-card {
-    background: #231e1a;
-    border: 1px solid rgba(126,38,25,0.22);
+    background: rgba(176,96,32,0.08); 
+	border: 1px solid rgba(176,96,32,0.25);
+    border-left: 3px solid #b06020;
     padding: 16px;
     margin-bottom: 16px;
   }
@@ -688,29 +690,25 @@
 </div>
 	  
 	<!-- Vehicle Loadout [Marauder's Version] -->
-	<div class="sec" id="sec-loadout">
-   	  <div class="sec-hdr">
-		<div class="sec-bar"></div>
-		<div class="sec-title">Vehicle Loadout</div>
-	  </div>
-	  
-      <section class="sec" id="sec-hull">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hull &amp; Survivability</div></div>
+	<section class="sec" id="sec-loadout">
+   	  <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Vehicle Loadout</div></div>
         <div class="grid2-column-first" style="margin-bottom:12px">
           <div class="panel">
             <div class="panel-title">Weapons</div>
 				<div class="loadout-card">
-					<span class="dr-l">Weapon 1</span><span class="dr-v" id="hull-dims">—</span>
+					<span class="dr-l">Weapon 1</span>
+					<div id="shields-content"></div>
 				</div>
 		  </div>
 		  <div class="panel">
             <div class="panel-title">Components</div>
 				<div class="loadout-card">
-					<span class="dr-l">Shields</span><span class="dr-v" id="hull-dims">—</span>
+					<span class="dr-l">Shields</span>
+					<div id="shields-content"></div>
 				</div>
 		  </div>
         </div>
-      </section>
+    </section>
 
       <!-- Vehicle Loadout Section [from Claude] -->
 	<div class="sec" id="sec-loadout2">
