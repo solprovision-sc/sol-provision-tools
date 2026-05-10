@@ -185,6 +185,7 @@
 
   /* ── Panels ── */
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid2-column-first { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; grid-auto-flow: column; }
   .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
   .spacer { height: 12px; }
 
@@ -310,12 +311,18 @@
   }
   .ig-text { font-size: 11px; color: #9A8C64; line-height: 1.7; }
   
+  
   /* ── Loadout Cards (component type containers) ── */
   .loadout-card {
     background: #231e1a;
     border: 1px solid rgba(126,38,25,0.22);
     padding: 16px;
     margin-bottom: 16px;
+  }
+  
+  .loadout-card-title {
+    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px;
+    color: #b06020; text-transform: uppercase; margin-bottom: 4px;
   }
   
   .loadout-card:last-child {
@@ -671,43 +678,76 @@
           </div>
         </div>
       </section>
-
-      <!-- Vehicle Loadout Section -->
+	  
+<div class="panel">
+<div class="panel-title">Acceleration (G)</div>
+<div class="gap-block" style="margin-bottom:0">
+  <div class="gap-title">Data Gap</div>
+  <div class="gap-text">G-force values calculable from thrust + IFCS scale factors. Not yet implemented.</div>
+</div>
+</div>
+	  
+	<!-- Vehicle Loadout [Marauder's Version] -->
 	<div class="sec" id="sec-loadout">
-	<div class="sec-hdr">
+   	  <div class="sec-hdr">
 		<div class="sec-bar"></div>
 		<div class="sec-title">Vehicle Loadout</div>
-	</div>
-	
-	<!-- Shields Card -->
-	<div class="loadout-card">
-		<div class="loadout-card-hdr">Shields</div>
-		<div id="shields-content"></div>
-	</div>
-	
-	<!-- Coolers Card -->
-	<div class="loadout-card">
-		<div class="loadout-card-hdr">Coolers</div>
-		<div id="coolers-content"></div>
-	</div>
-	
-	<!-- Power Plants Card -->
-	<div class="loadout-card">
-		<div class="loadout-card-hdr">Power Plants</div>
-		<div id="power-content"></div>
-	</div>
-	
-	<!-- Quantum Drives Card -->
-	<div class="loadout-card">
-		<div class="loadout-card-hdr">Quantum Drives</div>
-		<div id="qd-content"></div>
-	</div>
-	
-	<!-- Radars Card -->
-	<div class="loadout-card">
-		<div class="loadout-card-hdr">Radar</div>
-		<div id="radar-content"></div>
-	</div>
+	  </div>
+	  
+      <section class="sec" id="sec-hull">
+        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hull &amp; Survivability</div></div>
+        <div class="grid2-column-first" style="margin-bottom:12px">
+          <div class="panel">
+            <div class="panel-title">Weapons</div>
+				<div class="loadout-card">
+					<span class="dr-l">Weapon 1</span><span class="dr-v" id="hull-dims">—</span>
+				</div>
+		  </div>
+		  <div class="panel">
+            <div class="panel-title">Components</div>
+				<div class="loadout-card">
+					<span class="dr-l">Shields</span><span class="dr-v" id="hull-dims">—</span>
+				</div>
+		  </div>
+        </div>
+      </section>
+
+      <!-- Vehicle Loadout Section [from Claude] -->
+	<div class="sec" id="sec-loadout2">
+		<div class="sec-hdr">
+			<div class="sec-bar"></div>
+			<div class="sec-title">Vehicle Loadout</div>
+		</div>
+		
+		<!-- Shields Card -->
+		<div class="loadout-card">
+			<div class="loadout-card-hdr">Shields</div>
+			<div id="shields-content"></div>
+		</div>
+		
+		<!-- Coolers Card -->
+		<div class="loadout-card">
+			<div class="loadout-card-hdr">Coolers</div>
+			<div id="coolers-content"></div>
+		</div>
+		
+		<!-- Power Plants Card -->
+		<div class="loadout-card">
+			<div class="loadout-card-hdr">Power Plants</div>
+			<div id="power-content"></div>
+		</div>
+		
+		<!-- Quantum Drives Card -->
+		<div class="loadout-card">
+			<div class="loadout-card-hdr">Quantum Drives</div>
+			<div id="qd-content"></div>
+		</div>
+		
+		<!-- Radars Card -->
+		<div class="loadout-card">
+			<div class="loadout-card-hdr">Radar</div>
+			<div id="radar-content"></div>
+		</div>
 	
 	</div>
       
