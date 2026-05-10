@@ -309,6 +309,164 @@
     color: #9A8C64; text-transform: uppercase; margin-bottom: 5px;
   }
   .ig-text { font-size: 11px; color: #9A8C64; line-height: 1.7; }
+  
+  /* ── Component Cards ── */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+  }
+  
+  .comp-card {
+    background: var(--d3);
+    border: 1px solid rgba(126,38,25,0.3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  
+  .comp-hdr {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0,0,0,0.2);
+    border-bottom: 1px solid rgba(126,38,25,0.2);
+  }
+  
+  .comp-icon {
+    width: 40px;
+    height: 40px;
+    background: rgba(126,38,25,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .comp-icon img {
+    width: 24px;
+    height: 24px;
+    opacity: 0.8;
+    filter: brightness(1.2);
+  }
+  
+  .comp-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  
+  .comp-size {
+    font-size: 9px;
+    color: #9A8C64;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  
+  .comp-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #CBB8AA;
+    letter-spacing: 0.5px;
+  }
+  
+  .comp-grade {
+    font-size: 9px;
+    color: #9A8C64;
+    opacity: 0.8;
+  }
+  
+  .comp-hp {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #E8855C;
+    white-space: nowrap;
+  }
+  
+  .comp-stats {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(126,38,25,0.2);
+  }
+  
+  .comp-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .stat-icon {
+    font-size: 14px;
+    opacity: 0.6;
+  }
+  
+  .comp-stat .stat-val {
+    font-size: 11px;
+    color: #CBB8AA;
+    font-weight: 500;
+  }
+  
+  .comp-stat-text {
+    font-size: 10px;
+    color: #9A8C64;
+    margin-left: auto;
+  }
+  
+  .comp-actions {
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  
+  .btn-quick-sel,
+  .btn-reset {
+    flex: 1;
+    padding: 6px 12px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-quick-sel {
+    background: rgba(126,38,25,0.15);
+    border: 1px solid rgba(126,38,25,0.4);
+    color: #E8855C;
+  }
+  
+  .btn-quick-sel:hover:not(:disabled) {
+    background: rgba(126,38,25,0.25);
+    border-color: rgba(126,38,25,0.6);
+  }
+  
+  .btn-quick-sel:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  
+  .btn-reset {
+    background: transparent;
+    border: 1px solid rgba(154,140,100,0.3);
+    color: #9A8C64;
+  }
+  
+  .btn-reset:hover:not(:disabled) {
+    background: rgba(154,140,100,0.1);
+    border-color: rgba(154,140,100,0.5);
+  }
+  
+  .btn-reset:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
 
   /* ── Scan grid bg ── */
   body::before {
@@ -491,13 +649,54 @@
         </div>
       </section>
 
-      <!-- Components -->
-      <section class="sec" id="sec-components">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Components</div><div class="sec-note">Loadout swap — future feature</div></div>
-        <div id="components-content">
-          <div class="loading-text" style="padding:20px 0; font-size:10px;">Loading components...</div>
+      <!-- Components Section -->
+      <div class="sec" id="sec-components">
+        
+        <!-- Shields -->
+        <div class="sec-hdr">
+          <div class="sec-bar"></div>
+          <div class="sec-title">Shields</div>
         </div>
-      </section>
+        <div id="shields-content"></div>
+      
+        <div class="spacer"></div>
+      
+        <!-- Coolers -->
+        <div class="sec-hdr">
+          <div class="sec-bar"></div>
+          <div class="sec-title">Coolers</div>
+        </div>
+        <div id="coolers-content"></div>
+      
+        <div class="spacer"></div>
+      
+        <!-- Power Plants -->
+        <div class="sec-hdr">
+          <div class="sec-bar"></div>
+          <div class="sec-title">Power Plants</div>
+        </div>
+        <div id="power-content"></div>
+      
+        <div class="spacer"></div>
+      
+        <!-- Quantum Drives -->
+        <div class="sec-hdr">
+          <div class="sec-bar"></div>
+          <div class="sec-title">Quantum Drives</div>
+        </div>
+        <div id="qd-content"></div>
+      
+        <div class="spacer"></div>
+      
+        <!-- Radars -->
+        <div class="sec-hdr">
+          <div class="sec-bar"></div>
+          <div class="sec-title">Radar</div>
+        </div>
+        <div id="radar-content"></div>
+      
+      </div>
+      
 
       <!-- Cargo -->
       <section class="sec" id="sec-cargo">
@@ -819,167 +1018,234 @@
   // ── Components ───────────────────────────────────────────────────────────────
   function populateComponents(ship) {
     const c = ship.components;
-    let html = '';
-
-    function slotCard(portLabel, name, size, grade, subtype, statsHtml) {
-      return `<div class="slot">
-        <div class="slot-hdr">
-          <span class="slot-port">${portLabel}</span>
-          ${size ? `<span class="sz-badge">S${size}</span>` : ''}
-          ${grade ? `<span class="gr-badge">${grade}</span>` : ''}
-          ${subtype ? `<span class="sub-badge">${subtype}</span>` : ''}
-        </div>
-        <div class="slot-body">
-          <div class="slot-name">${name}</div>
-          <div class="slot-stats">${statsHtml}</div>
-        </div>
-      </div>`;
-    }
-
-    function stat(label, value, dec, unit, key) {
-      const v = fmt(value, dec, unit);
-      return `<div class="ss-item">
-        <div class="ss-lbl">${label}</div>
-        <div class="ss-val${key ? ' key' : ''}${v ? '' : ' gap-val'}">${v || 'data gap'}</div>
-      </div>`;
-    }
-
+    
     // Shields
+    let shieldsHtml = '';
     if (c.shields.length) {
-      html += `<div class="cg-title">Shields</div>`;
-      c.shields.forEach((s, i) => {
-        html += slotCard(`Shield Generator ${String(i+1).padStart(2,'0')}`,
-          s.display_name || formatComponentName(s.entity_name), s.size, s.grade, s.item_sub_type,
-          stat('Total HP', s.max_shield_health, 0, null, true) +
-          stat('Regen', s.max_shield_regen, 0, 'HP/s') +
-          stat('Regen Delay', s.damaged_regen_delay, 1, 's') +
-          stat('Downed Delay', s.downed_regen_delay, 1, 's') +
-          stat('Absorb Phys', s.absorb_physical_max, 0, '%') +
-          stat('Absorb Energy', s.absorb_energy_max, 0, '%') +
-          stat('Absorb Dist', s.absorb_distort_max, 0, '%') +
-          stat('Power Draw', s.power_draw, 0, 'EU') +
-          stat('EM Sig', s.em_signature, 0)
-        );
-      });
-    }
-
-    // Coolers
-    if (c.coolers.length) {
-      html += `<div class="cg-title">Coolers</div>`;
-      c.coolers.forEach((co, i) => {
-        html += slotCard(`Cooler ${String(i+1).padStart(2,'0')}`,
-          co.display_name || formatComponentName(co.entity_name), co.size, co.grade, co.item_sub_type,
-          stat('Cooling Output', co.cooling_output, 1, 'units', true) +
-          stat('Power Draw', co.power_draw, 0, 'EU') +
-          stat('IR Sig', co.ir_signature, 0) +
-          stat('EM Sig', co.em_signature, 0)
-        );
-      });
-    }
-
-    // Power Plants
-    if (c.powerplants.length) {
-      html += `<div class="cg-title">Power Plant</div>`;
-      c.powerplants.forEach((pp, i) => {
-        html += slotCard(`Power Plant ${String(i+1).padStart(2,'0')}`,
-          pp.display_name || formatComponentName(pp.entity_name), pp.size, pp.grade, pp.item_sub_type,
-          stat('Output', pp.power_output, 0, 'seg', true) +
-          stat('EM Sig', pp.em_signature, 0)
-        );
-      });
-    }
-
-    // Quantum Drives
-    if (c.quantum_drives.length) {
-	  html += `<div class="cg-title">Quantum Drive</div>`;
-	  c.quantum_drives.forEach((qd, i) => {
-		const qt = c.quantum_fuel_tanks[0];
-		const qdRange = (qt && qd.fuel_per_gm_mscu && qt.capacity_scu)
-			? qt.capacity_scu / (qd.fuel_per_gm_mscu / 1000)
-			: null;
-		const qdCap = (qd.fuel_per_gm_mscu)
-			? qd.fuel_per_gm_mscu / 1000
-			: null;
-		html += slotCard(`Quantum Drive ${String(i+1).padStart(2,'0')}`,
-		  qd.display_name || formatComponentName(qd.entity_name), qd.size, qd.grade, qd.item_sub_type,
-		  stat('Drive Speed', qd.drive_speed, 0, 'Mm/s', true) +
-		  stat('Spool Up', qd.spool_up_time, 1, 's') +
-		  stat('Cooldown', qd.cooldown_time, 1, 's') +
-		  stat('Fuel per GM', qdCap, 3, 'SCU') +
-		  stat('Est. Range', qdRange, 0, 'Gm')
-		);
-	  });
-	}
-
-    // Flight Controllers
-    if (c.flight_controllers.length) {
-      html += `<div class="cg-title">Flight Controller</div>`;
-      c.flight_controllers.forEach((fc, i) => {
-        html += slotCard(`Flight Controller ${String(i+1).padStart(2,'0')}`,
-          fc.display_name || formatComponentName(fc.entity_name), null, null, null,
-          stat('SCM Speed', fc.scm_speed, 0, 'm/s', true) +
-          stat('NAV Speed', fc.max_speed, 0, 'm/s') +
-          stat('Boost Fwd', fc.boost_speed_forward, 0, 'm/s') +
-          stat('Boost Back', fc.boost_speed_backward, 0, 'm/s') +
-          stat('Pitch', fc.max_pitch_speed, 1, '°/s') +
-          stat('Yaw', fc.max_yaw_speed, 1, '°/s') +
-          stat('Roll', fc.max_roll_speed, 1, '°/s')
-        );
-      });
-    }
-
-    // Radars
-    if (c.radars.length) {
-      html += `<div class="cg-title">Radar</div>`;
-      c.radars.forEach((r, i) => {
-        html += slotCard(`Radar ${String(i+1).padStart(2,'0')}`,
-          r.display_name || formatComponentName(r.entity_name), r.size, r.grade, null,
-          stat('Power Draw', r.power_draw, 0, 'EU') +
-          stat('EM Sig', r.em_signature, 0)
-        );
-      });
-    }
-
-    // Thrusters
-    if (Object.keys(c.thrusters).length) {
-      html += `<div class="cg-title">Thrusters</div>`;
-      for (const [type, list] of Object.entries(c.thrusters)) {
-        const total   = list.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
-        const perUnit = list.length > 0 ? total / list.length : 0;
-        html += `<div class="slot">
-          <div class="slot-hdr">
-            <span class="slot-port">${type}</span>
-            ${list[0]?.size ? `<span class="sz-badge">S${list[0].size}</span>` : ''}
-            <span class="sub-badge">${list.length}× units</span>
-          </div>
-          <div class="slot-body">
-            <div class="slot-stats">
-              ${stat('Total Thrust', total > 0 ? total / 1000000 : null, 2, 'MN', true)}
-              ${list.length > 1 ? stat('Per Unit', perUnit > 0 ? perUnit / 1000000 : null, 2, 'MN') : ''}
+      shieldsHtml = '<div class="comp-grid">';
+      c.shields.forEach((shld, i) => {
+        const hp = fmt(shld.max_shield_health, 0);
+        const regen = fmt(shld.max_shield_regen, 1);
+        const downedDelay = fmt(shld.downed_regen_delay, 1);
+        const damagedDelay = fmt(shld.damaged_regen_delay, 1);
+        
+        shieldsHtml += `
+          <div class="comp-card">
+            <div class="comp-hdr">
+              <div class="comp-icon">
+                <img src="/static/img/icons/shield.svg" alt="Shield" onerror="this.style.display='none'">
+              </div>
+              <div class="comp-info">
+                <div class="comp-size">S${shld.size || '?'}</div>
+                <div class="comp-name">${shld.display_name || formatComponentName(shld.entity_name)}</div>
+                <div class="comp-grade">${shld.grade || '—'}</div>
+              </div>
+              <div class="comp-hp">${hp || '—'} hp</div>
             </div>
-          </div>
-        </div>`;
-      }
-    }
-
-    // Armor
-    if (c.armor.length) {
-      html += `<div class="cg-title">Armor</div>`;
-      c.armor.forEach(a => {
-        html += slotCard('Hull Armor',
-          a.display_name || formatComponentName(a.entity_name), a.size, a.grade, 'Ship-integrated',
-          stat('Armor HP', a.health, 0, null, true) +
-          stat('Deflect Phys', a.deflect_physical, 1) +
-          stat('Deflect Energy', a.deflect_energy, 1) +
-          stat('Deflect Dist', a.deflect_distortion, 1)
-        );
+            <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">↻</span>
+                <span class="stat-val">${regen || '—'}</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">⏱</span>
+                <span class="stat-val">${downedDelay || '—'} s</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">⚡</span>
+                <span class="stat-val">${fmt(shld.power_base, 0) || '—'}</span>
+              </div>
+              <div class="comp-stat-text">${damagedDelay || '—'} s damaged delay</div>
+            </div>
+            <div class="comp-actions">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+          </div>`;
       });
+      shieldsHtml += '</div>';
+    } else {
+      shieldsHtml = '<div class="gap-block"><div class="gap-text">No shields indexed</div></div>';
     }
-
-    document.getElementById('components-content').innerHTML = html ||
-      `<div class="gap-block"><div class="gap-title">No Component Data</div>
-       <div class="gap-text">Component data not available for this vessel.</div></div>`;
-  }
+  
+    // Coolers
+    let coolersHtml = '';
+    if (c.coolers.length) {
+      coolersHtml = '<div class="comp-grid">';
+      c.coolers.forEach((cool, i) => {
+        const coolingRate = fmt(cool.cooling_rate, 0);
+        
+        coolersHtml += `
+          <div class="comp-card">
+            <div class="comp-hdr">
+              <div class="comp-icon">
+                <img src="/static/img/icons/cooler.svg" alt="Cooler" onerror="this.style.display='none'">
+              </div>
+              <div class="comp-info">
+                <div class="comp-size">S${cool.size || '?'}</div>
+                <div class="comp-name">${cool.display_name || formatComponentName(cool.entity_name)}</div>
+                <div class="comp-grade">${cool.grade || '—'}</div>
+              </div>
+              <div class="comp-hp">${coolingRate || '—'} /s</div>
+            </div>
+            <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">⚡</span>
+                <span class="stat-val">${fmt(cool.power_base, 0) || '—'}</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">🔥</span>
+                <span class="stat-val">${fmt(cool.heat_generation, 1) || '—'}</span>
+              </div>
+            </div>
+            <div class="comp-actions">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+          </div>`;
+      });
+      coolersHtml += '</div>';
+    } else {
+      coolersHtml = '<div class="gap-block"><div class="gap-text">No coolers indexed</div></div>';
+    }
+  
+    // Power Plants
+    let powerHtml = '';
+    if (c.powerplants.length) {
+      powerHtml = '<div class="comp-grid">';
+      c.powerplants.forEach((pp, i) => {
+        const output = fmt(pp.power_output, 0);
+        
+        powerHtml += `
+          <div class="comp-card">
+            <div class="comp-hdr">
+              <div class="comp-icon">
+                <img src="/static/img/icons/power.svg" alt="Power" onerror="this.style.display='none'">
+              </div>
+              <div class="comp-info">
+                <div class="comp-size">S${pp.size || '?'}</div>
+                <div class="comp-name">${pp.display_name || formatComponentName(pp.entity_name)}</div>
+                <div class="comp-grade">${pp.grade || '—'}</div>
+              </div>
+              <div class="comp-hp">${output || '—'} pwr</div>
+            </div>
+            <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">🔥</span>
+                <span class="stat-val">${fmt(pp.heat_generation, 0) || '—'}</span>
+              </div>
+            </div>
+            <div class="comp-actions">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+          </div>`;
+      });
+      powerHtml += '</div>';
+    } else {
+      powerHtml = '<div class="gap-block"><div class="gap-text">No power plants indexed</div></div>';
+    }
+  
+    // Quantum Drives
+    let qdHtml = '';
+    if (c.quantum_drives.length) {
+      qdHtml = '<div class="comp-grid">';
+      c.quantum_drives.forEach((qd, i) => {
+        const speed = fmt(qd.quantum_speed_m_s / 1000000, 2); // Convert to Mm/s
+        const range = fmt(qd.quantum_range_m / 1000000000, 2); // Convert to Gm
+        const fuelPerGm = fmt(qd.fuel_per_gm_mscu, 3);
+        
+        qdHtml += `
+          <div class="comp-card">
+            <div class="comp-hdr">
+              <div class="comp-icon">
+                <img src="/static/img/icons/quantum.svg" alt="QD" onerror="this.style.display='none'">
+              </div>
+              <div class="comp-info">
+                <div class="comp-size">S${qd.size || '?'}</div>
+                <div class="comp-name">${qd.display_name || formatComponentName(qd.entity_name)}</div>
+                <div class="comp-grade">${qd.grade || '—'}</div>
+              </div>
+              <div class="comp-hp">${speed || '—'} Mm/s</div>
+            </div>
+            <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">📏</span>
+                <span class="stat-val">${range || '—'} Gm</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">⛽</span>
+                <span class="stat-val">${fuelPerGm || '—'} mSCU</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">⚡</span>
+                <span class="stat-val">${fmt(qd.power_base, 0) || '—'}</span>
+              </div>
+            </div>
+            <div class="comp-actions">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+          </div>`;
+      });
+      qdHtml += '</div>';
+    } else {
+      qdHtml = '<div class="gap-block"><div class="gap-text">No quantum drives indexed</div></div>';
+    }
+	
+	// Radars
+    let radarHtml = '';
+    if (c.radars && c.radars.length) {
+      radarHtml = '<div class="comp-grid">';
+      c.radars.forEach((radar, i) => {
+        const detectionRange = fmt(radar.detection_lifetime_m, 0);
+        const crossSection = fmt(radar.cross_section_occlusion_multiplier, 2);
+        
+        radarHtml += `
+          <div class="comp-card">
+            <div class="comp-hdr">
+              <div class="comp-icon">
+                <img src="/static/img/icons/radar.svg" alt="Radar" onerror="this.style.display='none'">
+              </div>
+              <div class="comp-info">
+                <div class="comp-size">S${radar.size || '?'}</div>
+                <div class="comp-name">${radar.display_name || formatComponentName(radar.entity_name)}</div>
+                <div class="comp-grade">${radar.grade || '—'}</div>
+              </div>
+              <div class="comp-hp">${detectionRange || '—'} m</div>
+            </div>
+            <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">⚡</span>
+                <span class="stat-val">${fmt(radar.power_base, 0) || '—'}</span>
+              </div>
+              <div class="comp-stat">
+                <span class="stat-icon">🔥</span>
+                <span class="stat-val">${fmt(radar.heat_generation, 1) || '—'}</span>
+              </div>
+              ${crossSection ? `
+              <div class="comp-stat">
+                <span class="stat-icon">👁</span>
+                <span class="stat-val">${crossSection}</span>
+              </div>` : ''}
+            </div>
+            <div class="comp-actions">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+          </div>`;
+      });
+      radarHtml += '</div>';
+    } else {
+      radarHtml = '<div class="gap-block"><div class="gap-text">No radars indexed</div></div>';
+    }
+    
+	document.getElementById('radar-content').innerHTML = radarHtml;
+    document.getElementById('shields-content').innerHTML = shieldsHtml;
+    document.getElementById('coolers-content').innerHTML = coolersHtml;
+    document.getElementById('power-content').innerHTML = powerHtml;
+    document.getElementById('qd-content').innerHTML = qdHtml;
+}
 
   // ── Cargo ────────────────────────────────────────────────────────────────────
   function populateCargo(ship) {
