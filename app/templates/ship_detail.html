@@ -310,15 +310,38 @@
   }
   .ig-text { font-size: 11px; color: #9A8C64; line-height: 1.7; }
   
-  /* ── Component Cards ── */
+  /* ── Loadout Cards (component type containers) ── */
+  .loadout-card {
+    background: #231e1a;
+    border: 1px solid rgba(126,38,25,0.22);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .loadout-card:last-child {
+    margin-bottom: 0;
+  }
+  
+  .loadout-card-hdr {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #9A8C64;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(126,38,25,0.22);
+  }
+  
+  /* ── Component Cards (individual components) ── */
   .comp-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 16px;
+    gap: 12px;
   }
   
   .comp-card {
-    background: var(--d3);
+    background: #0d0b0a; /* Darker than loadout-card */
     border: 1px solid rgba(126,38,25,0.3);
     border-radius: 4px;
     overflow: hidden;
@@ -329,7 +352,7 @@
     align-items: center;
     gap: 12px;
     padding: 12px;
-    background: rgba(0,0,0,0.2);
+    background: rgba(0,0,0,0.3);
     border-bottom: 1px solid rgba(126,38,25,0.2);
   }
   
@@ -518,7 +541,7 @@
       <a class="nav-a" href="#sec-overview">Overview</a>
       <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
       <a class="nav-a" href="#sec-flight">Flight Performance</a>
-      <a class="nav-a" href="#sec-components">Components</a>
+      <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
       <a class="nav-a" href="#sec-cargo">Cargo</a>
       <a class="nav-a" href="#sec-fuel">Fuel</a>
       <a class="nav-a" href="#sec-weapons">Weapons &amp; Missiles</a>
@@ -649,53 +672,44 @@
         </div>
       </section>
 
-      <!-- Components Section -->
-      <div class="sec" id="sec-components">
-        
-        <!-- Shields -->
-        <div class="sec-hdr">
-          <div class="sec-bar"></div>
-          <div class="sec-title">Shields</div>
-        </div>
-        <div id="shields-content"></div>
-      
-        <div class="spacer"></div>
-      
-        <!-- Coolers -->
-        <div class="sec-hdr">
-          <div class="sec-bar"></div>
-          <div class="sec-title">Coolers</div>
-        </div>
-        <div id="coolers-content"></div>
-      
-        <div class="spacer"></div>
-      
-        <!-- Power Plants -->
-        <div class="sec-hdr">
-          <div class="sec-bar"></div>
-          <div class="sec-title">Power Plants</div>
-        </div>
-        <div id="power-content"></div>
-      
-        <div class="spacer"></div>
-      
-        <!-- Quantum Drives -->
-        <div class="sec-hdr">
-          <div class="sec-bar"></div>
-          <div class="sec-title">Quantum Drives</div>
-        </div>
-        <div id="qd-content"></div>
-      
-        <div class="spacer"></div>
-      
-        <!-- Radars -->
-        <div class="sec-hdr">
-          <div class="sec-bar"></div>
-          <div class="sec-title">Radar</div>
-        </div>
-        <div id="radar-content"></div>
-      
-      </div>
+      <!-- Vehicle Loadout Section -->
+	<div class="sec" id="sec-loadout">
+	<div class="sec-hdr">
+		<div class="sec-bar"></div>
+		<div class="sec-title">Vehicle Loadout</div>
+	</div>
+	
+	<!-- Shields Card -->
+	<div class="loadout-card">
+		<div class="loadout-card-hdr">Shields</div>
+		<div id="shields-content"></div>
+	</div>
+	
+	<!-- Coolers Card -->
+	<div class="loadout-card">
+		<div class="loadout-card-hdr">Coolers</div>
+		<div id="coolers-content"></div>
+	</div>
+	
+	<!-- Power Plants Card -->
+	<div class="loadout-card">
+		<div class="loadout-card-hdr">Power Plants</div>
+		<div id="power-content"></div>
+	</div>
+	
+	<!-- Quantum Drives Card -->
+	<div class="loadout-card">
+		<div class="loadout-card-hdr">Quantum Drives</div>
+		<div id="qd-content"></div>
+	</div>
+	
+	<!-- Radars Card -->
+	<div class="loadout-card">
+		<div class="loadout-card-hdr">Radar</div>
+		<div id="radar-content"></div>
+	</div>
+	
+	</div>
       
 
       <!-- Cargo -->
