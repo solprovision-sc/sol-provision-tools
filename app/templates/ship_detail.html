@@ -1055,18 +1055,6 @@
     document.getElementById('thruster-summary-content').innerHTML = thrHtml || dr('Main Thrust', null);
   }
 
-  // ── Component Names ───────────────────────────────────────────────────────────────
-  function formatComponentName(name) {
-	  if (!name) return '—';
-	  // Remove _scitem suffix, split on underscore, take everything after the first 3 segments
-	  const clean = name.replace(/_scitem$/i, '');
-	  const parts = clean.split('_');
-	  if (parts.length < 4) return clean.replace(/_/g, ' ');
-	  // Join everything from index 3 onwards (handles multi-word names like "star_runner_flight_blade")
-	  return parts.slice(3).join(' ').replace(/\b\w/g, c => c.toUpperCase());
-	}
-
-
   // ── Components ───────────────────────────────────────────────────────────────
   function populateComponents(ship) {
     const c = ship.components;
@@ -1089,7 +1077,7 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${shld.size || '?'}</div>
-                <div class="comp-name">${shld.display_name || formatComponentName(shld.entity_name)}</div>
+                <div class="comp-name">${shld.display_name || shld.entity_name}</div>
                 <div class="comp-grade">${shld.grade || '—'}</div>
               </div>
               <div class="comp-hp">${hp || '—'} hp</div>
@@ -1135,7 +1123,7 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${cool.size || '?'}</div>
-                <div class="comp-name">${cool.display_name || formatComponentName(cool.entity_name)}</div>
+                <div class="comp-name">${cool.display_name || cool.entity_name}</div>
                 <div class="comp-grade">${cool.grade || '—'}</div>
               </div>
               <div class="comp-hp">${coolingRate || '—'} /s</div>
@@ -1176,7 +1164,7 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${pp.size || '?'}</div>
-                <div class="comp-name">${pp.display_name || formatComponentName(pp.entity_name)}</div>
+                <div class="comp-name">${pp.display_name || pp.entity_name}</div>
                 <div class="comp-grade">${pp.grade || '—'}</div>
               </div>
               <div class="comp-hp">${output || '—'} pwr</div>
@@ -1215,7 +1203,7 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${qd.size || '?'}</div>
-                <div class="comp-name">${qd.display_name || formatComponentName(qd.entity_name)}</div>
+                <div class="comp-name">${qd.display_name || qd.entity_name}</div>
                 <div class="comp-grade">${qd.grade || '—'}</div>
               </div>
               <div class="comp-hp">${speed || '—'} Mm/s</div>
@@ -1261,7 +1249,7 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${radar.size || '?'}</div>
-                <div class="comp-name">${radar.display_name || formatComponentName(radar.entity_name)}</div>
+                <div class="comp-name">${radar.display_name || radar.entity_name}</div>
                 <div class="comp-grade">${radar.grade || '—'}</div>
               </div>
               <div class="comp-hp">${detectionRange || '—'} m</div>
