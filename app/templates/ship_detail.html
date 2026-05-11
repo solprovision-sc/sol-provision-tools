@@ -506,6 +506,130 @@
     cursor: not-allowed;
   }
 
+  /* ── Horizontal Component Cards ── */
+  .comp-card-h {
+    background: #0d0b0a;
+    border: 1px solid rgba(126,38,25,0.3);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .comp-hdr-h {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(126,38,25,0.2);
+  }
+  
+  .comp-icon-h {
+    width: 36px;
+    height: 36px;
+    background: rgba(126,38,25,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  
+  .icon-md {
+    width: 22px;
+    height: 22px;
+    background-color: #E8855C;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+  }
+  
+  .icon-xs {
+    width: 12px;
+    height: 12px;
+    background-color: #9A8C64;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+  }
+  
+  .comp-title-h {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  
+  .comp-size-h {
+    font-size: 11px;
+    color: #9A8C64;
+    letter-spacing: 1px;
+  }
+  
+  .comp-name-h {
+    font-size: 13px;
+    font-weight: 600;
+    color: #CBB8AA;
+    letter-spacing: 0.5px;
+  }
+  
+  .comp-grade-h {
+    font-size: 10px;
+    color: #9A8C64;
+    opacity: 0.8;
+    margin-left: auto;
+  }
+  
+  .comp-hp-h {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #E8855C;
+    white-space: nowrap;
+  }
+  
+  .comp-stats-h {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(126,38,25,0.2);
+  }
+  
+  .comp-stat-h {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .stat-icon-h {
+    font-size: 12px;
+    color: #9A8C64;
+    opacity: 0.7;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .stat-val-h {
+    font-size: 11px;
+    color: #CBB8AA;
+    font-weight: 500;
+  }
+  
+  .comp-stat-text-h {
+    font-size: 10px;
+    color: #9A8C64;
+    margin-left: auto;
+  }
+  
+  .comp-actions-h {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
   /* ── Component Icons ── */
   /* Large icon (component type identifier) */
 .icon-lg {
@@ -1121,38 +1245,37 @@
         const powerCons = fmt(shld.power_draw, 0);
         const emSig = fmt(shld.em_signature, 0);
         
-        // Format the component name properly
         const displayName = shld.display_name || formatComponentName(shld.entity_name);
         
         shieldsHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <div class="icon-lg icon-shield"></div>
+          <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              <div class="comp-icon-h">
+                <div class="icon-md icon-shield"></div>
               </div>
-              <div class="comp-info">
-                <div class="comp-size">S${shld.size || '?'}</div>
-                <div class="comp-name">${displayName}</div>
-                <div class="comp-grade">${shld.grade || '—'}</div>
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${shld.size || '?'}</div>
+                <div class="comp-name-h">${displayName}</div>
+                <div class="comp-grade-h">${shld.grade || '—'}</div>
               </div>
-              <div class="comp-hp">${hp || '—'} hp</div>
+              <div class="comp-hp-h">${hp || '—'} hp</div>
             </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">↻</span>
-                <span class="stat-val">${regen || '—'}</span>
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                <span class="stat-icon-h">↻</span>
+                <span class="stat-val-h">${regen || '—'}</span>
               </div>
-              <div class="comp-stat">
-                <div class="icon-sm icon-power-cons"></div>
-                <span class="stat-val">${powerCons || '—'}</span>
+              <div class="comp-stat-h">
+                <div class="icon-xs icon-power-cons"></div>
+                <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
-              <div class="comp-stat">
-                <div class="icon-sm icon-em"></div>
-                <span class="stat-val">${emSig || '—'}</span>
+              <div class="comp-stat-h">
+                <div class="icon-xs icon-em"></div>
+                <span class="stat-val-h">${emSig || '—'}</span>
               </div>
-              <div class="comp-stat-text">${damagedDelay || '—'} s damaged delay</div>
+              <div class="comp-stat-text-h">${damagedDelay || '—'} s to charge</div>
             </div>
-            <div class="comp-actions">
+            <div class="comp-actions-h">
               <button class="btn-quick-sel" disabled>QUICK SEL</button>
               <button class="btn-reset" disabled>RESET</button>
             </div>
@@ -1338,7 +1461,6 @@
     }
     
 	document.getElementById('radar-content').innerHTML = radarHtml;
-    document.getElementById('shields-content').innerHTML = shieldsHtml;
     document.getElementById('coolers-content').innerHTML = coolersHtml;
     document.getElementById('power-content').innerHTML = powerHtml;
     document.getElementById('qd-content').innerHTML = qdHtml;
