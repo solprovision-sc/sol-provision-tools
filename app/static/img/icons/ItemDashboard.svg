@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 27.9.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<svg version="1.1" baseProfile="tiny" id="Engineering_Icon_MainMissile"
+	 xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 1204.7 1204.7"
+	 overflow="visible" xml:space="preserve">
+<g>
+	<g>
+		<path d="M986,919.6H218.7c-64.1,0-116.3-52.2-116.3-116.3V401.4c0-64.1,52.2-116.3,116.3-116.3H986c64.1,0,116.3,52.2,116.3,116.3
+			v401.9C1102.3,867.4,1050.2,919.6,986,919.6z M218.7,349.1c-28.8,0-52.3,23.5-52.3,52.3v401.9c0,28.8,23.5,52.3,52.3,52.3H986
+			c28.8,0,52.3-23.5,52.3-52.3V401.4c0-28.8-23.5-52.3-52.3-52.3H218.7z"/>
+	</g>
+	<circle cx="254.5" cy="431.2" r="40.3"/>
+	<circle cx="373.2" cy="431.2" r="40.3"/>
+	<path d="M950.2,471.6H677.7c-22.3,0-40.3-18.1-40.3-40.3v0c0-22.3,18.1-40.3,40.3-40.3h272.5c22.3,0,40.3,18.1,40.3,40.3v0
+		C990.5,453.5,972.4,471.6,950.2,471.6z"/>
+</g>
+</svg>
