@@ -366,15 +366,15 @@
   }
   
   .comp-icon {
-    width: 40px;
-    height: 40px;
-    background: rgba(126,38,25,0.15);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
+	width: 44px;
+	height: 44px;
+	background: rgba(126,38,25,0.15);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex-shrink: 0;
+	
   
   .comp-icon img {
     width: 24px;
@@ -500,6 +500,86 @@
     cursor: not-allowed;
   }
 
+  /* ── Component Icons ── */
+  /* Large icon (component type identifier) */
+.icon-lg {
+  width: 28px;
+  height: 28px;
+  background-color: #E8855C;
+  mask-size: contain;
+  -webkit-mask-size: contain;
+}
+
+/* Small icon (stat indicators) */
+.icon-sm {
+  width: 14px;
+  height: 14px;
+  background-color: #9A8C64;
+  mask-size: contain;
+  -webkit-mask-size: contain;
+}
+
+/* Icon variants */
+.icon-cooler {
+  mask: url(/static/img/icons/ItemCooler.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemCooler.svg) no-repeat center;
+}
+
+.icon-powerplant {
+  mask: url(/static/img/icons/ItemPowerPlant.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemPowerPlant.svg) no-repeat center;
+}
+
+.icon-power-cons {
+  mask: url(/static/img/icons/power_consumption.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/power_consumption.svg) no-repeat center;
+}
+
+.icon-ir {
+  mask: url(/static/img/icons/signature_ir.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/signature_ir.svg) no-repeat center;
+}
+
+.icon-em {
+  mask: url(/static/img/icons/signature_em.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/signature_em.svg) no-repeat center;
+}
+
+.icon-cs {
+  mask: url(/static/img/icons/signature_cs.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/signature_cs.svg) no-repeat center;
+}
+
+.icon-shield {
+  mask: url(/static/img/icons/ItemShields.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemShields.svg) no-repeat center;
+}
+
+.icon-quantum {
+  mask: url(/static/img/icons/ItemQuantumDrive.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemQuantumDrive.svg) no-repeat center;
+}
+
+.icon-radar {
+  mask: url(/static/img/icons/ItemRadar.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemRadar.svg) no-repeat center;
+}
+
+.icon-weapons {
+  mask: url(/static/img/icons/ItemWeapons.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemWeapons.svg) no-repeat center;
+}
+
+.icon-turret {
+  mask: url(/static/img/icons/ItemTurret.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemTurret.svg) no-repeat center;
+}
+
+.icon-missile {
+  mask: url(/static/img/icons/ItemMissile.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemMissile.svg) no-repeat center;
+}
+  
   /* ── Scan grid bg ── */
   body::before {
     content: ''; position: fixed; inset: 0;
@@ -679,14 +759,6 @@
           </div>
         </div>
       </section>
-	  
-<div class="panel">
-<div class="panel-title">Acceleration (G)</div>
-<div class="gap-block" style="margin-bottom:0">
-  <div class="gap-title">Data Gap</div>
-  <div class="gap-text">G-force values calculable from thrust + IFCS scale factors. Not yet implemented.</div>
-</div>
-</div>
 	  
 	<!-- Vehicle Loadout [Marauder's Version] -->
 	<section class="sec" id="sec-loadout">
@@ -1040,12 +1112,14 @@
         const regen = fmt(shld.max_shield_regen, 1);
         const downedDelay = fmt(shld.downed_regen_delay, 1);
         const damagedDelay = fmt(shld.damaged_regen_delay, 1);
+		const powerCons = fmt(shld.power_draw, 0);
+		const emSig = fmt(shld.em_signature, 0);
         
         shieldsHtml += `
           <div class="comp-card">
             <div class="comp-hdr">
               <div class="comp-icon">
-                <img src="/static/img/icons/shield.svg" alt="Shield" onerror="this.style.display='none'">
+                <div class="icon-lg icon-shield"></div>
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${shld.size || '?'}</div>
@@ -1056,12 +1130,12 @@
             </div>
             <div class="comp-stats">
               <div class="comp-stat">
-                <span class="stat-icon">↻</span>
-                <span class="stat-val">${regen || '—'}</span>
+                <div class="icon-sm icon-power-cons"></div>
+                <span class="stat-val">${powerCons || '—'}</span>
               </div>
               <div class="comp-stat">
-                <span class="stat-icon">⏱</span>
-                <span class="stat-val">${downedDelay || '—'} s</span>
+                <div class="icon-sm icon-em"></div>
+                <span class="stat-val">${sigEM || '—'}</span>
               </div>
               <div class="comp-stat">
                 <span class="stat-icon">⚡</span>
