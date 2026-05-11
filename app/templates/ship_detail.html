@@ -434,7 +434,13 @@
   
   .stat-icon {
     font-size: 14px;
-    opacity: 0.6;
+    color: #9A8C64;
+    opacity: 0.7;
+    width: 14px; /* Same as .icon-sm */
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .comp-stat .stat-val {
@@ -1112,8 +1118,11 @@
         const regen = fmt(shld.max_shield_regen, 1);
         const downedDelay = fmt(shld.downed_regen_delay, 1);
         const damagedDelay = fmt(shld.damaged_regen_delay, 1);
-		const powerCons = fmt(shld.power_draw, 0);
-		const emSig = fmt(shld.em_signature, 0);
+        const powerCons = fmt(shld.power_draw, 0);
+        const emSig = fmt(shld.em_signature, 0);
+        
+        // Format the component name properly
+        const displayName = shld.display_name || formatComponentName(shld.entity_name);
         
         shieldsHtml += `
           <div class="comp-card">
@@ -1123,12 +1132,16 @@
               </div>
               <div class="comp-info">
                 <div class="comp-size">S${shld.size || '?'}</div>
-                <div class="comp-name">${shld.display_name || shld.entity_name}</div>
+                <div class="comp-name">${displayName}</div>
                 <div class="comp-grade">${shld.grade || '—'}</div>
               </div>
               <div class="comp-hp">${hp || '—'} hp</div>
             </div>
             <div class="comp-stats">
+              <div class="comp-stat">
+                <span class="stat-icon">↻</span>
+                <span class="stat-val">${regen || '—'}</span>
+              </div>
               <div class="comp-stat">
                 <div class="icon-sm icon-power-cons"></div>
                 <span class="stat-val">${powerCons || '—'}</span>
@@ -1136,10 +1149,6 @@
               <div class="comp-stat">
                 <div class="icon-sm icon-em"></div>
                 <span class="stat-val">${emSig || '—'}</span>
-              </div>
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(shld.power_base, 0) || '—'}</span>
               </div>
               <div class="comp-stat-text">${damagedDelay || '—'} s damaged delay</div>
             </div>
@@ -1153,6 +1162,8 @@
     } else {
       shieldsHtml = '<div class="gap-block"><div class="gap-text">No shields indexed</div></div>';
     }
+    
+    document.getElementById('shields-content').innerHTML = shieldsHtml;
   
     // Coolers
     let coolersHtml = '';
