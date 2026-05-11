@@ -672,7 +672,6 @@
           </div>
           <div class="panel">
             <div class="panel-title">Quantum Drive</div>
-            <div id="qd-content"><div class="dr"><span class="dr-l">Drive Speed</span><span class="dr-v gap-val">loading...</span></div></div>
           </div>
           <div class="panel">
             <div class="panel-title">Thrusters (Totals)</div>
@@ -697,7 +696,7 @@
             <div class="panel-title">Weapons</div>
 				<div class="loadout-card">
 					<span class="dr-l">Weapon 1</span>
-					<div id="shields-content"></div>
+					<div id="weapons-content"></div>
 				</div>
 		  </div>
 		  <div class="panel">
@@ -706,50 +705,27 @@
 					<span class="dr-l">Shields</span>
 					<div id="shields-content"></div>
 				</div>
+				<div class="loadout-card">
+					<span class="dr-l">Power Plant</span>
+					<div id="power-content"></div>
+				</div>
+				<div class="loadout-card">
+					<span class="dr-l">Coolers</span>
+					<div id="coolers-content"></div>
+				</div>
+				<div class="loadout-card">
+					<span class="dr-l">Quantum Drive</span>
+					<div id="qd-content"></div>
+				</div>
+				<div class="loadout-card">
+					<span class="dr-l">Radar</span>
+					<div id="radar-content"></div>
+				</div>
 		  </div>
         </div>
     </section>
-
-      <!-- Vehicle Loadout Section [from Claude] -->
-	<div class="sec" id="sec-loadout2">
-		<div class="sec-hdr">
-			<div class="sec-bar"></div>
-			<div class="sec-title">Vehicle Loadout</div>
-		</div>
-		
-		<!-- Shields Card -->
-		<div class="loadout-card">
-			<div class="loadout-card-hdr">Shields</div>
-			<div id="shields-content"></div>
-		</div>
-		
-		<!-- Coolers Card -->
-		<div class="loadout-card">
-			<div class="loadout-card-hdr">Coolers</div>
-			<div id="coolers-content"></div>
-		</div>
-		
-		<!-- Power Plants Card -->
-		<div class="loadout-card">
-			<div class="loadout-card-hdr">Power Plants</div>
-			<div id="power-content"></div>
-		</div>
-		
-		<!-- Quantum Drives Card -->
-		<div class="loadout-card">
-			<div class="loadout-card-hdr">Quantum Drives</div>
-			<div id="qd-content"></div>
-		</div>
-		
-		<!-- Radars Card -->
-		<div class="loadout-card">
-			<div class="loadout-card-hdr">Radar</div>
-			<div id="radar-content"></div>
-		</div>
 	
-	</div>
-      
-
+	
       <!-- Cargo -->
       <section class="sec" id="sec-cargo">
         <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Cargo</div><div class="sec-note">Authoritative: ships table cargo_scu</div></div>
@@ -900,10 +876,6 @@
 	document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
 	document.getElementById('sb-mnv').textContent = ins_mnv;
 	document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
-	
-	
-	
-	fc.ab_ang_mult_pitch
   }
 
   // ── Overview ─────────────────────────────────────────────────────────────────
