@@ -436,7 +436,7 @@
     font-size: 14px;
     color: #9A8C64;
     opacity: 0.7;
-    width: 14px; /* Same as .icon-sm */
+    width: 14px;
     height: 14px;
     display: flex;
     align-items: center;
@@ -782,22 +782,6 @@
 				<div class="loadout-card">
 					<span class="dr-l">Shields</span>
 					<div id="shields-content"></div>
-				</div>
-				<div class="loadout-card">
-					<span class="dr-l">Power Plant</span>
-					<div id="power-content"></div>
-				</div>
-				<div class="loadout-card">
-					<span class="dr-l">Coolers</span>
-					<div id="coolers-content"></div>
-				</div>
-				<div class="loadout-card">
-					<span class="dr-l">Quantum Drive</span>
-					<div id="qd-content"></div>
-				</div>
-				<div class="loadout-card">
-					<span class="dr-l">Radar</span>
-					<div id="radar-content"></div>
 				</div>
 		  </div>
         </div>
@@ -1165,183 +1149,6 @@
     
     document.getElementById('shields-content').innerHTML = shieldsHtml;
   
-    // Coolers
-    let coolersHtml = '';
-    if (c.coolers.length) {
-      coolersHtml = '<div class="comp-grid">';
-      c.coolers.forEach((cool, i) => {
-        const coolingRate = fmt(cool.cooling_rate, 0);
-        
-        coolersHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/cooler.svg" alt="Cooler" onerror="this.style.display='none'">
-              </div>
-              <div class="comp-info">
-                <div class="comp-size">S${cool.size || '?'}</div>
-                <div class="comp-name">${cool.display_name || cool.entity_name}</div>
-                <div class="comp-grade">${cool.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${coolingRate || '—'} /s</div>
-            </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(cool.power_base, 0) || '—'}</span>
-              </div>
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(cool.heat_generation, 1) || '—'}</span>
-              </div>
-            </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
-      });
-      coolersHtml += '</div>';
-    } else {
-      coolersHtml = '<div class="gap-block"><div class="gap-text">No coolers indexed</div></div>';
-    }
-  
-    // Power Plants
-    let powerHtml = '';
-    if (c.powerplants.length) {
-      powerHtml = '<div class="comp-grid">';
-      c.powerplants.forEach((pp, i) => {
-        const output = fmt(pp.power_output, 0);
-        
-        powerHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/power.svg" alt="Power" onerror="this.style.display='none'">
-              </div>
-              <div class="comp-info">
-                <div class="comp-size">S${pp.size || '?'}</div>
-                <div class="comp-name">${pp.display_name || pp.entity_name}</div>
-                <div class="comp-grade">${pp.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${output || '—'} pwr</div>
-            </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(pp.heat_generation, 0) || '—'}</span>
-              </div>
-            </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
-      });
-      powerHtml += '</div>';
-    } else {
-      powerHtml = '<div class="gap-block"><div class="gap-text">No power plants indexed</div></div>';
-    }
-  
-    // Quantum Drives
-    let qdHtml = '';
-    if (c.quantum_drives.length) {
-      qdHtml = '<div class="comp-grid">';
-      c.quantum_drives.forEach((qd, i) => {
-        const speed = fmt(qd.quantum_speed_m_s / 1000000, 2); // Convert to Mm/s
-        const range = fmt(qd.quantum_range_m / 1000000000, 2); // Convert to Gm
-        const fuelPerGm = fmt(qd.fuel_per_gm_mscu, 3);
-        
-        qdHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/quantum.svg" alt="QD" onerror="this.style.display='none'">
-              </div>
-              <div class="comp-info">
-                <div class="comp-size">S${qd.size || '?'}</div>
-                <div class="comp-name">${qd.display_name || qd.entity_name}</div>
-                <div class="comp-grade">${qd.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${speed || '—'} Mm/s</div>
-            </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">📏</span>
-                <span class="stat-val">${range || '—'} Gm</span>
-              </div>
-              <div class="comp-stat">
-                <span class="stat-icon">⛽</span>
-                <span class="stat-val">${fuelPerGm || '—'} mSCU</span>
-              </div>
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(qd.power_base, 0) || '—'}</span>
-              </div>
-            </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
-      });
-      qdHtml += '</div>';
-    } else {
-      qdHtml = '<div class="gap-block"><div class="gap-text">No quantum drives indexed</div></div>';
-    }
-	
-	// Radars
-    let radarHtml = '';
-    if (c.radars && c.radars.length) {
-      radarHtml = '<div class="comp-grid">';
-      c.radars.forEach((radar, i) => {
-        const detectionRange = fmt(radar.detection_lifetime_m, 0);
-        const crossSection = fmt(radar.cross_section_occlusion_multiplier, 2);
-        
-        radarHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/radar.svg" alt="Radar" onerror="this.style.display='none'">
-              </div>
-              <div class="comp-info">
-                <div class="comp-size">S${radar.size || '?'}</div>
-                <div class="comp-name">${radar.display_name || radar.entity_name}</div>
-                <div class="comp-grade">${radar.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${detectionRange || '—'} m</div>
-            </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(radar.power_base, 0) || '—'}</span>
-              </div>
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(radar.heat_generation, 1) || '—'}</span>
-              </div>
-              ${crossSection ? `
-              <div class="comp-stat">
-                <span class="stat-icon">👁</span>
-                <span class="stat-val">${crossSection}</span>
-              </div>` : ''}
-            </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
-      });
-      radarHtml += '</div>';
-    } else {
-      radarHtml = '<div class="gap-block"><div class="gap-text">No radars indexed</div></div>';
-    }
-    
-	document.getElementById('radar-content').innerHTML = radarHtml;
-    document.getElementById('shields-content').innerHTML = shieldsHtml;
-    document.getElementById('coolers-content').innerHTML = coolersHtml;
-    document.getElementById('power-content').innerHTML = powerHtml;
-    document.getElementById('qd-content').innerHTML = qdHtml;
 }
 
   // ── Cargo ────────────────────────────────────────────────────────────────────
