@@ -545,6 +545,14 @@
     -webkit-mask-size: contain;
   }
   
+  .icon-s {
+    width: 20px;
+    height: 20px;
+    background-color: #7E2619;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+  }
+  
   .icon-xs {
     width: 12px;
     height: 12px;
@@ -614,13 +622,13 @@
   }
   
   .stat-val-h {
-    font-size: 11px;
+    font-size: 16px;
     color: #CBB8AA;
     font-weight: 500;
   }
   
   .comp-stat-text-h {
-    font-size: 10px;
+    font-size: 16px;
     color: #9A8C64;
     margin-left: auto;
   }
@@ -1242,7 +1250,7 @@
       shieldsHtml = '<div class="comp-grid">';
       c.shields.forEach((shld, i) => {
         const hp = fmt(shld.max_shield_health, 0);
-        const regen = fmt(shld.max_shield_regen, 1);
+        const regen_time = fmt(shld.max_shield_health / shld.max_shield_regen, 1);
         const downedDelay = fmt(shld.downed_regen_delay, 1);
         const damagedDelay = fmt(shld.damaged_regen_delay, 1);
         const powerCons = fmt(shld.power_draw, 0);
@@ -1266,17 +1274,17 @@
             <div class="comp-stats-h">
               <div class="comp-stat-h">
                 <span class="stat-icon-h">↻</span>
-                <span class="stat-val-h">${regen || '—'}</span>
+                <span class="stat-val-h">${regen_time || '—'}</span>
               </div>
               <div class="comp-stat-h">
-                <div class="icon-xs icon-power-cons"></div>
+                <div class="icon-s icon-power-cons"></div>
                 <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
               <div class="comp-stat-h">
-                <div class="icon-xs icon-em"></div>
+                <div class="icon-s icon-em"></div>
                 <span class="stat-val-h">${emSig || '—'}</span>
               </div>
-              <div class="comp-stat-text-h">${damagedDelay || '—'} s to charge</div>
+              <div class="comp-stat-text-h">${regen_time || '—'} s to regen</div>
             </div>
             <div class="comp-actions-h">
               <button class="btn-quick-sel" disabled>QUICK SEL</button>

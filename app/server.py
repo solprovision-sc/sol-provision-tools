@@ -1148,6 +1148,7 @@ if __name__ == "__main__":
     parser.add_argument("--db", default=os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db"))
     parser.add_argument("--port",  default=5000, type=int)
     parser.add_argument("--patch", default=None)
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode with auto-reload")
     args = parser.parse_args()
     DB_PATH = args.db; PATCH = args.patch
     if not Path(DB_PATH).exists(): print(f"ERROR: DB not found: {DB_PATH}"); exit(1)
@@ -1157,4 +1158,4 @@ if __name__ == "__main__":
     n = conn.execute("SELECT COUNT(*) as n FROM ships WHERE patch_version=?", (p,)).fetchone()["n"]
     conn.close()
     print(f"Sol Provision Ship Database  |  Patch: {p}  |  {n} ships  |  http://localhost:{args.port}")
-    app.run(debug=False, port=args.port, host="0.0.0.0")
+    app.run(debug=args.debug, port=args.port, host="0.0.0.0")
