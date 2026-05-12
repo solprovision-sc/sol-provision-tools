@@ -319,7 +319,8 @@ def get_ship_components(conn, ship_entity, patch):
           AND sh.patch_version    = :patch"""
 
     armor = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.signal_cross_section, t.signal_electromagnetic, t.signal_infrared,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
@@ -331,7 +332,8 @@ def get_ship_components(conn, ship_entity, patch):
         {join("item_armor")}""")
 
     shields = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.max_shield_health, t.max_shield_regen,
                t.damaged_regen_delay, t.downed_regen_delay,
                t.decay_ratio, t.reserve_drain_ratio,
@@ -345,18 +347,21 @@ def get_ship_components(conn, ship_entity, patch):
         {join("item_shields")}""")
 
     coolers = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.power_draw, t.cooling_output,
                t.em_signature, t.ir_signature, t.health
         {join("item_coolers")}""")
 
     powerplants = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.power_output, t.em_signature, t.health
         {join("item_powerplants")}""")
 
     quantum_drives = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.drive_speed / 1000 as drive_speed, t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
                t.fuel_per_gm_mscu,t.power_draw, 
@@ -374,6 +379,7 @@ def get_ship_components(conn, ship_entity, patch):
     # Flight controllers: exclude SPD/HND blade variants (alternate tuning, not separate installs)
     flight_controllers = q(f"""
         SELECT ic.entity_name, ic.display_name,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.scm_speed, t.max_speed,
                t.boost_speed_forward, t.boost_speed_backward,
                t.max_pitch_speed, t.max_roll_speed, t.max_yaw_speed,
@@ -399,7 +405,8 @@ def get_ship_components(conn, ship_entity, patch):
 
     # Weapons: join fire modes as nested list
     weapons_base = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, ic.item_sub_type,
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.heat_rate_online, t.power_active_cooldown,
                t.overheat_temperature, t.cooling_per_second,
                t.time_till_cooling_starts, t.overheat_fix_time,
@@ -428,6 +435,7 @@ def get_ship_components(conn, ship_entity, patch):
     # Missile racks with their missile type looked up from item_missiles
     missile_racks = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.launch_delay, t.detach_velocity_forward,
                t.detach_velocity_right, t.detach_velocity_up,
                t.rack_tag
@@ -436,6 +444,7 @@ def get_ship_components(conn, ship_entity, patch):
     # Missiles installed directly (GMISL_ entities on hardpoints)
     missiles = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.arm_time, t.max_lifetime,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
@@ -446,6 +455,7 @@ def get_ship_components(conn, ship_entity, patch):
 
     radars = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.power_draw, t.em_signature, t.health
         {join("item_radars")}""")
 

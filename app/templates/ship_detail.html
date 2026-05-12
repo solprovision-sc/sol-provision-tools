@@ -581,6 +581,12 @@
     letter-spacing: 0.5px;
   }
   
+  .comp-name-text-h {
+      color: #fff;
+      font-size: 1.25em;
+      font-weight: 600;
+  }
+  
   .comp-grade-h {
     font-size: 10px;
     color: #9A8C64;
@@ -1256,18 +1262,25 @@
         const powerCons = fmt(shld.power_draw, 0);
         const emSig = fmt(shld.em_signature, 0);
         
-        const displayName = shld.display_name || formatComponentName(shld.entity_name);
+        const displayName = shld.display_name || shld.entity_name;
+    
+		// Build "Industrial Grade C" suffix when class data is present
+		let specSuffix = '';
+		if (shld.class) {
+			specSuffix = `<span class="comp-spec-h"> - ${shld.class} Grade ${shld.grade_letter || '?'}</span>`;
+		}
         
         shieldsHtml += `
-          <div class="comp-card-h">
+        <div class="comp-card-h">
             <div class="comp-hdr-h">
               <div class="comp-icon-h">
-                <div class="icon-md icon-shield"></div>
+                <div class="icon-lg icon-shield"></div>
               </div>
               <div class="comp-title-h">
                 <div class="comp-size-h">S${shld.size || '?'}</div>
-                <div class="comp-name-h">${displayName}</div>
-                <div class="comp-grade-h">${shld.grade || '—'}</div>
+                <div class="comp-name-h">
+					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
+				</div>
               </div>
               <div class="comp-hp-h">${hp || '—'} hp</div>
             </div>
@@ -1290,7 +1303,7 @@
               <button class="btn-quick-sel" disabled>QUICK SEL</button>
               <button class="btn-reset" disabled>RESET</button>
             </div>
-          </div>`;
+        </div>`;
       });
       shieldsHtml += '</div>';
     } else {
