@@ -29,3 +29,7 @@ Thumbs.db
 
 # Batch Files
 *.bat
+
+# img files
+*.svg
+*.png
