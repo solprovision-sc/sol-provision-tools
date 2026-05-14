@@ -515,8 +515,9 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-	box-shadow: 3px 3px 12px rgba(203, 184, 170, 0.2);
-  }
+    box-shadow: 0 10px 15px -3px rgba(203, 184, 170, 0.1),
+                0 4px 6px -2px rgba(203, 184, 170, 0.05);
+ 
   
   .comp-hdr-h {
     display: flex;
@@ -1312,6 +1313,71 @@
     }
     
     document.getElementById('shields-content').innerHTML = shieldsHtml;
+	
+	
+	// Power Plants
+    /*
+	let shieldsHtml = '';
+    if (c.powerplants.length) {
+      powerHtml = '<div class="comp-grid">';
+      c.power.forEach((pp, i) => {
+        const hp = fmt(shld.max_shield_health, 0);
+        const regen_time = fmt(shld.max_shield_health / shld.max_shield_regen, 1);
+        const downedDelay = fmt(shld.downed_regen_delay, 1);
+        const damagedDelay = fmt(shld.damaged_regen_delay, 1);
+        const powerCons = fmt(shld.power_draw, 0);
+        const emSig = fmt(shld.em_signature, 0);
+        
+        const displayName = shld.display_name || shld.entity_name;
+    
+		// Build "Industrial Grade C" suffix when class data is present
+		let specSuffix = '';
+		if (shld.class) {
+			specSuffix = `<span class="comp-spec-h"> - ${shld.class} Grade ${shld.grade_letter || '?'}</span>`;
+		}
+        
+        shieldsHtml += `
+        <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              <div class="comp-icon-h">
+                <div class="icon-lg icon-shield"></div>
+              </div>
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${shld.size || '?'}</div>
+                <div class="comp-name-h">
+					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
+				</div>
+              </div>
+              <div class="comp-hp-h">${hp || '—'} hp</div>
+            </div>
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                <span class="stat-icon-h">↻</span>
+                <span class="stat-val-h">${regen_time || '—'}</span>
+              </div>
+              <div class="comp-stat-h">
+                <div class="icon-s icon-power-cons"></div>
+                <span class="stat-val-h">${powerCons || '—'}</span>
+              </div>
+              <div class="comp-stat-h">
+                <div class="icon-s icon-em"></div>
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+              <div class="comp-stat-text-h">${regen_time || '—'} s to regen</div>
+            </div>
+            <div class="comp-actions-h">
+              <button class="btn-quick-sel" disabled>QUICK SEL</button>
+              <button class="btn-reset" disabled>RESET</button>
+            </div>
+        </div>`;
+      });
+      shieldsHtml += '</div>';
+    } else {
+      shieldsHtml = '<div class="gap-block"><div class="gap-text">No shields indexed</div></div>';
+    }
+    
+    document.getElementById('power-content').innerHTML = powerHtml;
+	*/
   
     // Coolers
     let coolersHtml = '';
@@ -1354,42 +1420,7 @@
       coolersHtml = '<div class="gap-block"><div class="gap-text">No coolers indexed</div></div>';
     }
   
-    // Power Plants
-    let powerHtml = '';
-    if (c.powerplants.length) {
-      powerHtml = '<div class="comp-grid">';
-      c.powerplants.forEach((pp, i) => {
-        const output = fmt(pp.power_output, 0);
-        
-        powerHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/power.svg" alt="Power" onerror="this.style.display='none'">
-              </div>
-              <div class="comp-info">
-                <div class="comp-size">S${pp.size || '?'}</div>
-                <div class="comp-name">${pp.display_name || pp.entity_name}</div>
-                <div class="comp-grade">${pp.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${output || '—'} pwr</div>
-            </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(pp.heat_generation, 0) || '—'}</span>
-              </div>
-            </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
-      });
-      powerHtml += '</div>';
-    } else {
-      powerHtml = '<div class="gap-block"><div class="gap-text">No power plants indexed</div></div>';
-    }
+    
   
     // Quantum Drives
     let qdHtml = '';
