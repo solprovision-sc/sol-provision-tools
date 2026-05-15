@@ -1288,10 +1288,6 @@
             </div>
             <div class="comp-stats-h">
               <div class="comp-stat-h">
-                <span class="stat-icon-h">↻</span>
-                <span class="stat-val-h">${regen_time || '—'}</span>
-              </div>
-              <div class="comp-stat-h">
                 <div class="icon-s icon-power-cons"></div>
                 <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
@@ -1316,54 +1312,40 @@
 	
 	
 	// Power Plants
-    /*
-	let shieldsHtml = '';
+	let powerHtml = '';
     if (c.powerplants.length) {
       powerHtml = '<div class="comp-grid">';
-      c.power.forEach((pp, i) => {
-        const hp = fmt(shld.max_shield_health, 0);
-        const regen_time = fmt(shld.max_shield_health / shld.max_shield_regen, 1);
-        const downedDelay = fmt(shld.downed_regen_delay, 1);
-        const damagedDelay = fmt(shld.damaged_regen_delay, 1);
-        const powerCons = fmt(shld.power_draw, 0);
-        const emSig = fmt(shld.em_signature, 0);
+      c.powerplants.forEach((pp, i) => {
+        const power_out = fmt(pp.power_output, 0);
+        const emSig = fmt(pp.em_signature, 0);
         
-        const displayName = shld.display_name || shld.entity_name;
+        const displayName = pp.display_name || pp.entity_name;
     
-		// Build "Industrial Grade C" suffix when class data is present
+		// Build Class and Grade suffix when class data is present
 		let specSuffix = '';
-		if (shld.class) {
-			specSuffix = `<span class="comp-spec-h"> - ${shld.class} Grade ${shld.grade_letter || '?'}</span>`;
+		if (pp.class) {
+			specSuffix = `<span class="comp-spec-h"> - ${pp.class} Grade ${pp.grade_letter || '?'}</span>`;
 		}
         
-        shieldsHtml += `
+        powerHtml += `
         <div class="comp-card-h">
             <div class="comp-hdr-h">
               <div class="comp-icon-h">
-                <div class="icon-lg icon-shield"></div>
+                <div class="icon-lg icon-powerplant"></div>
               </div>
               <div class="comp-title-h">
-                <div class="comp-size-h">S${shld.size || '?'}</div>
+                <div class="comp-size-h">S${pp.size || '?'}</div>
                 <div class="comp-name-h">
 					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
 				</div>
               </div>
-              <div class="comp-hp-h">${hp || '—'} hp</div>
+              <div class="comp-hp-h">${power_out || '—'} units</div>
             </div>
             <div class="comp-stats-h">
-              <div class="comp-stat-h">
-                <span class="stat-icon-h">↻</span>
-                <span class="stat-val-h">${regen_time || '—'}</span>
-              </div>
-              <div class="comp-stat-h">
-                <div class="icon-s icon-power-cons"></div>
-                <span class="stat-val-h">${powerCons || '—'}</span>
-              </div>
               <div class="comp-stat-h">
                 <div class="icon-s icon-em"></div>
                 <span class="stat-val-h">${emSig || '—'}</span>
               </div>
-              <div class="comp-stat-text-h">${regen_time || '—'} s to regen</div>
             </div>
             <div class="comp-actions-h">
               <button class="btn-quick-sel" disabled>QUICK SEL</button>
@@ -1371,13 +1353,12 @@
             </div>
         </div>`;
       });
-      shieldsHtml += '</div>';
+      powerHtml += '</div>';
     } else {
-      shieldsHtml = '<div class="gap-block"><div class="gap-text">No shields indexed</div></div>';
+      powerHtml = '<div class="gap-block"><div class="gap-text">No powerplants indexed</div></div>';
     }
     
     document.getElementById('power-content').innerHTML = powerHtml;
-	*/
   
     // Coolers
     let coolersHtml = '';
@@ -1518,7 +1499,6 @@
     
 	document.getElementById('radar-content').innerHTML = radarHtml;
     document.getElementById('coolers-content').innerHTML = coolersHtml;
-    document.getElementById('power-content').innerHTML = powerHtml;
     document.getElementById('qd-content').innerHTML = qdHtml;
 }
 
@@ -1718,8 +1698,8 @@
       populateCargo(ship);
       populateFuel(ship);
       populateWeapons(ship);
-      populateHardpoints(ship);
-	  populateInsurance(ship);
+      //populateHardpoints(ship);
+	  //populateInsurance(ship);
       initScrollSpy();
 
     } catch(e) {
