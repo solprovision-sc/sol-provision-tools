@@ -3,653 +3,802 @@
 
 {% block extra_css %}
 <style>
-  /* ── Layout ── */
-  .ship-detail-page {
-    display: grid;
-    grid-template-columns: 300px 1fr;
-    min-height: calc(100vh - 52px);
-  }
+/* ═══════════════════════════════════════════════════════════════════════════
+   SHIP DETAIL PAGE — ORGANIZED CSS
+   ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* ── Sidebar ── */
-  .sidebar {
-    background: #1a1512;
-    border-right: 1px solid rgba(126,38,25,0.22);
-    padding: 20px 14px;
-    position: sticky;
-    top: 52px;
-    height: calc(100vh - 52px);
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-  }
-  .sidebar::-webkit-scrollbar { width: 4px; }
-  .sidebar::-webkit-scrollbar-track { background: #1a1512; }
-  .sidebar::-webkit-scrollbar-thumb { background: rgba(126,38,25,0.4); }
+/* ── PAGE LAYOUT ────────────────────────────────────────────────────────── */
 
-  /* ── Ship identity ── */
-  .ship-id { border-bottom: 1px solid rgba(126,38,25,0.22); padding-bottom: 16px; }
-  .s-back {
-    font-size: 8px; letter-spacing: 2px; color: #9A8C64;
-    text-transform: uppercase; margin-bottom: 12px; cursor: pointer;
-    display: flex; align-items: center; gap: 6px;
-    transition: color 0.15s; text-decoration: none;
-  }
-  .s-back:hover { color: #E8855C; }
-  .s-mfr { font-size: 8px; letter-spacing: 2.5px; color: #9A8C64; text-transform: uppercase; margin-bottom: 4px; }
-  .s-name {
-    font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 15px;
-    letter-spacing: 2px; color: #fff; text-transform: uppercase;
-    line-height: 1.3; margin-bottom: 10px;
-  }
-  .s-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
-  .tag {
-    font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1.5px;
-    padding: 2px 7px; border: 1px solid rgba(126,38,25,0.22); color: #CBB8AA;
-    text-transform: uppercase;
-  }
-  .tag-c { border-color: rgba(126,38,25,0.5); color: #E8855C; }
-  .tag-s { border-color: rgba(154,140,100,0.4); color: #9A8C64; }
-  .patch { font-size: 8px; color: #9A8C64; letter-spacing: 0.5px; }
-  .patch b { color: #CBB8AA; font-weight: normal; }
+.ship-detail-page {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 52px);
+  position: relative;
+  z-index: 1;
+}
 
-  /* ── Sidebar stats ── */
-  .sb-stats { display: flex; flex-direction: column; }
-  .sb-lbl-header {
-    font-size: 8px; letter-spacing: 2px; color: #9A8C64; text-transform: uppercase;
-    margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid rgba(126,38,25,0.22);
-  }
-  .sb-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 5px 0; border-bottom: 1px solid rgba(126,38,25,0.1);
-  }
-  .sb-row:last-child { border-bottom: none; }
-  .sb-lbl { font-size: 9px; letter-spacing: 1px; color: #9A8C64; text-transform: uppercase; }
-  .sb-val { font-size: 12px; color: #CBB8AA; letter-spacing: 0.5px; }
-  .sb-val.hi { color: #E8855C; }
-  .sb-val.ok { color: #5aad7a; }
-  .sb-val.gap { color: #b06020; font-size: 10px; }
+.main {
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
 
-  /* ── Section nav ── */
-  .nav-section { display: flex; flex-direction: column; gap: 1px; }
-  .nav-lbl {
-    font-size: 8px; letter-spacing: 2px; color: #9A8C64; text-transform: uppercase;
-    margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid rgba(126,38,25,0.22);
-  }
-  .nav-a {
-    font-size: 10px; letter-spacing: 1px; color: #9A8C64; padding: 5px 8px;
-    cursor: pointer; border-left: 2px solid transparent;
-    transition: all 0.12s; text-transform: uppercase; text-decoration: none; display: block;
-  }
-  .nav-a:hover { color: #CBB8AA; border-left-color: #7E2619; background: rgba(126,38,25,0.05); }
-  .nav-a.active { color: #E8855C; border-left-color: #E8855C; }
+/* ── SIDEBAR ───────────────────────────────────────────────────────────── */
 
-  /* ── Main content ── */
-  .main {
-    padding: 28px 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 32px;
-  }
+.sidebar {
+  background: #1a1512;
+  border-right: 1px solid rgba(126,38,25,0.22);
+  padding: 20px 14px;
+  position: sticky;
+  top: 52px;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
 
-  /* ── Loading / error ── */
-  .loading-state {
-    display: flex; align-items: center; justify-content: center;
-    height: 60vh; flex-direction: column; gap: 16px;
-  }
-  .loading-text { font-size: 11px; letter-spacing: 3px; color: #9A8C64; text-transform: uppercase; }
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: #1a1512; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(126,38,25,0.4); }
 
-  /* ── Section ── */
-  .sec { 
-	scroll-margin-top: 80px;
-	padding-top: 16px;
-	border-top: 2px solid rgba(126,38,25,0.22); 
-  }
-  .sec:first-child {
+/* Ship Identity */
+.ship-id { 
+  border-bottom: 1px solid rgba(126,38,25,0.22); 
+  padding-bottom: 16px; 
+}
+
+.s-back {
+  font-size: 8px; 
+  letter-spacing: 2px; 
+  color: #9A8C64;
+  text-transform: uppercase; 
+  margin-bottom: 12px; 
+  cursor: pointer;
+  display: flex; 
+  align-items: center; 
+  gap: 6px;
+  transition: color 0.15s; 
+  text-decoration: none;
+}
+
+.s-back:hover { color: #E8855C; }
+
+.s-mfr { 
+  font-size: 8px; 
+  letter-spacing: 2.5px; 
+  color: #9A8C64; 
+  text-transform: uppercase; 
+  margin-bottom: 4px; 
+}
+
+.s-name {
+  font-family: 'Orbitron', sans-serif; 
+  font-weight: 900; 
+  font-size: 15px;
+  letter-spacing: 2px; 
+  color: #fff; 
+  text-transform: uppercase;
+  line-height: 1.3; 
+  margin-bottom: 10px;
+}
+
+/* Sidebar Stats */
+.sb-stats { 
+  display: flex; 
+  flex-direction: column; 
+}
+
+.sb-lbl-header {
+  font-size: 8px; 
+  letter-spacing: 2px; 
+  color: #9A8C64; 
+  text-transform: uppercase;
+  margin-bottom: 6px; 
+  padding-bottom: 4px; 
+  border-bottom: 1px solid rgba(126,38,25,0.22);
+}
+
+.sb-row {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: baseline;
+  padding: 5px 0; 
+  border-bottom: 1px solid rgba(126,38,25,0.1);
+}
+
+.sb-row:last-child { border-bottom: none; }
+
+.sb-lbl { 
+  font-size: 9px; 
+  letter-spacing: 1px; 
+  color: #9A8C64; 
+  text-transform: uppercase; 
+}
+
+.sb-val { 
+  font-size: 12px; 
+  color: #CBB8AA; 
+  letter-spacing: 0.5px; 
+}
+
+.sb-val.hi { color: #E8855C; }
+.sb-val.ok { color: #5aad7a; }
+.sb-val.gap { color: #b06020; font-size: 10px; }
+
+/* Sidebar Navigation */
+.nav-section { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 1px; 
+}
+
+.nav-lbl {
+  font-size: 8px; 
+  letter-spacing: 2px; 
+  color: #9A8C64; 
+  text-transform: uppercase;
+  margin-bottom: 6px; 
+  padding-bottom: 5px; 
+  border-bottom: 1px solid rgba(126,38,25,0.22);
+}
+
+.nav-a {
+  font-size: 10px; 
+  letter-spacing: 1px; 
+  color: #9A8C64; 
+  padding: 5px 8px;
+  cursor: pointer; 
+  border-left: 2px solid transparent;
+  transition: all 0.12s; 
+  text-transform: uppercase; 
+  text-decoration: none; 
+  display: block;
+}
+
+.nav-a:hover { 
+  color: #CBB8AA; 
+  border-left-color: #7E2619; 
+  background: rgba(126,38,25,0.05); 
+}
+
+.nav-a.active { 
+  color: #E8855C; 
+  border-left-color: #E8855C; 
+}
+
+/* ── TAGS ──────────────────────────────────────────────────────────────── */
+
+.tag {
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 7px; 
+  letter-spacing: 1.5px;
+  padding: 2px 7px; 
+  border: 1px solid rgba(126,38,25,0.22); 
+  color: #CBB8AA;
+  text-transform: uppercase;
+}
+
+.tag-c { 
+  border-color: rgba(126,38,25,0.5); 
+  color: #E8855C; 
+}
+
+/* ── SECTIONS ──────────────────────────────────────────────────────────── */
+
+.sec { 
+  scroll-margin-top: 80px;
+  padding-top: 16px;
+  border-top: 2px solid rgba(126,38,25,0.22); 
+}
+
+.sec:first-child {
   padding-top: 0;
   border-top: none;
-  }
-  .sec-hdr {
-    display: flex; align-items: center; gap: 10px;
-	margin-top: 16px;
-    margin-bottom: 8px; padding-bottom: 8px;
-  }
-  .sec-bar { width: 3px; height: 20px; background: #7E2619; flex-shrink: 0; }
-  .sec-title {
-    font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 11px;
-    letter-spacing: 3px; color: #CBB8AA; text-transform: uppercase;
-  }
-  .sec-note { font-size: 9px; color: #9A8C64; margin-left: auto; letter-spacing: 0.5px; }
+}
 
-  /* ── Overview strip ── */
-  .overview-layout {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 10px;
-    align-items: start;
-  }
-  .silhouette {
-    background: #231e1a;
-    border: 1px solid rgba(126,38,25,0.22);
-    border-left: 3px solid #7E2619;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px;
-    align-self: stretch;
-  }
-  .silhouette img {
-    max-height: 320px;
-    width: auto;
-    object-fit: contain;
-    display: block;
-  }
-  .sil-placeholder {
-    display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px;
-  }
-  .sil-label { font-size: 9px; letter-spacing: 2px; color: #9A8C64; text-transform: uppercase; }
-  .sil-sub { font-size: 9px; color: rgba(154,140,100,0.4); letter-spacing: 1px; font-style: italic; }
+.sec-hdr {
+  display: flex; 
+  align-items: center; 
+  gap: 10px;
+  margin-top: 16px;
+  margin-bottom: 8px; 
+  padding-bottom: 8px;
+}
 
-  .stat-grid-right {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: repeat(4, 1fr);
-    gap: 10px;
-    align-content: stretch;
-  }
-  .stat-block {
-    background: #231e1a; border: 1px solid rgba(126,38,25,0.22);
-    padding: 12px 14px; position: relative;
-  }
-  .stat-block::before {
-    content: ''; position: absolute; top: 0; left: 0; right: 0;
-    height: 1px; background: rgba(126,38,25,0.5);
-  }
-  .st-lbl { font-size: 8px; letter-spacing: 1.5px; color: #CBB8AA; text-transform: uppercase; margin-bottom: 5px; }
-  .st-val-row { display: flex; align-items: baseline; gap: 5px; }
-  .st-val-row.hi { display: flex; align-items: baseline; gap: 5px; color: #E8855C; }
-  .st-val {
-    font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
-    color: #CBB8AA; letter-spacing: 1px; line-height: 1;
-  }
-  .st-val.hi {
-    font-family: 'Orbitron', sans-serif; font-size: 18px; font-weight: 700;
-    color: #E8855C; letter-spacing: 1px; line-height: 1;
-  }
-  .st-val.hi { color: #E8855C; }
-  .st-unit { font-size: 10px; color: #CBB8AA; letter-spacing: 1px; }
-  .st-val.gap-val {
-    color: #b06020; font-size: 11px; font-family: 'Share Tech Mono', monospace;
-    font-weight: normal; letter-spacing: 0.5px;
-  }
+.sec-bar { 
+  width: 3px; 
+  height: 20px; 
+  background: #7E2619; 
+  flex-shrink: 0; 
+}
 
-  /* ── Panels ── */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .grid2-column-first { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; grid-auto-flow: column; }
-  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-  .spacer { height: 12px; }
+.sec-title {
+  font-family: 'Orbitron', sans-serif; 
+  font-weight: 700; 
+  font-size: 11px;
+  letter-spacing: 3px; 
+  color: #CBB8AA; 
+  text-transform: uppercase;
+}
 
-  .panel { background: #231e1a; border: 1px solid rgba(126,38,25,0.22); padding: 14px 16px; }
-  .panel-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px; color: #9A8C64;
-    text-transform: uppercase; margin-bottom: 10px; padding-bottom: 6px;
-    border-bottom: 1px solid rgba(126,38,25,0.22);
-  }
-  .dr {
-    display: flex; justify-content: space-between; align-items: baseline;
-    padding: 5px 0; border-bottom: 1px solid rgba(126,38,25,0.08);
-  }
-  .dr:last-child { border-bottom: none; }
-  .dr-l { font-size: 11px; color: #9A8C64; letter-spacing: 0.5px; }
-  .dr-v { font-size: 12px; color: #CBB8AA; text-align: right; letter-spacing: 0.5px; }
-  .dr-v.pos { color: #5aad7a; }
-  .dr-v.neg { color: #d07070; }
-  .dr-v.gap-val { color: #b06020; font-size: 10px; font-style: italic; }
-  .dr-v.accent { color: #E8855C; font-family: 'Orbitron', sans-serif; font-size: 15px; }
+.sec-note { 
+  font-size: 9px; 
+  color: #9A8C64; 
+  margin-left: auto; 
+  letter-spacing: 0.5px; 
+}
 
-  /* ── Vital parts ── */
-  .vp-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .vp-pill {
-    background: #231e1a; border: 1px solid rgba(126,38,25,0.22);
-    padding: 10px 14px; flex: 1; min-width: 100px;
-  }
-  .vp-name { font-size: 9px; color: #9A8C64; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-  .vp-hp { font-family: 'Orbitron', sans-serif; font-size: 15px; color: #CBB8AA; letter-spacing: 1px; }
-  .vp-hp span { font-size: 9px; color: #9A8C64; }
+/* ── LOADING & ERROR STATES ────────────────────────────────────────────── */
 
-  /* ── Component slots ── */
-  .cg-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px; color: #9A8C64;
-    text-transform: uppercase; margin-bottom: 8px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .cg-title::after { content: ''; flex: 1; height: 1px; background: rgba(126,38,25,0.22); }
+.loading-state {
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  height: 60vh; 
+  flex-direction: column; 
+  gap: 16px;
+}
 
-  .slot {
-    background: #231e1a; border: 1px solid rgba(126,38,25,0.22);
-    margin-bottom: 8px; transition: border-color 0.15s;
-  }
-  .slot:hover { border-color: rgba(126,38,25,0.5); }
-  .slot-hdr {
-    display: flex; align-items: center; gap: 8px; padding: 7px 12px;
-    background: rgba(126,38,25,0.06); border-bottom: 1px solid rgba(126,38,25,0.22);
-  }
-  .slot-port { font-size: 8px; letter-spacing: 1.5px; color: #CBB8AA; text-transform: uppercase; flex: 1; }
-  .sz-badge {
-    font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
-    padding: 2px 6px; border: 1px solid rgba(126,38,25,0.22); color: #CBB8AA;
-  }
-  .gr-badge {
-    font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 1px;
-    padding: 2px 6px; border: 1px solid rgba(154,140,100,0.4); color: #9A8C64;
-  }
-  .sub-badge { font-size: 9px; color: #9A8C64; letter-spacing: 1px; }
-  .slot-body { padding: 10px 12px; }
-  .slot-name {
-    font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 1.5px;
-    color: #fff; margin-bottom: 8px;
-  }
-  .slot-stats { display: flex; gap: 16px; flex-wrap: wrap; }
-  .ss-item { display: flex; flex-direction: column; gap: 2px; }
-  .ss-lbl { font-size: 8px; letter-spacing: 1px; color: #9A8C64; text-transform: uppercase; }
-  .ss-val { font-size: 12px; color: #CBB8AA; }
-  .ss-val.key { font-size: 14px; }
-  .ss-val.gap-val { color: #b06020; font-size: 10px; font-style: italic; }
+.loading-text { 
+  font-size: 11px; 
+  letter-spacing: 3px; 
+  color: #9A8C64; 
+  text-transform: uppercase; 
+}
 
-  .slot-empty {
-    background: #231e1a; border: 1px dashed rgba(154,140,100,0.2);
-    padding: 10px 12px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;
-  }
-  .se-lbl { font-size: 10px; color: #9A8C64; letter-spacing: 1px; flex: 1; }
-  .se-note { font-size: 9px; color: rgba(154,140,100,0.35); font-style: italic; }
+/* ── OVERVIEW LAYOUT ───────────────────────────────────────────────────── */
 
-  /* ── Gap block ── */
-  .gap-block {
-    background: rgba(176,96,32,0.08); border: 1px solid rgba(176,96,32,0.25);
-    border-left: 3px solid #b06020; padding: 10px 14px; margin-bottom: 12px;
-  }
-  .gap-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px;
-    color: #b06020; text-transform: uppercase; margin-bottom: 4px;
-  }
-  .gap-text { font-size: 11px; color: #9A8C64; letter-spacing: 0.5px; line-height: 1.6; }
+.overview-layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+}
 
-  /* ── Cargo pills ── */
-  .cargo-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-  .cargo-pill {
-    background: #231e1a; border: 1px solid rgba(126,38,25,0.22);
-    padding: 12px 16px; flex: 1; min-width: 180px;
-  }
-  .cargo-pill.primary { border-color: rgba(126,38,25,0.5); }
-  .cp-name { font-size: 8px; letter-spacing: 1.5px; color: #9A8C64; text-transform: uppercase; margin-bottom: 4px; }
-  .cp-scu { font-family: 'Orbitron', sans-serif; font-size: 26px; font-weight: 700; color: #E8855C; line-height: 1; }
-  .cp-scu span { font-size: 10px; color: #9A8C64; }
-  .cp-dims { font-size: 10px; color: #9A8C64; margin-top: 5px; letter-spacing: 0.5px; }
+.silhouette {
+  background: #231e1a;
+  border: 1px solid rgba(126,38,25,0.22);
+  border-left: 3px solid #7E2619;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  align-self: stretch;
+}
 
-  /* ── Hardpoint table ── */
-  .manifest-wrap { overflow-x: auto; }
-  .mtable { width: 100%; border-collapse: collapse; font-size: 11px; }
-  .mtable th {
-    font-family: 'Orbitron', sans-serif; font-size: 7px; letter-spacing: 2px; color: #9A8C64;
-    text-transform: uppercase; padding: 7px 10px; text-align: left;
-    border-bottom: 1px solid rgba(126,38,25,0.22); background: #231e1a;
-  }
-  .mtable td { padding: 6px 10px; border-bottom: 1px solid rgba(126,38,25,0.07); color: #9A8C64; }
-  .mtable td.val { color: #CBB8AA; }
-  .mtable td.gap-cell { color: #b06020; font-style: italic; }
-  .mtable tr:last-child td { border-bottom: none; }
-  .mtable tr:hover td { background: rgba(126,38,25,0.04); }
+.silhouette img {
+  max-height: 320px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
 
-  /* ── Insurance gap ── */
-  .insurance-gap {
-    background: rgba(92,83,86,0.08); border: 1px solid rgba(154,140,100,0.2);
-    border-left: 3px solid #9A8C64; padding: 12px 16px; margin-bottom: 12px;
-  }
-  .ig-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px;
-    color: #9A8C64; text-transform: uppercase; margin-bottom: 5px;
-  }
-  .ig-text { font-size: 11px; color: #9A8C64; line-height: 1.7; }
-  
-  
-  /* ── Loadout Cards (component type containers) ── */
+.sil-placeholder {
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 8px; 
+  padding: 16px;
+}
 
-  .loadout-card {
-    background: rgba(176,96,32,0.08); 
-	border: 1px solid rgba(176,96,32,0.25);
-    border-left: 3px solid #b06020;
-    padding: 16px;
-    margin-bottom: 16px;
-  }
-  
-  .loadout-card-title {
-    font-family: 'Orbitron', sans-serif; font-size: 8px; letter-spacing: 2px;
-    color: #b06020; text-transform: uppercase; margin-bottom: 4px;
-  }
-  
-  .loadout-card:last-child {
-    margin-bottom: 0;
-  }
-  
-  .loadout-card-hdr {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 9px;
-    letter-spacing: 2px;
-    color: #9A8C64;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(126,38,25,0.22);
-  }
-  
-  /* ── Component Cards (individual components) ── */
-  .comp-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 12px;
-  }
-  
-  .comp-card {
-    background: #0d0b0a; /* Darker than loadout-card */
-    border: 1px solid rgba(126,38,25,0.3);
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  
-  .comp-hdr {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: rgba(0,0,0,0.3);
-    border-bottom: 1px solid rgba(126,38,25,0.2);
-  }
-  
-  .comp-icon {
-	width: 44px;
-	height: 44px;
-	background: rgba(126,38,25,0.15);
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	flex-shrink: 0;
-	}
-	
-  
-  .comp-icon img {
-    width: 24px;
-    height: 24px;
-    opacity: 0.8;
-    filter: brightness(1.2);
-  }
-  
-  .comp-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  
-  .comp-size {
-    font-size: 9px;
-    color: #9A8C64;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-  }
-  
-  .comp-name {
-    font-size: 13px;
-    font-weight: 600;
-    color: #CBB8AA;
-    letter-spacing: 0.5px;
-  }
-  
-  .comp-grade {
-    font-size: 9px;
-    color: #9A8C64;
-    opacity: 0.8;
-  }
-  
-  .comp-hp {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 15px;
-    font-weight: 700;
-    color: #E8855C;
-    white-space: nowrap;
-  }
-  
-  .comp-stats {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(126,38,25,0.2);
-  }
-  
-  .comp-stat {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  
-  .stat-icon {
-    font-size: 14px;
-    color: #9A8C64;
-    opacity: 0.7;
-    width: 14px; /* Same as .icon-sm */
-    height: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .comp-stat .stat-val {
-    font-size: 11px;
-    color: #CBB8AA;
-    font-weight: 500;
-  }
-  
-  .comp-stat-text {
-    font-size: 10px;
-    color: #9A8C64;
-    margin-left: auto;
-  }
-  
-  .comp-actions {
-    display: flex;
-    gap: 8px;
-    padding: 10px 12px;
-  }
-  
-  .btn-quick-sel,
-  .btn-reset {
-    flex: 1;
-    padding: 6px 12px;
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    border-radius: 3px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  
-  .btn-quick-sel {
-    background: rgba(126,38,25,0.15);
-    border: 1px solid rgba(126,38,25,0.4);
-    color: #E8855C;
-  }
-  
-  .btn-quick-sel:hover:not(:disabled) {
-    background: rgba(126,38,25,0.25);
-    border-color: rgba(126,38,25,0.6);
-  }
-  
-  .btn-quick-sel:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-  
-  .btn-reset {
-    background: transparent;
-    border: 1px solid rgba(154,140,100,0.3);
-    color: #9A8C64;
-  }
-  
-  .btn-reset:hover:not(:disabled) {
-    background: rgba(154,140,100,0.1);
-    border-color: rgba(154,140,100,0.5);
-  }
-  
-  .btn-reset:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
+.sil-label { 
+  font-size: 9px; 
+  letter-spacing: 2px; 
+  color: #9A8C64; 
+  text-transform: uppercase; 
+}
 
-  /* ── Horizontal Component Cards ── */
-  .comp-card-h {
-    background: #0d0b0a;
-    border: 1px solid rgba(126,38,25,0.3);
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 10px 15px -3px rgba(203, 184, 170, 0.1),
-                0 4px 6px -2px rgba(203, 184, 170, 0.05);
- 
-  
-  .comp-hdr-h {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    background: rgba(0,0,0,0.3);
-    border-bottom: 1px solid rgba(126,38,25,0.2);
-  }
-  
-  .comp-icon-h {
-    width: 36px;
-    height: 36px;
-    background: rgba(126,38,25,0.15);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  
-  .icon-md {
-    width: 22px;
-    height: 22px;
-    background-color: #E8855C;
-    mask-size: contain;
-    -webkit-mask-size: contain;
-  }
-  
-  .icon-s {
-    width: 20px;
-    height: 20px;
-    background-color: #7E2619;
-    mask-size: contain;
-    -webkit-mask-size: contain;
-  }
-  
-  .icon-xs {
-    width: 12px;
-    height: 12px;
-    background-color: #9A8C64;
-    mask-size: contain;
-    -webkit-mask-size: contain;
-  }
-  
-  .comp-title-h {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex: 1;
-  }
-  
-  .comp-size-h {
-    font-size: 11px;
-    color: #9A8C64;
-    letter-spacing: 1px;
-  }
-  
-  .comp-name-h {
-    font-size: 13px;
-    font-weight: 600;
-    color: #CBB8AA;
-    letter-spacing: 0.5px;
-  }
-  
-  .comp-name-text-h {
+.sil-sub { 
+  font-size: 9px; 
+  color: rgba(154,140,100,0.4); 
+  letter-spacing: 1px; 
+  font-style: italic; 
+}
+
+/* ── STAT BLOCKS (Overview) ────────────────────────────────────────────── */
+
+.stat-grid-right {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(4, 1fr);
+  gap: 10px;
+  align-content: stretch;
+}
+
+.stat-block {
+  background: #231e1a; 
+  border: 1px solid rgba(126,38,25,0.22);
+  padding: 12px 14px; 
+  position: relative;
+}
+
+.stat-block::before {
+  content: ''; 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  right: 0;
+  height: 1px; 
+  background: rgba(126,38,25,0.5);
+}
+
+.st-lbl { 
+  font-size: 8px; 
+  letter-spacing: 1.5px; 
+  color: #CBB8AA; 
+  text-transform: uppercase; 
+  margin-bottom: 5px; 
+}
+
+.st-val-row { 
+  display: flex; 
+  align-items: baseline; 
+  gap: 5px; 
+}
+
+.st-val-row.hi { 
+  color: #E8855C; 
+}
+
+.st-val {
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 18px; 
+  font-weight: 700;
+  color: #CBB8AA; 
+  letter-spacing: 1px; 
+  line-height: 1;
+}
+
+.st-val.hi { 
+  color: #E8855C; 
+}
+
+.st-unit { 
+  font-size: 10px; 
+  color: #CBB8AA; 
+  letter-spacing: 1px; 
+}
+
+.st-val.gap-val {
+  color: #b06020; 
+  font-size: 11px; 
+  font-family: 'Share Tech Mono', monospace;
+  font-weight: normal; 
+  letter-spacing: 0.5px;
+}
+
+/* ── GRID LAYOUTS ──────────────────────────────────────────────────────── */
+
+.grid2 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 12px; 
+}
+
+.grid2-column-first { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: 12px; 
+  grid-auto-flow: column; 
+}
+
+.grid3 { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr 1fr; 
+  gap: 12px; 
+}
+
+.spacer { 
+  height: 12px; 
+}
+
+/* ── PANELS ────────────────────────────────────────────────────────────── */
+
+.panel { 
+  background: #231e1a; 
+  border: 1px solid rgba(126,38,25,0.22); 
+  padding: 14px 16px; 
+}
+
+.panel-title {
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 8px; 
+  letter-spacing: 2px; 
+  color: #9A8C64;
+  text-transform: uppercase; 
+  margin-bottom: 10px; 
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(126,38,25,0.22);
+}
+
+/* Data Rows (inside panels) */
+.dr {
+  display: flex; 
+  justify-content: space-between; 
+  align-items: baseline;
+  padding: 5px 0; 
+  border-bottom: 1px solid rgba(126,38,25,0.08);
+}
+
+.dr:last-child { 
+  border-bottom: none; 
+}
+
+.dr-l { 
+  font-size: 11px; 
+  color: #9A8C64; 
+  letter-spacing: 0.5px; 
+}
+
+.dr-v { 
+  font-size: 12px; 
+  color: #CBB8AA; 
+  text-align: right; 
+  letter-spacing: 0.5px; 
+}
+
+.dr-v.pos { color: #5aad7a; }
+.dr-v.neg { color: #d07070; }
+
+.dr-v.gap-val { 
+  color: #b06020; 
+  font-size: 10px; 
+  font-style: italic; 
+}
+
+.dr-v.accent { 
+  color: #E8855C; 
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 15px; 
+}
+
+/* ── GAP BLOCKS ────────────────────────────────────────────────────────── */
+
+.gap-block {
+  background: rgba(176,96,32,0.08); 
+  border: 1px solid rgba(176,96,32,0.25);
+  border-left: 3px solid #b06020; 
+  padding: 10px 14px; 
+  margin-bottom: 12px;
+}
+
+.gap-title {
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 8px; 
+  letter-spacing: 2px;
+  color: #b06020; 
+  text-transform: uppercase; 
+  margin-bottom: 4px;
+}
+
+.gap-text { 
+  font-size: 11px; 
+  color: #9A8C64; 
+  letter-spacing: 0.5px; 
+  line-height: 1.6; 
+}
+
+.gap-val {
+  color: #b06020;
+  font-size: 10px;
+  font-style: italic;
+}
+
+/* ── CARGO PILLS ───────────────────────────────────────────────────────── */
+
+.cargo-row { 
+  display: flex; 
+  gap: 10px; 
+  flex-wrap: wrap; 
+  margin-bottom: 14px; 
+}
+
+.cargo-pill {
+  background: #231e1a; 
+  border: 1px solid rgba(126,38,25,0.22);
+  padding: 12px 16px; 
+  flex: 1; 
+  min-width: 180px;
+}
+
+.cargo-pill.primary { 
+  border-color: rgba(126,38,25,0.5); 
+}
+
+.cp-name { 
+  font-size: 8px; 
+  letter-spacing: 1.5px; 
+  color: #9A8C64; 
+  text-transform: uppercase; 
+  margin-bottom: 4px; 
+}
+
+.cp-scu { 
+  font-family: 'Orbitron', sans-serif; 
+  font-size: 26px; 
+  font-weight: 700; 
+  color: #E8855C; 
+  line-height: 1; 
+}
+
+.cp-scu span { 
+  font-size: 10px; 
+  color: #9A8C64; 
+}
+
+.cp-dims { 
+  font-size: 10px; 
+  color: #9A8C64; 
+  margin-top: 5px; 
+  letter-spacing: 0.5px; 
+}
+
+/* ── VEHICLE LOADOUT CARDS ─────────────────────────────────────────────── */
+
+/* Loadout Card Container (outer tan card) */
+.loadout-card {
+  background: rgba(176,96,32,0.08); 
+  border: 1px solid rgba(176,96,32,0.25);
+  border-left: 3px solid #b06020;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 15px -3px rgba(203, 184, 170, 0.1),
+              0 4px 6px -2px rgba(203, 184, 170, 0.05);
+}
+
+.loadout-card:last-child {
+  margin-bottom: 0;
+}
+
+.loadout-hdr-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(126,38,25,0.22);
+}
+
+.loadout-card-hdr {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #9A8C64;
+  text-transform: uppercase;
+}
+
+/* Component Grid */
+.comp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 12px;
+}
+
+/* Individual Component Card (inner black card) */
+.comp-card-h {
+  background: #0d0b0a;
+  border: 1px solid rgba(126,38,25,0.3);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  //overflow: hidden; 
+  box-shadow: 0 10px 15px -3px rgba(203, 184, 170, 0.1),
+              0 4px 6px -2px rgba(203, 184, 170, 0.05);
+}
+
+.comp-hdr-h {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(126,38,25,0.2);
+}
+
+.comp-icon-h {
+  width: 36px;
+  height: 36px;
+  background: rgba(126,38,25,0.15);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.comp-title-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.comp-size-h {
+  font-size: 11px;
+  color: #9A8C64;
+  letter-spacing: 1px;
+  border: 1px solid #9A8C64;
+  padding: 2px;
+  border-radius: 1px;
+}
+
+.comp-name-h {
+  font-size: 13px;
+  font-weight: 600;
+  color: #CBB8AA;
+  letter-spacing: 0.5px;
+}
+
+.comp-name-text-h {
       color: #fff;
-      font-size: 1.25em;
+      font-size: 1.5em;
       font-weight: 600;
-  }
-  
-  .comp-grade-h {
-    font-size: 10px;
-    color: #9A8C64;
-    opacity: 0.8;
-    margin-left: auto;
-  }
-  
-  .comp-hp-h {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 14px;
-    font-weight: 700;
-    color: #E8855C;
-    white-space: nowrap;
-  }
-  
-  .comp-stats-h {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(126,38,25,0.2);
-  }
-  
-  .comp-stat-h {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  
-  .stat-icon-h {
-    font-size: 12px;
-    color: #9A8C64;
-    opacity: 0.7;
-    width: 12px;
-    height: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  .stat-val-h {
-    font-size: 16px;
-    color: #CBB8AA;
-    font-weight: 500;
-  }
-  
-  .comp-stat-text-h {
-    font-size: 16px;
-    color: #9A8C64;
-    margin-left: auto;
-  }
-  
-  .comp-actions-h {
-    display: flex;
-    gap: 8px;
-    padding: 8px 12px;
-  }
+}
 
-  /* ── Component Icons ── */
-  /* Large icon (component type identifier) */
+.comp-grade-h {
+  font-size: 10px;
+  color: #9A8C64;
+  opacity: 0.8;
+  margin-left: auto;
+}
+
+.comp-hp-h {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #E8855C;
+  white-space: nowrap;
+}
+
+.comp-hp-h .param-sep {
+  color: #7E2619;
+  margin: 0 2px;
+}
+
+.comp-stats-h {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(126,38,25,0.2);
+}
+
+.comp-stat-h {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.stat-icon-h {
+  font-size: 12px;
+  color: #9A8C64;
+  opacity: 0.7;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-val-h {
+  font-size: 13px;
+  color: #CBB8AA;
+  font-weight: 500;
+}
+
+.comp-stat-text-h {
+  font-size: 14px;
+  color: #9A8C64;
+  margin-left: auto;
+}
+
+.comp-stat-text-h .param-sep {
+  color: #7E2619;
+  margin: 0 2px;
+}
+
+/* Action Buttons (top right of loadout header) */
+.comp-actions-top {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-quick-sel-sm,
+.btn-reset-sm {
+  padding: 2px 8px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-quick-sel-sm {
+  background: rgba(126,38,25,0.15);
+  border: 1px solid rgba(126,38,25,0.4);
+  color: #E8855C;
+}
+
+.btn-quick-sel-sm:hover:not(:disabled) {
+  background: rgba(126,38,25,0.25);
+  border-color: rgba(126,38,25,0.6);
+}
+
+.btn-quick-sel-sm:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn-reset-sm {
+  background: transparent;
+  border: 1px solid rgba(154,140,100,0.3);
+  color: #9A8C64;
+}
+
+.btn-reset-sm:hover:not(:disabled) {
+  background: rgba(154,140,100,0.1);
+  border-color: rgba(154,140,100,0.5);
+}
+
+.btn-reset-sm:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ── COMPONENT ICONS ───────────────────────────────────────────────────── */
+
+/* Tooltip */
+.tooltip-wrapper,
+.tooltip-wrapper-inline {
+  position: relative;
+}
+
+.tooltip-wrapper-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1512;
+  color: #CBB8AA;
+  padding: 4px 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  border: 1px solid rgba(126,38,25,0.5);
+  border-radius: 2px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  margin-bottom: 4px;
+  z-index: 100;
+}
+
+.tooltip-wrapper:hover .tooltip,
+.tooltip-wrapper-inline:hover .tooltip {
+  opacity: 1;
+}
+
+/* Icon Size Classes */
 .icon-lg {
+  width: 32px;
+  height: 32px;
+  background-color: #E8855C;
+  mask-size: contain;
+  -webkit-mask-size: contain;
+}
+
+.icon-md {
   width: 28px;
   height: 28px;
   background-color: #E8855C;
@@ -657,16 +806,23 @@
   -webkit-mask-size: contain;
 }
 
-/* Small icon (stat indicators) */
 .icon-sm {
-  width: 14px;
-  height: 14px;
+    width: 24px;
+    height: 24px;
+    background-color: #7E2619;
+    mask-size: contain;
+    -webkit-mask-size: contain;
+}
+
+.icon-xs {
+  width: 12px;
+  height: 12px;
   background-color: #9A8C64;
   mask-size: contain;
   -webkit-mask-size: contain;
 }
 
-/* Icon variants */
+/* Icon Masks */
 .icon-cooler {
   mask: url(/static/img/icons/ItemCooler.svg) no-repeat center;
   -webkit-mask: url(/static/img/icons/ItemCooler.svg) no-repeat center;
@@ -702,8 +858,6 @@
   -webkit-mask: url(/static/img/icons/ItemShields.svg) no-repeat center;
 }
 
-
-
 .icon-quantum {
   mask: url(/static/img/icons/ItemQuantumDrive.svg) no-repeat center;
   -webkit-mask: url(/static/img/icons/ItemQuantumDrive.svg) no-repeat center;
@@ -712,6 +866,10 @@
 .icon-radar {
   mask: url(/static/img/icons/ItemRadar.svg) no-repeat center;
   -webkit-mask: url(/static/img/icons/ItemRadar.svg) no-repeat center;
+}
+.icon-flightcontroller {
+  mask: url(/static/img/icons/ItemFlightController.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemFlightController.svg) no-repeat center;
 }
 
 .icon-weapons {
@@ -728,16 +886,170 @@
   mask: url(/static/img/icons/ItemMissile.svg) no-repeat center;
   -webkit-mask: url(/static/img/icons/ItemMissile.svg) no-repeat center;
 }
-  
-  /* ── Scan grid bg ── */
-  body::before {
-    content: ''; position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
-    background-size: 40px 40px; pointer-events: none; z-index: 0;
-  }
-  .ship-detail-page { position: relative; z-index: 1; }
+
+.icon-cargo {
+  mask: url(/static/img/icons/3D_cargo_boxes.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/3D_cargo_boxes.svg) no-repeat center;
+}
+
+
+/* ── Quantum Travel Calculator ─────────────────────────────────────────── */
+
+.qt-calculator {
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+  border-top: 1px solid rgba(126,38,25,0.2);
+  border-bottom: 1px solid rgba(126,38,25,0.2);
+}
+
+.qt-calc-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #9A8C64;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+.qt-input-row,
+.qt-fuel-row {
+   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.qt-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.qt-label {
+  font-size: 12px;
+  color: #9A8C64;
+  letter-spacing: 0.5px;
+}
+
+.qt-input {
+  background: #1a1512;
+  border: 1px solid rgba(126,38,25,0.3);
+  color: #CBB8AA;
+  padding: 4px 8px;
+  font-size: 11px;
+  width: 50px;
+  text-align: right;
+  border-radius: 2px;
+}
+
+.qt-input:focus {
+  outline: none;
+  border-color: rgba(126,38,25,0.6);
+}
+
+.qt-fuel-display {
+  font-size: 14px;
+  color: #CBB8AA;
+  letter-spacing: 0.5px;
+}
+
+.qt-percent {
+  color: #5aad7a;
+  margin-left: 8px;
+}
+
+.qt-slider-row {
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.qt-slider {
+  width: 35%;
+  height: 4px;
+  background: rgba(126,38,25,0.2);
+  border-radius: 2px;
+  outline: none;
+  -webkit-appearance: none;
+}
+
+.qt-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: #5aad7a;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.qt-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: #5aad7a;
+  cursor: pointer;
+  border-radius: 50%;
+  border: none;
+}
+
+.qt-results {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(126,38,25,0.2);
+}
+
+.qt-result-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qt-result-label {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #9A8C64;
+  text-transform: uppercase;
+}
+
+.qt-result-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5aad7a;
+  letter-spacing: 0.5px;
+}
+
+.qt-result-unit {
+  font-size: 10px;
+  color: #9A8C64;
+  margin-left: 4px;
+}
+
+.stat-label-h {
+  font-size: 10px;
+  color: #9A8C64;
+  margin-right: 4px;
+}
+
+/* ── VISUAL EFFECTS ────────────────────────────────────────────────────── */
+
+/* Scan Grid Background */
+body::before {
+  content: ''; 
+  position: fixed; 
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
+  background-size: 40px 40px; 
+  pointer-events: none; 
+  z-index: 0;
+}
+
+
+
 </style>
 {% endblock %}
 
@@ -923,24 +1235,22 @@
 		  <div class="panel">
             <div class="panel-title">Components</div>
 				<div class="loadout-card">
-					<span class="dr-l">Shields</span>
 					<div id="shields-content"></div>
 				</div>
 				<div class="loadout-card">
-					<span class="dr-l">Power Plant</span>
 					<div id="power-content"></div>
 				</div>
 				<div class="loadout-card">
-					<span class="dr-l">Coolers</span>
 					<div id="coolers-content"></div>
 				</div>
 				<div class="loadout-card">
-					<span class="dr-l">Quantum Drive</span>
 					<div id="qd-content"></div>
 				</div>
 				<div class="loadout-card">
-					<span class="dr-l">Radar</span>
 					<div id="radar-content"></div>
+				</div>
+				<div class="loadout-card">
+					<div id="flightcontroller-content"></div>
 				</div>
 		  </div>
         </div>
@@ -948,12 +1258,14 @@
 	
 	
       <!-- Cargo -->
-      <section class="sec" id="sec-cargo">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Cargo</div><div class="sec-note">Authoritative: ships table cargo_scu</div></div>
-        <div id="cargo-content">
-          <div class="loading-text" style="padding:20px 0; font-size:10px;">Loading cargo grids...</div>
+      <section class="sec" id="sec-loadout">
+   	  <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Cargo</div></div>
+		<div class="panel">
+		  <div class="loadout-card">
+			<div id="cargogrid-content"></div>
+		  </div>
         </div>
-      </section>
+    </section>
 
       <!-- Fuel -->
       <section class="sec" id="sec-fuel">
@@ -1024,6 +1336,13 @@
 		: Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     return unit ? `${s} ${unit}` : s;
   }
+  
+  function fmtPct(value, decimals = 0) {
+    if (value === null || value === undefined || value === '') return null;
+    const n = parseFloat(value);
+    if (isNaN(n)) return null;
+    return `${(n * 100).toFixed(decimals)}%`;
+  }
 
   function fmtOrGap(v, dec, unit) {
     const r = fmt(v, dec, unit);
@@ -1047,6 +1366,116 @@
       el.className = 'st-val gap-val';
       el.textContent = 'DATA GAP';
       if (uEl) uEl.textContent = '';
+    }
+  }
+  
+  // Primary icon (large, with circular background and wrapper)
+  function iconPrimary(type, label = null) {
+    const labels = {
+      'shield': 'Shield Generator',
+      'cooler': 'Cooler',
+      'powerplant': 'Power Plant',
+      'quantum': 'Quantum Drive',
+      'radar': 'Radar',
+      'weapons': 'Weapon',
+      'turret': 'Turret',
+      'missile': 'Missile Rack',
+	  'flightcontroller': 'Flight Controller'
+    };
+    
+    const tooltipLabel = label || labels[type] || type;
+    
+    return `
+      <div class="comp-icon-h tooltip-wrapper">
+        <div class="icon-lg icon-${type}"></div>
+        <span class="tooltip">${tooltipLabel}</span>
+      </div>`;
+  }
+  
+  // Secondary icon (small, inline in stats, no wrapper background)
+  function iconStat(type, label = null) {
+    const labels = {
+      'power-cons': 'Power Draw',
+      'em': 'EM Signature',
+      'ir': 'IR Signature',
+      'cs': 'Cross Section'
+    };
+    
+    const tooltipLabel = label || labels[type] || type;
+    
+    return `
+      <div class="tooltip-wrapper-inline">
+        <div class="icon-sm icon-${type}"></div>
+        <span class="tooltip">${tooltipLabel}</span>
+      </div>`;
+  }
+  
+  // Quantum Travel Calculator
+  function quantumTravelTime(distance, vmax, a1, a2) {
+    const Ta = (2 * vmax) / (a1 + a2);
+    const Tc = (distance / vmax) - ((4 * vmax * (2*a1 + a2)) / (3 * ((a1 + a2)**2)));
+    
+    if (Tc < 0) {
+      const z = ((3 * (a2 - a1)**2 * (a1 + a2)**2 * distance) / (8 * a1**3 * vmax**2)) - 1;
+      
+      let total_time;
+      if (z < 1) {
+        total_time = ((4 * a1 * vmax) / (a2**2 - a1**2)) * (2 * Math.cos((1/3) * Math.acos(z)) - 1);
+      } else {
+        total_time = ((4 * a1 * vmax) / (a2**2 - a1**2)) * (2 * Math.cosh((1/3) * Math.log(z + Math.sqrt(z**2 - 1))) - 1);
+      }
+      return total_time;
+    } else {
+      return 2 * Ta + Tc;
+    }
+  }
+  
+  function formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins.toString().padStart(2, '0')}min ${secs.toString().padStart(2, '0')}s`;
+  }
+  
+  function updateQTCalculator(cardId) {
+    const distanceEl = document.getElementById(`${cardId}-distance`);
+    const fuelSliderEl = document.getElementById(`${cardId}-fuel-slider`);
+    const dataEl = document.getElementById(`${cardId}-data`);
+    
+    if (!distanceEl || !fuelSliderEl || !dataEl) {
+      return;
+    }
+    
+    const distance = parseFloat(distanceEl.value);
+    const fuelPercent = parseFloat(fuelSliderEl.value);
+    
+    const vmax = parseFloat(dataEl.dataset.vmax);
+    const a1 = parseFloat(dataEl.dataset.a1);
+    const a2 = parseFloat(dataEl.dataset.a2);
+    const fuelRate = parseFloat(dataEl.dataset.fuelRate);
+    const tankCapacity = parseFloat(dataEl.dataset.tankCapacity);
+    
+    if (distance > 0 && vmax > 0 && a1 > 0 && a2 > 0) {
+      const travelTime = quantumTravelTime(distance * 1000000000, vmax, a1, a2);
+      const fuelRequired = (distance * fuelRate) / 1000;
+      const fuelAvailable = tankCapacity * (fuelPercent / 100);
+      
+      const timeEl = document.getElementById(`${cardId}-calc-time`);
+      const fuelEl = document.getElementById(`${cardId}-calc-fuel`);
+      const availEl = document.getElementById(`${cardId}-fuel-available`);
+      const percentEl = document.getElementById(`${cardId}-fuel-percent`);
+      
+      if (timeEl) timeEl.textContent = formatTime(travelTime);
+      if (fuelEl) fuelEl.textContent = fmt(fuelRequired, 2);
+      if (availEl) availEl.textContent = fmt(fuelAvailable, 2);
+      if (percentEl) percentEl.textContent = `${fuelPercent}%`;
+      
+      if (fuelEl) {
+        if (fuelRequired > fuelAvailable) {
+          fuelEl.style.color = '#d07070';
+        } else {
+          fuelEl.style.color = '#5aad7a';
+        }
+      }
     }
   }
 
@@ -1255,7 +1684,15 @@
     // Shields
     let shieldsHtml = '';
     if (c.shields.length) {
-      shieldsHtml = '<div class="comp-grid">';
+	  shieldsHtml = `
+		<div class="loadout-hdr-row">
+		  <div class="loadout-card-hdr">Shields</div>
+		  <div class="comp-actions-top">
+			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+			<button class="btn-reset-sm" disabled>RESET</button>
+		  </div>
+		</div>
+		<div class="comp-grid">`;
       c.shields.forEach((shld, i) => {
         const hp = fmt(shld.max_shield_health, 0);
         const regen_time = fmt(shld.max_shield_health / shld.max_shield_regen, 1);
@@ -1266,18 +1703,15 @@
         
         const displayName = shld.display_name || shld.entity_name;
     
-		// Build "Industrial Grade C" suffix when class data is present
+		// Build Class and Grade suffix when class data is present
 		let specSuffix = '';
 		if (shld.class) {
-			specSuffix = `<span class="comp-spec-h"> - ${shld.class} Grade ${shld.grade_letter || '?'}</span>`;
+			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${shld.class} - Grade ${shld.grade_letter || '?'}</span>`;
 		}
-        
         shieldsHtml += `
         <div class="comp-card-h">
             <div class="comp-hdr-h">
-              <div class="comp-icon-h">
-                <div class="icon-lg icon-shield"></div>
-              </div>
+              ${iconPrimary('shield')}
               <div class="comp-title-h">
                 <div class="comp-size-h">S${shld.size || '?'}</div>
                 <div class="comp-name-h">
@@ -1287,19 +1721,15 @@
               <div class="comp-hp-h">${hp || '—'} hp</div>
             </div>
             <div class="comp-stats-h">
-              <div class="comp-stat-h">
-                <div class="icon-s icon-power-cons"></div>
+			  <div class="comp-stat-h">
+                ${iconStat('power-cons')}
                 <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
               <div class="comp-stat-h">
-                <div class="icon-s icon-em"></div>
+                ${iconStat('em')}
                 <span class="stat-val-h">${emSig || '—'}</span>
               </div>
               <div class="comp-stat-text-h">${regen_time || '—'} s to regen</div>
-            </div>
-            <div class="comp-actions-h">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
             </div>
         </div>`;
       });
@@ -1314,7 +1744,15 @@
 	// Power Plants
 	let powerHtml = '';
     if (c.powerplants.length) {
-      powerHtml = '<div class="comp-grid">';
+      powerHtml = `
+	  <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Power Plants</div>
+          <div class="comp-actions-top">
+            <button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+            <button class="btn-reset-sm" disabled>RESET</button>
+          </div>
+      </div>
+	  <div class="comp-grid">`;
       c.powerplants.forEach((pp, i) => {
         const power_out = fmt(pp.power_output, 0);
         const emSig = fmt(pp.em_signature, 0);
@@ -1324,15 +1762,13 @@
 		// Build Class and Grade suffix when class data is present
 		let specSuffix = '';
 		if (pp.class) {
-			specSuffix = `<span class="comp-spec-h"> - ${pp.class} Grade ${pp.grade_letter || '?'}</span>`;
+			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${pp.class} - Grade ${pp.grade_letter || '?'}</span>`;
 		}
         
         powerHtml += `
         <div class="comp-card-h">
             <div class="comp-hdr-h">
-              <div class="comp-icon-h">
-                <div class="icon-lg icon-powerplant"></div>
-              </div>
+              ${iconPrimary('powerplant')}
               <div class="comp-title-h">
                 <div class="comp-size-h">S${pp.size || '?'}</div>
                 <div class="comp-name-h">
@@ -1343,13 +1779,9 @@
             </div>
             <div class="comp-stats-h">
               <div class="comp-stat-h">
-                <div class="icon-s icon-em"></div>
+                ${iconStat('em')}
                 <span class="stat-val-h">${emSig || '—'}</span>
               </div>
-            </div>
-            <div class="comp-actions-h">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
             </div>
         </div>`;
       });
@@ -1363,173 +1795,394 @@
     // Coolers
     let coolersHtml = '';
     if (c.coolers.length) {
-      coolersHtml = '<div class="comp-grid">';
+	  coolersHtml = `
+		<div class="loadout-hdr-row">
+		  <div class="loadout-card-hdr">Coolers</div>
+		  <div class="comp-actions-top">
+			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+			<button class="btn-reset-sm" disabled>RESET</button>
+		  </div>
+		</div>
+		<div class="comp-grid">`;
       c.coolers.forEach((cool, i) => {
-        const coolingRate = fmt(cool.cooling_rate, 0);
+        const coolingRate = fmt(cool.cooling_output, 0);
+		const powerCons = fmt(cool.power_draw, 0);
+        const emSig = fmt(cool.em_signature, 0);
+		const irSig = fmt(cool.ir_signature, 0);
         
+        const displayName = cool.display_name || cool.entity_name;
+    
+		// Build Class and Grade suffix when class data is present
+		let specSuffix = '';
+		if (cool.class) {
+			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${cool.class} - Grade ${cool.grade_letter || '?'}</span>`;
+		}
         coolersHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/cooler.svg" alt="Cooler" onerror="this.style.display='none'">
+        <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              ${iconPrimary('cooler')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${cool.size || '?'}</div>
+                <div class="comp-name-h">
+					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
+				</div>
               </div>
-              <div class="comp-info">
-                <div class="comp-size">S${cool.size || '?'}</div>
-                <div class="comp-name">${cool.display_name || cool.entity_name}</div>
-                <div class="comp-grade">${cool.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${coolingRate || '—'} /s</div>
+              <div class="comp-hp-h">${coolingRate || '—'} units</div>
             </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(cool.power_base, 0) || '—'}</span>
+            <div class="comp-stats-h">
+			  <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(cool.heat_generation, 1) || '—'}</span>
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+			  <div class="comp-stat-h">
+                ${iconStat('ir')}
+                <span class="stat-val-h">${irSig || '—'}</span>
               </div>
             </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
+        </div>`;
       });
       coolersHtml += '</div>';
     } else {
       coolersHtml = '<div class="gap-block"><div class="gap-text">No coolers indexed</div></div>';
     }
-  
     
+    document.getElementById('coolers-content').innerHTML = coolersHtml;
+  
   
     // Quantum Drives
     let qdHtml = '';
     if (c.quantum_drives.length) {
-      qdHtml = '<div class="comp-grid">';
+      qdHtml = `
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Quantum Drive</div>
+          <div class="comp-actions-top">
+            <button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+            <button class="btn-reset-sm" disabled>RESET</button>
+          </div>
+        </div>
+        <div class="comp-grid">`;
       c.quantum_drives.forEach((qd, i) => {
-        const speed = fmt(qd.quantum_speed_m_s / 1000000, 2); // Convert to Mm/s
-        const range = fmt(qd.quantum_range_m / 1000000000, 2); // Convert to Gm
-        const fuelPerGm = fmt(qd.fuel_per_gm_mscu, 3);
+        const powerCons = fmt(qd.power_draw, 0);
+        const emSig = fmt(qd.em_signature, 0);
+        const irSig = fmt(qd.ir_signature, 0);
+        const driveSpeed = fmt(qd.drive_speed, 0);
+        const fuelPerGM = qd.fuel_per_gm_mscu / 1000; // RAW value
+        const qt   = c.quantum_fuel_tanks;
+        const qtT  = qt.reduce((a, t) => a + (parseFloat(t.capacity_scu) || 0), 0);
+        const range = fmt(qtT / fuelPerGM, 0);
+        
+        const displayName = qd.display_name || qd.entity_name;
+    
+        // Build Class and Grade suffix when class data is present
+        let specSuffix = '';
+        if (qd.class) {
+          specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${qd.class} - Grade ${qd.grade_letter || '?'}</span>`;
+        }
+        
+        // Create unique IDs for this QD
+        const cardId = `qd-${i}`;
         
         qdHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/quantum.svg" alt="QD" onerror="this.style.display='none'">
+        <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              ${iconPrimary('quantum')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${qd.size || '?'}</div>
+                <div class="comp-name-h">
+                  <span class="comp-name-text-h">${displayName}</span>${specSuffix}
+                </div>
               </div>
-              <div class="comp-info">
-                <div class="comp-size">S${qd.size || '?'}</div>
-                <div class="comp-name">${qd.display_name || qd.entity_name}</div>
-                <div class="comp-grade">${qd.grade || '—'}</div>
+              <div class="comp-hp-h">${driveSpeed || '—'} km/s</div>
+            </div>            
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
-              <div class="comp-hp">${speed || '—'} Mm/s</div>
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+              <div class="comp-stat-text-h">Range: ${range || '—'} Gm</div>
             </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">📏</span>
-                <span class="stat-val">${range || '—'} Gm</span>
+            <!-- QT Calculator -->
+            <div class="qt-calculator">
+              <div class="qt-calc-title">Quantum Travel Calculator</div>
+              
+              <div class="qt-input-row">
+			    <label class="qt-label">Distance</label>
+			    <div class="qt-input-group">
+			 	   <input type="number" id="${cardId}-distance" class="qt-input" value="10" min="0" step="1">
+			 	   <span class="qt-unit">Gm</span>
+			    </div>
+			  </div>
+              
+              <div class="qt-fuel-row">
+                <label class="qt-label">Current Quantum Fuel</label>
+                <div class="qt-fuel-display">
+                  <span id="${cardId}-fuel-available">${fmt(qtT, 2)}</span> SCU
+                  <span id="${cardId}-fuel-percent" class="qt-percent">100%</span>
+                </div>
               </div>
-              <div class="comp-stat">
-                <span class="stat-icon">⛽</span>
-                <span class="stat-val">${fuelPerGm || '—'} mSCU</span>
+              
+              <div class="qt-slider-row">
+                <input type="range" id="${cardId}-fuel-slider" class="qt-slider" value="100" min="0" max="100" step="1">
               </div>
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(qd.power_base, 0) || '—'}</span>
+              
+              <div class="qt-results">
+                <div class="qt-result-item">
+                  <span class="qt-result-label">Time</span>
+                  <span class="qt-result-value" id="${cardId}-calc-time">—</span>
+                </div>
+                <div class="qt-result-item">
+                  <span class="qt-result-label">Fuel Required</span>
+                  <span class="qt-result-value" id="${cardId}-calc-fuel">—</span>
+                  <span class="qt-result-unit">SCU</span>
+                </div>
               </div>
             </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
+            
+            <input type="hidden" id="${cardId}-data" 
+				data-vmax="${(qd.drive_speed * 1000) || 0}"
+				data-a1="${qd.accel1 || 0}"
+				data-a2="${qd.accel2 || 0}"
+				data-fuel-rate="${qd.fuel_per_gm_mscu || 0}"
+				data-tank-capacity="${qtT}">
+        </div>`;
       });
       qdHtml += '</div>';
     } else {
       qdHtml = '<div class="gap-block"><div class="gap-text">No quantum drives indexed</div></div>';
     }
+    
+    document.getElementById('qd-content').innerHTML = qdHtml;
+    
+    // Initialize QT calculators after rendering
+    if (c.quantum_drives.length > 0) {
+      setTimeout(() => {
+        c.quantum_drives.forEach((qd, i) => {
+          const cardId = `qd-${i}`;
+          const distanceInput = document.getElementById(`${cardId}-distance`);
+          const fuelSlider = document.getElementById(`${cardId}-fuel-slider`);
+          
+          if (distanceInput && fuelSlider) {
+            try {
+              const updateCalc = () => updateQTCalculator(cardId);
+              distanceInput.addEventListener('input', updateCalc);
+              fuelSlider.addEventListener('input', updateCalc);
+              updateCalc(); // Initial calculation
+            } catch (err) {
+              console.error(`QT Calculator error for ${cardId}:`, err);
+            }
+          }
+        });
+      }, 100);
+    }
 	
-	// Radars
+	
+	// Radar
     let radarHtml = '';
-    if (c.radars && c.radars.length) {
-      radarHtml = '<div class="comp-grid">';
-      c.radars.forEach((radar, i) => {
-        const detectionRange = fmt(radar.detection_lifetime_m, 0);
-        const crossSection = fmt(radar.cross_section_occlusion_multiplier, 2);
+    if (c.radars.length) {
+	  radarHtml = `
+		<div class="loadout-hdr-row">
+		  <div class="loadout-card-hdr">Radar</div>
+		  <div class="comp-actions-top">
+			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+			<button class="btn-reset-sm" disabled>RESET</button>
+		  </div>
+		</div>
+		<div class="comp-grid">`;
+      c.radars.forEach((rdr, i) => {
+        const hp = fmt(rdr.health, 0);
+		const powerCons = fmt(rdr.power_draw, 0);
+        const aim_assist_min = fmt(rdr.aim_assist_min_m, 0);
+		const aim_assist_max = fmt(rdr.aim_assist_max_m, 0);
+		const emSig = fmt(rdr.em_signature, 0);
+		const ir_sensitivity = fmtPct(rdr.ir_sensitivity, 0) || '—';
+        const em_sensitivity = fmtPct(rdr.em_sensitivity, 0) || '—';
+        const cs_sensitivity = fmtPct(rdr.cs_sensitivity, 0) || '—';
+        const db_sensitivity = fmtPct(rdr.db_sensitivity, 0) || '—';
+        const rs_sensitivity = fmtPct(rdr.rs_sensitivity, 0) || '—';
         
+        const displayName = rdr.display_name || rdr.entity_name;
+    
+		// Build Class and Grade suffix when class data is present
+		let specSuffix = '';
+		if (rdr.class) {
+			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${rdr.class} - Grade ${rdr.grade_letter || '?'}</span>`;
+		}
         radarHtml += `
-          <div class="comp-card">
-            <div class="comp-hdr">
-              <div class="comp-icon">
-                <img src="/static/img/icons/radar.svg" alt="Radar" onerror="this.style.display='none'">
+        <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              ${iconPrimary('radar')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${rdr.size || '?'}</div>
+                <div class="comp-name-h">
+					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
+				</div>
               </div>
-              <div class="comp-info">
-                <div class="comp-size">S${radar.size || '?'}</div>
-                <div class="comp-name">${radar.display_name || radar.entity_name}</div>
-                <div class="comp-grade">${radar.grade || '—'}</div>
-              </div>
-              <div class="comp-hp">${detectionRange || '—'} m</div>
+              <div class="comp-hp-h">Aim Assist Max: ${aim_assist_max || '—'} m</div>
             </div>
-            <div class="comp-stats">
-              <div class="comp-stat">
-                <span class="stat-icon">⚡</span>
-                <span class="stat-val">${fmt(radar.power_base, 0) || '—'}</span>
+            <div class="comp-stats-h">
+			  <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
               </div>
-              <div class="comp-stat">
-                <span class="stat-icon">🔥</span>
-                <span class="stat-val">${fmt(radar.heat_generation, 1) || '—'}</span>
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
               </div>
-              ${crossSection ? `
-              <div class="comp-stat">
-                <span class="stat-icon">👁</span>
-                <span class="stat-val">${crossSection}</span>
-              </div>` : ''}
+			    <div class="comp-stat-text-h">IR ${ir_sensitivity}<span class="param-sep">&bull;</span>EM ${em_sensitivity}<span class="param-sep">&bull;</span>CS ${cs_sensitivity}<span class="param-sep">&bull;</span>RS ${rs_sensitivity}</div>
             </div>
-            <div class="comp-actions">
-              <button class="btn-quick-sel" disabled>QUICK SEL</button>
-              <button class="btn-reset" disabled>RESET</button>
-            </div>
-          </div>`;
+        </div>`;
       });
       radarHtml += '</div>';
     } else {
       radarHtml = '<div class="gap-block"><div class="gap-text">No radars indexed</div></div>';
     }
     
-	document.getElementById('radar-content').innerHTML = radarHtml;
-    document.getElementById('coolers-content').innerHTML = coolersHtml;
-    document.getElementById('qd-content').innerHTML = qdHtml;
-}
-
-  // ── Cargo ────────────────────────────────────────────────────────────────────
-  function populateCargo(ship) {
-    const grids    = ship.cargo_grids.filter(g => !g.is_personal);
-    const personal = ship.cargo_grids.filter(g => g.is_personal);
-
-    let html = '<div class="cargo-row">';
-    if (grids.length === 0) {
-      html += `<div class="cargo-pill"><div class="cp-name">No Accessible Cargo</div>
-               <div class="cp-scu">0<span> SCU</span></div></div>`;
-    } else {
-      grids.forEach((g, i) => {
-        const dims = (g.dim_x && g.dim_y && g.dim_z) ? `${g.dim_x} × ${g.dim_y} × ${g.dim_z} m` : '';
-        html += `<div class="cargo-pill ${i === 0 ? 'primary' : ''}">
-          <div class="cp-name">${g.entity_name || `Grid ${i+1}`}</div>
-          <div class="cp-scu">${g.scu || 0}<span> SCU</span></div>
-          ${dims ? `<div class="cp-dims">${dims}</div>` : ''}
+    document.getElementById('radar-content').innerHTML = radarHtml;
+	
+	
+	// Flight Controller
+    let fcHtml = '';
+    if (c.flight_controllers.length) {
+	  fcHtml = `
+		<div class="loadout-hdr-row">
+		  <div class="loadout-card-hdr">Flight Controller</div>
+		  <div class="comp-actions-top">
+			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
+			<button class="btn-reset-sm" disabled>RESET</button>
+		  </div>
+		</div>
+		<div class="comp-grid">`;
+      c.flight_controllers.forEach((fc, i) => {
+        const scm = fmt(fc.scm_speed, 0);
+		const nav = fmt(fc.max_speed, 0);
+		const boost_fwd = fmt(fc.boost_speed_forward, 0);
+		const boost_aft = fmt(fc.boost_speed_backward, 0);
+		const pitch = fmt(fc.max_pitch_speed, 0);
+		const roll = fmt(fc.max_roll_speed, 0);
+		const yaw = fmt(fc.max_yaw_speed, 0);
+		const boost_ramp_up = fmt(fc.afterburner_ramp_up, 0);
+		const boost_ramp_down = fmt(fc.afterburner_ramp_down, 0);
+		const boost_pitch_mult = fmt(fc.ab_ang_mult_pitch, 2);
+		const boost_roll_mult = fmt(fc.ab_ang_mult_roll, 2);
+		const boost_yaw_mult = fmt(fc.ab_ang_mult_yaw, 2);
+		const boost_accel_mult = fmt(fc.ab_accel_mult_fwd, 2);
+		const spool_time = fmt(fc.spool_up_time, 2);
+		const powerCons = fmt(fc.power_draw, 0);
+  
+        //const displayName = fc.display_name || fc.entity_name;
+		const displayName = 'Flight Blade';
+    
+		// Build Class and Grade suffix when class data is present
+		let specSuffix = '';
+		if (fc.class) {
+			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${fc.class} - Grade ${fc.grade_letter || '?'}</span>`;
+		}
+        fcHtml += `
+        <div class="comp-card-h">
+            <div class="comp-hdr-h">
+              ${iconPrimary('flightcontroller')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${fc.size || '1'}</div>
+                <div class="comp-name-h">
+					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
+				</div>
+              </div>
+              <div class="comp-hp-h">${scm}<span class="param-sep"> | </span>${nav} m/s</div>
+            </div>
+            <div class="comp-stats-h">
+			  <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
+              </div>
+			    <div class="comp-stat-text-h">Pitch ${pitch} °/s<span class="param-sep">&bull;</span>Roll ${roll} °/s<span class="param-sep">&bull;</span>Yaw ${yaw} °/s</div>
+            </div>
         </div>`;
       });
+      fcHtml += '</div>';
+    } else {
+      fcHtml = '<div class="gap-block"><div class="gap-text">No flight controllers indexed</div></div>';
     }
-    html += '</div>';
-    html += `<div class="panel"><div class="panel-title">Cargo Summary</div>
-      ${dr('Total Cargo (Authoritative)', ship.cargo_scu, 0, 'SCU', 'accent')}
-      ${dr('Total Calculated', ship.cargo_total_calculated, 1, 'SCU')}
-      ${dr('Grid Count', grids.length, 0)}
-      ${personal.length ? dr('Personal Storage', ship.personal_scu, 1, 'SCU') : ''}
-    </div>`;
+    
+    document.getElementById('flightcontroller-content').innerHTML = fcHtml;
+}
+	
 
-    document.getElementById('cargo-content').innerHTML = html;
+
+  // ── Cargo ────────────────────────────────────────────────────────────────────
+  // Cargo Grids
+  function populateCargo(ship) {
+    const grids = ship.cargo_grids.filter(g => !g.is_personal && !g.is_template);
+    const personal = ship.cargo_grids.filter(g => g.is_personal);
+    
+    const stripPrefix = (name) => {
+      const prefix = `${ENTITY_NAME}_`;
+      return name && name.startsWith(prefix) ? name.slice(prefix.length) : name;
+    };
+    
+    let cargoHtml = '';
+    if (grids.length) {
+      cargoHtml = `
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Cargo Grids</div>
+        </div>
+        <div class="comp-grid">`;
+      
+      grids.forEach((grid, i) => {
+        const scu = fmt(grid.scu, 0);
+        const dimX = fmt(grid.dim_x, 1);
+        const dimY = fmt(grid.dim_y, 1);
+        const dimZ = fmt(grid.dim_z, 1);
+        const dims = (dimX && dimY && dimZ) ? `${dimX} × ${dimY} × ${dimZ} m` : '—';
+        
+        const displayName = stripPrefix(grid.entity_name) || grid.container_name || `Grid ${i+1}`;
+        const isExternal = grid.is_external ? 'External' : 'Internal';
+        
+        cargoHtml += `
+        <div class="comp-card-h">
+          <div class="comp-hdr-h">
+            ${iconPrimary('cargo')}
+            <div class="comp-title-h">
+              <div class="comp-name-h">
+                <span class="comp-name-text-h">${displayName}</span>
+              </div>
+            </div>
+            <div class="comp-hp-h">${scu || '—'} SCU</div>
+          </div>
+          <div class="comp-stats-h">
+            <div class="comp-stat-h">
+              <span class="stat-label-h">Dimensions:</span>
+              <span class="stat-val-h">${dims}</span>
+            </div>
+            <div class="comp-stat-text-h">${isExternal}</div>
+          </div>
+        </div>`;
+      });
+      
+      cargoHtml += '</div>';
+    } else {
+      cargoHtml = '<div class="gap-block"><div class="gap-text">No cargo grids indexed</div></div>';
+    }
+    
+    // Add cargo summary panel
+    cargoHtml += `
+      <div class="spacer"></div>
+      <div class="panel">
+        <div class="panel-title">Cargo Summary</div>
+        ${dr('Total Cargo (Authoritative)', ship.cargo_scu, 0, 'SCU', 'accent')}
+        ${dr('Total Calculated', ship.cargo_total_calculated, 1, 'SCU')}
+        ${dr('Grid Count', grids.length, 0)}
+        ${personal.length ? dr('Personal Storage', ship.personal_scu, 1, 'SCU') : ''}
+      </div>`;
+    
+    document.getElementById('cargogrid-content').innerHTML = cargoHtml;
   }
 
   // ── Fuel ─────────────────────────────────────────────────────────────────────
