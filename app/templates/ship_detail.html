@@ -127,6 +127,28 @@
 .sb-val.ok { color: #5aad7a; }
 .sb-val.gap { color: #b06020; font-size: 10px; }
 
+/* Ship Volume Visualization */
+.sb-volume {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(126,38,25,0.22);
+}
+
+.sb-volume-label {
+  font-size: 9px;
+  color: #9A8C64;
+  letter-spacing: 1px;
+}
+
+.sb-volume-label span {
+  color: #CBB8AA;
+  font-weight: 600;
+}
+
+#ship-volume-canvas {
+  display: block;
+}
+
 /* Sidebar Navigation */
 .nav-section { 
   display: flex; 
@@ -1033,6 +1055,114 @@
   margin-right: 4px;
 }
 
+.ship-volume-3d {
+  --scale: 1.5;
+  --base-size: 1px;
+  margin: 20px auto;
+  padding: 30px;
+}
+
+.volume-isometric {
+  position: relative;
+  width: 200px;
+  height: 140px;
+  transform-style: preserve-3d;
+  transform: rotateX(60deg) rotateZ(45deg) scale3d(var(--scale), var(--scale), var(--scale));
+}
+
+.volume-layer {
+  position: absolute;
+  transform-style: preserve-3d;
+  width: 100%;
+  height: 100%;
+}
+
+.volume-layer-top {
+  transform: translateZ(calc(var(--height) * var(--base-size)));
+}
+
+.volume-box {
+  position: absolute;
+  transform-style: preserve-3d;
+  width: calc(var(--length) * var(--base-size));
+  height: calc(var(--width) * var(--base-size));
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.volume-face {
+  position: absolute;
+  background: rgba(126,38,25,0.3);
+  border: 1px solid rgba(126,38,25,0.6);
+}
+
+.volume-face-top {
+  width: 100%;
+  height: 100%;
+  transform: translateZ(0);
+  background: rgba(126,38,25,0.15);
+}
+
+.volume-face-front {
+  width: 100%;
+  height: calc(var(--height) * var(--base-size));
+  bottom: 0;
+  transform-origin: bottom;
+  transform: rotateX(-90deg);
+  background: rgba(126,38,25,0.25);
+}
+
+.volume-face-right {
+  width: calc(var(--height) * var(--base-size));
+  height: 100%;
+  right: 0;
+  transform-origin: right;
+  transform: rotateY(90deg);
+  background: rgba(126,38,25,0.35);
+}
+
+.volume-label {
+  position: absolute;
+  transform-style: preserve-3d;
+  font-size: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.volume-label-height {
+  right: -40px;
+  top: 50%;
+  transform: translateY(-50%) rotateZ(-45deg) rotateX(-60deg);
+}
+
+.volume-label-length {
+  bottom: -35px;
+  left: 50%;
+  transform: translateX(-50%) rotateZ(-45deg) rotateX(-60deg);
+}
+
+.volume-label-width {
+  left: -40px;
+  top: 50%;
+  transform: translateY(-50%) rotateZ(-45deg) rotateX(-60deg);
+}
+
+.label-text {
+  color: #9A8C64;
+  font-size: 7px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.label-value {
+  color: #CBB8AA;
+  font-size: 9px;
+  font-weight: 600;
+}
+
+
+
 /* ── VISUAL EFFECTS ────────────────────────────────────────────────────── */
 
 /* Scan Grid Background */
@@ -1083,7 +1213,39 @@ body::before {
 	    <div class="sb-lbl">Boost Rates</div>
 	    <div class="sb-val" id="sb-boost-mnv">—</div>
 	  </div>
-	  <div class="sb-row"><span class="sb-lbl">Total Hull HP</span><span class="sb-val" id="sb-hull-hp">—</span></div>
+	  <div class="sb-row">
+		<span class="sb-lbl">Total Hull HP</span>
+		<span class="sb-val" id="sb-hull-hp">—</span>
+	  </div>
+	  <div class="sb-volume">
+        <div class="ship-volume-3d" style="--length:51;--width:55;--height:19">
+          <div class="volume-isometric">
+            <!-- Top layer with box and labels -->
+            <div class="volume-layer volume-layer-top">
+              <div class="volume-box">
+                <div class="volume-face volume-face-top"></div>
+                <div class="volume-face volume-face-front"></div>
+                <div class="volume-face volume-face-right"></div>
+              </div>
+              <div class="volume-label volume-label-height">
+                <div class="label-text">Height</div>
+                <div class="label-value" id="sb-volume-h">19 m</div>
+              </div>
+            </div>
+            <!-- Bottom layer with dimension labels -->
+            <div class="volume-layer volume-layer-bottom">
+              <div class="volume-label volume-label-length">
+                <div class="label-text">Length</div>
+                <div class="label-value" id="sb-volume-l">51 m</div>
+              </div>
+              <div class="volume-label volume-label-width">
+                <div class="label-text">Width</div>
+                <div class="label-value" id="sb-volume-w">55 m</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <nav class="nav-section">
@@ -1191,6 +1353,7 @@ body::before {
       </section>
 
       <!-- Flight Performance -->
+	  <!-- Commented Out
       <section class="sec" id="sec-flight">
         <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Flight Performance</div></div>
         <div class="grid2" style="margin-bottom:12px">
@@ -1220,6 +1383,7 @@ body::before {
           </div>
         </div>
       </section>
+	  -->
 	  
 	<!-- Vehicle Loadout [Marauder's Version] -->
 	<section class="sec" id="sec-loadout">
@@ -1282,43 +1446,6 @@ body::before {
           <div class="loading-text" style="padding:20px 0; font-size:10px;">Loading weapons...</div>
         </div>
       </section>
-
-      <!-- COMMENTED OUT Hardpoint Manifest [removed section]
-      <section class="sec" id="sec-hardpoints">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hardpoint Manifest</div><div class="sec-note" id="hp-count-note">—</div></div>
-        <div class="manifest-wrap">
-          <table class="mtable">
-            <thead><tr><th>Port Name</th><th>Type</th><th>Size</th><th>Installed Component</th></tr></thead>
-            <tbody id="hardpoint-tbody"><tr><td colspan="4" style="padding:20px; color:#9A8C64;">Loading...</td></tr></tbody>
-          </table>
-        </div>
-      </section>
-	  -->
-
-      <!-- COMMENTED OUT Insurance [moved to Overview Section]
-      <section class="sec" id="sec-insurance">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Insurance</div></div>
-		<div id="insurance-gap-block" style="display:none;" class="insurance-gap">
-		  <div class="ig-title">Data Gap — Not in DataForge</div>
-		  <div class="ig-text">Insurance data not available for this vessel.</div>
-		</div>
-		<div class="spacer"></div>
-		<div class="grid3" id="insurance-panels">
-		  <div class="panel">
-			<div class="panel-title">Standard Claim Time</div>
-			<div class="dr"><span class="dr-l">Duration</span><span class="dr-v" id="ins-claim">—</span></div>
-		  </div>
-		  <div class="panel">
-			<div class="panel-title">Expedite Claim Time</div>
-			<div class="dr"><span class="dr-l">Duration</span><span class="dr-v" id="ins-expedite">—</span></div>
-		  </div>
-		  <div class="panel">
-			<div class="panel-title">Expedite Cost</div>
-			<div class="dr"><span class="dr-l">Cost (aUEC)</span><span class="dr-v" id="ins-fee">—</span></div>
-		  </div>
-		</div>
-      </section>
-	  -->
 
     </div><!-- end ship-content -->
   </main>
@@ -1485,50 +1612,63 @@ body::before {
   function populateSidebar(ship) {
     document.getElementById('sb-mfr').textContent  = ship.manufacturer || '—';
     document.getElementById('sb-name').textContent = (ship.display_name && ship.display_name.includes(' '))
-    ? ship.display_name.split(' ').slice(1).join(' ')
-    : ship.display_name || ENTITY_NAME;
-	
-	document.getElementById('sb-career').innerHTML = `<span class="tag tag-c">${ship.career}</span>`;
-	document.getElementById('sb-role').innerHTML   = `<span class="tag tag-c">${ship.role}</span>`;
-
+      ? ship.display_name.split(' ').slice(1).join(' ')
+      : ship.display_name || ENTITY_NAME;
+    
+    document.getElementById('sb-career').innerHTML = `<span class="tag tag-c">${ship.career}</span>`;
+    document.getElementById('sb-role').innerHTML   = `<span class="tag tag-c">${ship.role}</span>`;
+  
     document.getElementById('sb-size').textContent  = ship.size > 0 ? `S${ship.size}` : '—';
-	document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${fmt(ship.cargo_scu, 0, 'SCU')}` : '—';
+    document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${fmt(ship.cargo_scu, 0, 'SCU')}` : '—';
     document.getElementById('sb-crew').textContent   = ship.crew_size ? `${ship.crew_size}` : '—';
-
+  
     document.getElementById('sb-hull-hp').textContent   = ship.hull_hp ? `${fmt(ship.hull_hp, 0, 'HP')}` : '—';
-
+  
     const fc = ship.components.flight_controllers[0];
-	// Base rates
-	const ratePitch = fc && fc.max_pitch_speed ? fmt(fc.max_pitch_speed, 0) : null;
-	const rateRoll = fc && fc.max_roll_speed ? fmt(fc.max_roll_speed, 0) : null;
-	const rateYaw = fc && fc.max_yaw_speed ? fmt(fc.max_yaw_speed, 0) : null;
-
-	// Boost rates
-	const boostPitch = (fc && fc.ab_ang_mult_pitch && fc.max_pitch_speed)
-	  ? fmt(fc.ab_ang_mult_pitch * fc.max_pitch_speed, 0)
-	  : null;
-	const boostRoll = (fc && fc.ab_ang_mult_roll && fc.max_roll_speed)
-	  ? fmt(fc.ab_ang_mult_roll * fc.max_roll_speed, 0)
-	  : null;
-	const boostYaw = (fc && fc.ab_ang_mult_yaw && fc.max_yaw_speed)
-	  ? fmt(fc.ab_ang_mult_yaw * fc.max_yaw_speed, 0)
-	  : null;
-
-	// Combined strings
-	const ins_mnv = (ratePitch && rateRoll && rateYaw)
-	  ? `${ratePitch} / ${rateRoll} / ${rateYaw} deg/s`
-	  : '—';
-	const ins_boost_mnv = (boostPitch && boostRoll && boostYaw)
-	  ? `${boostPitch} / ${boostRoll} / ${boostYaw} deg/s`
-	  : '—';
-	
-	document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
-	document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fmt(fc.boost_speed_forward, 0, 'm/s')}` : 'data gap';
-	document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fmt(fc.boost_speed_backward, 0, 'm/s')}` : 'data gap';
-	document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
-	document.getElementById('sb-mnv').textContent = ins_mnv;
-	document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
-  }
+    // Base rates
+    const ratePitch = fc && fc.max_pitch_speed ? fmt(fc.max_pitch_speed, 0) : null;
+    const rateRoll = fc && fc.max_roll_speed ? fmt(fc.max_roll_speed, 0) : null;
+    const rateYaw = fc && fc.max_yaw_speed ? fmt(fc.max_yaw_speed, 0) : null;
+  
+    // Boost rates
+    const boostPitch = (fc && fc.ab_ang_mult_pitch && fc.max_pitch_speed)
+      ? fmt(fc.ab_ang_mult_pitch * fc.max_pitch_speed, 0)
+      : null;
+    const boostRoll = (fc && fc.ab_ang_mult_roll && fc.max_roll_speed)
+      ? fmt(fc.ab_ang_mult_roll * fc.max_roll_speed, 0)
+      : null;
+    const boostYaw = (fc && fc.ab_ang_mult_yaw && fc.max_yaw_speed)
+      ? fmt(fc.ab_ang_mult_yaw * fc.max_yaw_speed, 0)
+      : null;
+  
+    // Combined strings
+    const ins_mnv = (ratePitch && rateRoll && rateYaw)
+      ? `${ratePitch} / ${rateRoll} / ${rateYaw} deg/s`
+      : '—';
+    const ins_boost_mnv = (boostPitch && boostRoll && boostYaw)
+      ? `${boostPitch} / ${boostRoll} / ${boostYaw} deg/s`
+      : '—';
+    
+    document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
+    document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fmt(fc.boost_speed_forward, 0, 'm/s')}` : 'data gap';
+    document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fmt(fc.boost_speed_backward, 0, 'm/s')}` : 'data gap';
+    document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
+    document.getElementById('sb-mnv').textContent = ins_mnv;
+    document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
+  
+    // Update 3D volume box
+    const volumeEl = document.querySelector('.ship-volume-3d');
+    if (volumeEl) {
+      volumeEl.style.setProperty('--length', ship.length_m || 50);
+      volumeEl.style.setProperty('--width', ship.beam_m || 50);
+      volumeEl.style.setProperty('--height', ship.height_m || 20);
+    }
+  
+    document.getElementById('sb-volume-l').textContent = `${fmt(ship.length_m, 0)} m`;
+    document.getElementById('sb-volume-w').textContent = `${fmt(ship.beam_m, 0)} m`;
+    document.getElementById('sb-volume-h').textContent = `${fmt(ship.height_m, 0)} m`;
+  }   
+      
 
   // ── Overview ─────────────────────────────────────────────────────────────────
   function populateOverview(ship) {
@@ -1638,6 +1778,7 @@ body::before {
   }
 
   // ── Flight Performance ───────────────────────────────────────────────────────
+  /*
   function populateFlight(ship) {
     const fc = ship.components.flight_controllers[0];
     document.getElementById('speed-content').innerHTML = fc
@@ -1678,6 +1819,7 @@ body::before {
     }
     document.getElementById('thruster-summary-content').innerHTML = thrHtml || dr('Main Thrust', null);
   }
+  */
 
   // ── Components ───────────────────────────────────────────────────────────────
   function populateComponents(ship) {
@@ -2348,7 +2490,7 @@ body::before {
       populateSidebar(ship);
       populateOverview(ship);
       populateHull(ship);
-      populateFlight(ship);
+      //populateFlight(ship);
       populateComponents(ship);
       populateCargo(ship);
       populateFuel(ship);
