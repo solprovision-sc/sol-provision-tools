@@ -362,9 +362,10 @@ def get_ship_components(conn, ship_entity, patch):
     quantum_drives = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
-               t.drive_speed / 1000 as drive_speed, t.spool_up_time, t.cooldown_time,
+               t.drive_speed / 1000 as drive_speed, t.stage_one_accel_mps2 as accel1,
+               t.stage_two_accel_mps2 as accel2,t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
-               t.fuel_per_gm_mscu,t.power_draw, 
+               t.fuel_per_gm_mscu, t.power_draw, 
                t.em_signature, t.health
         {join("item_quantum_drives")}""")
 
@@ -456,8 +457,27 @@ def get_ship_components(conn, ship_entity, patch):
     radars = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
-               t.power_draw, t.em_signature, t.health
+               t.power_draw, t.em_signature, t.health, t.aim_assist_min_m,
+               t.aim_assist_max_m, t.shutdown_dmg, t.decay_delay_sec, t.decay_rate,
+               t.shutdown_time_sec, t.ir_sensitivity, t.em_sensitivity, t.cs_sensitivity, t.db_sensitivity, t.rs_sensitivity
         {join("item_radars")}""")
+        
+    external_fuel_tanks = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description,
+               t.capacity_scu, t.hydrogen_flow_mult, t.quantum_flow_mult,
+               t.health
+        {join("item_external_fuel_tanks")}""")
+
+    # Fuel nozzles (refueling nozzles, including dockingport variants)
+    fuel_nozzles = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description,
+               t.hydrogen_flow_rate, t.quantum_flow_rate,
+               t.health
+        {join("item_fuel_nozzles")}""")
+        
+    
 
     return {
         "armor":              armor,
@@ -467,6 +487,8 @@ def get_ship_components(conn, ship_entity, patch):
         "quantum_drives":     quantum_drives,
         "fuel_tanks":         fuel_tanks,
         "quantum_fuel_tanks": quantum_fuel_tanks,
+        "external_fuel_tanks": external_fuel_tanks,    
+        "fuel_nozzles":        fuel_nozzles,           
         "flight_controllers": flight_controllers,
         "thrusters":          thrusters,
         "weapons":            weapons,
@@ -504,7 +526,7 @@ def api_ship_detail(entity_name):
         """SELECT cg.entity_name, cg.scu, cg.dim_x, cg.dim_y, cg.dim_z,
                   cg.is_external, cg.is_personal, ic.entity_name as container_name
            FROM cargo_grids cg
-           LEFT JOIN inventory_containers ic ON ic.uuid=cg.container_uuid
+           LEFT JOIN inventory_containers ic ON ic.uuid=cg.container_uuid AND ic.patch_version = cg.patch_version
            WHERE cg.ship_entity_name=? AND cg.patch_version=? AND cg.is_template=0
            ORDER BY cg.scu DESC NULLS LAST""",
         (entity_name, p)
