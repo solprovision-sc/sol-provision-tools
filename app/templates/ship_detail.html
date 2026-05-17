@@ -611,6 +611,22 @@
               0 4px 6px -2px rgba(203, 184, 170, 0.05);
 }
 
+/* Swappable component cards */
+.comp-card-h.swappable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comp-card-h.swappable:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.comp-card-h.swappable:active {
+  transform: translateY(0);
+}
+
 .comp-hdr-h {
   display: flex;
   align-items: center;
@@ -1148,6 +1164,256 @@ body::before {
 }
 
 
+/* ============================================================================
+   COMPONENT SWAP MODAL
+   ============================================================================ */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.1);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(0px);
+}
+
+.modal-content {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 20px;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 32px;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.modal-close:hover {
+  color: var(--text);
+}
+
+.modal-body {
+  padding: 24px;
+  overflow: auto;
+  flex: 1;
+}
+
+.modal-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.modal-filters input,
+.modal-filters select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.modal-filters input {
+  flex: 1;
+}
+
+.modal-filters select {
+  min-width: 150px;
+}
+
+.modal-table-wrapper {
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 400px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+#component-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* Force consistent box model */
+#component-table thead th,
+#component-table tbody td {
+  box-sizing: border-box;
+  padding: 12px 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#component-table thead th {
+  position: sticky !important;
+  top: 0;
+  background: var(--bg2);
+  z-index: 10;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+}
+
+#component-table tbody td {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+#component-table tbody tr {
+  cursor: pointer;
+}
+
+#component-table tbody tr:hover {
+  background: var(--bg3);
+}
+
+#component-table tbody tr.selected {
+  background: var(--accent-dim);
+  border-left: 3px solid var(--accent);
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Component Preview Section */
+#comp-preview-section {
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg3);
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.preview-header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-name {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.preview-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.preview-grade {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.preview-mfr {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+}
+
+.preview-stats {
+  padding: 8px 12px;
+}
+
+.preview-stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--bg);
+}
+
+.preview-stat-row:last-child {
+  border-bottom: none;
+}
+
+.preview-stat-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #9A8C64;
+}
+
+.preview-stat-val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #CBB8AA;
+  font-weight: 600;
+}
+
+/* Add styling for units in preview */
+.preview-stat-val .stat-unit {
+  font-size: 10px;
+  color: #9A8C64;
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+
 
 </style>
 {% endblock %}
@@ -1223,6 +1489,14 @@ body::before {
               <span class="sb-dim-value" id="dim-mass">— kg</span>
             </div>
           </div>
+        </div>
+      </div>
+	  <br>
+	  <!-- Component Preview Section (shown during hover in swap modal) -->
+      <div class="sidebar-section" id="comp-preview-section" style="display: none;">
+        <div class="section-label">Component Preview</div>
+        <div id="comp-preview-content">
+          <!-- Populated by JS on hover -->
         </div>
       </div>
     </div>
@@ -1428,9 +1702,877 @@ body::before {
     </div><!-- end ship-content -->
   </main>
 </div>
+
+<!-- Component Swap Modal -->
+<div id="component-swap-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Select Component</h3>
+      <button class="modal-close" onclick="closeSwapModal()">&times;</button>
+    </div>
+    
+    <div class="modal-body">
+      <div class="modal-filters">
+        <input type="text" id="modal-search" placeholder="Search components..." />
+        <select id="modal-sort">
+          <option value="name">Name</option>
+          <option value="output">Power Output</option>
+          <option value="em">EM Signature</option>
+          <option value="grade">Grade</option>
+        </select>
+      </div>
+      
+      <div class="modal-table-wrapper">
+        <table id="component-table">
+          <thead>
+            <tr id="modal-table-header">
+              <!-- Columns populated by JS based on component type -->
+            </tr>
+          </thead>
+          <tbody id="modal-table-body">
+            <!-- Rows populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeSwapModal()">Cancel</button>
+      <button class="btn" id="modal-apply-btn" onclick="applyComponentSwap()">Apply</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block page_script %}
+
+  // ============================================================================
+  // COMPONENT SWAPPING STATE MANAGEMENT
+  // ============================================================================
+  
+  const shipLoadout = {
+    original: {},   // Immutable - stores stock loadout for Reset
+    current: {},    // Mutable - tracks user changes
+    hardpoints: {}, // Metadata about hardpoints (size, port_name, etc.)
+    currentSwap: {  // Tracks the active swap operation
+      compType: null,
+      hardpointIndex: null,
+      portName: null,
+      size: null
+    }
+  };
+  
+  let availableComponents = []; // Components loaded in modal
+  let selectedComponentRow = null; // Currently selected row in modal
+  
+  /**
+   * Initialize loadout state from ship data
+   */
+  function initLoadoutState(ship) {
+    // Deep copy components to both original and current
+    shipLoadout.original = {
+      powerplants: JSON.parse(JSON.stringify(ship.components.powerplants || [])),
+      shields: JSON.parse(JSON.stringify(ship.components.shields || [])),
+      coolers: JSON.parse(JSON.stringify(ship.components.coolers || [])),
+      quantum_drives: JSON.parse(JSON.stringify(ship.components.quantum_drives || [])),
+      radars: JSON.parse(JSON.stringify(ship.components.radars || []))
+    };
+    
+    shipLoadout.current = {
+      powerplants: JSON.parse(JSON.stringify(ship.components.powerplants || [])),
+      shields: JSON.parse(JSON.stringify(ship.components.shields || [])),
+      coolers: JSON.parse(JSON.stringify(ship.components.coolers || [])),
+      quantum_drives: JSON.parse(JSON.stringify(ship.components.quantum_drives || [])),
+      radars: JSON.parse(JSON.stringify(ship.components.radars || []))
+    };
+    
+    // Extract hardpoint metadata from hardpoints object
+    const hardpointTypes = ['powerplant', 'shield', 'cooler', 'quantum_drive', 'radar'];
+	
+	console.log('[DEBUG] ship.hardpoints:', ship.hardpoints);
+    console.log('[DEBUG] ship.hardpoints.powerplant:', ship.hardpoints.powerplant);
+    
+    hardpointTypes.forEach(type => {
+      if (ship.hardpoints && ship.hardpoints[type]) {
+        shipLoadout.hardpoints[type] = ship.hardpoints[type].map((hp, idx) => ({
+          port_name: hp.port_name,
+          size: hp.max_size,
+          min_size: hp.min_size,
+          max_size: hp.max_size,
+          current_index: idx
+        }));
+      }
+    });
+    
+    console.log('[Loadout] State initialized:', shipLoadout);
+  }
+  
+  /**
+   * Open component swap modal
+   */
+  async function openSwapModal(compType, hardpointIndex) {
+    const typeKey = compType.toLowerCase() + 's'; // 'powerplant' -> 'powerplants'
+    const hardpoint = shipLoadout.hardpoints[compType.toLowerCase()];
+    
+    if (!hardpoint || !hardpoint[hardpointIndex]) {
+      console.error('[Modal] Invalid hardpoint:', compType, hardpointIndex);
+      return;
+    }
+    
+    const hp = hardpoint[hardpointIndex];
+    
+    // Store current swap context
+    shipLoadout.currentSwap = {
+      compType: compType,
+      hardpointIndex: hardpointIndex,
+      portName: hp.port_name,
+      size: hp.size
+    };
+    
+    // Update modal title
+    document.getElementById('modal-title').textContent = 
+      `Select ${compType} (Size ${hp.size})`;
+    
+    // Fetch compatible components
+    try {
+      const response = await fetch(
+        `/api/components/compatible?type=${compType}&size=${hp.size}`
+      );
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      availableComponents = data.components;
+      
+      console.log(`[Modal] Loaded ${availableComponents.length} compatible components`);
+      
+      // Populate modal table
+      populateModalTable(compType);
+      
+      // Show modal
+      document.getElementById('component-swap-modal').style.display = 'flex';
+      
+    } catch (err) {
+      console.error('[Modal] Failed to load components:', err);
+      alert('Failed to load compatible components. Check console for details.');
+    }
+  }
+  
+  /**
+   * Close component swap modal
+   */
+  function closeSwapModal() {
+    document.getElementById('component-swap-modal').style.display = 'none';
+	hideComponentPreview();
+    selectedComponentRow = null;
+    availableComponents = [];
+    shipLoadout.currentSwap = {
+      compType: null,
+      hardpointIndex: null,
+      portName: null,
+      size: null
+    };
+  }
+  
+    /**
+   * Populate modal table with component data
+   */
+  function populateModalTable(compType) {
+    const thead = document.getElementById('modal-table-header');
+    const tbody = document.getElementById('modal-table-body');
+    
+    // Clear existing content
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    
+    // Define columns based on component type
+    let columns = [];
+    
+    if (compType === 'PowerPlant') {
+      columns = [
+        { key: 'display_name', label: 'Name', width: '25%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '15%' },
+        { key: 'grade_letter', label: 'Grade', width: '10%' },
+        { key: 'power_output', label: 'Output', width: '15%', format: v => fmt(v, 0, 'units') },
+        { key: 'em_signature', label: 'EM Sig', width: '15%', format: v => fmt(v, 0, '') }
+      ];
+    } else if (compType === 'Shield') {
+      columns = [
+        { key: 'display_name', label: 'Name', width: '20%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '12%' },
+        { key: 'grade_letter', label: 'Grade', width: '8%' },
+        { key: 'max_shield_health', label: 'HP', width: '12%', format: v => fmt(v, 0, '') },
+        { key: 'max_shield_regen', label: 'Regen', width: '12%', format: v => fmt(v, 0, '/s') },
+        { key: 'downed_regen_delay', label: 'Down Delay', width: '12%', format: v => fmt(v, 1, 's') },
+        { key: 'em_signature', label: 'EM', width: '12%', format: v => fmt(v, 0, '') },
+        { key: 'power_draw', label: 'Power', width: '12%', format: v => fmt(v, 0, 'pwr') }
+      ];
+    } else if (compType === 'Cooler') {
+      columns = [
+        { key: 'display_name', label: 'Name', width: '30%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '20%' },
+        { key: 'grade_letter', label: 'Grade', width: '10%' },
+		{ key: 'power_draw', label: 'Power', width: '15%', format: v => fmt(v, 0, '') },
+        { key: 'cooling_output', label: 'Cooling Output', width: '15%', format: v => fmt(v, 0,'') },
+        { key: 'em_signature', label: 'EM Sig', width: '10%', format: v => fmt(v, 0, '') }
+        
+      ];
+    } else if (compType === 'QuantumDrive') {
+      columns = [
+        { key: 'display_name', label: 'Name', width: '18%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '12%' },
+        { key: 'grade_letter', label: 'Grade', width: '8%' },
+        { key: 'speed_mps', label: 'Speed', width: '12%', format: v => fmt(v, 0, 'm/s') },
+        { key: 'quantum_fuel_requirement', label: 'Fuel/Gm', width: '12%', format: v => fmt(v, 2, '') },
+        { key: 'spool_up_time', label: 'Spool', width: '10%', format: v => fmt(v, 1, 's') },
+        { key: 'cooldown_time', label: 'Cooldown', width: '10%', format: v => fmt(v, 1, 's') },
+        { key: 'power_draw', label: 'Power', width: '12%', format: v => fmt(v, 0, 'pwr') }
+      ];
+    } else if (compType === 'Radar') {
+      columns = [
+        { key: 'display_name', label: 'Name', width: '30%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '20%' },
+        { key: 'grade_letter', label: 'Grade', width: '10%' },
+        { key: 'detection_range', label: 'Detection Range', width: '20%', format: v => fmt(v, 0, 'm') },
+        { key: 'em_signature', label: 'EM Sig', width: '15%', format: v => fmt(v, 0, '') }
+      ];
+    }
+    // Additional types will be added in Phase 2
+    
+    // Build header
+    const headerRow = document.createElement('tr');
+    columns.forEach(col => {
+      const th = document.createElement('th');
+      th.textContent = col.label;
+      th.style.width = col.width;
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    
+    // Build rows
+    availableComponents.forEach((comp, idx) => {
+      const row = document.createElement('tr');
+      row.dataset.index = idx;
+      
+      // Row click handler
+      row.addEventListener('click', () => {
+        // Deselect previous
+        if (selectedComponentRow) {
+          selectedComponentRow.classList.remove('selected');
+        }
+        
+        // Select this row
+        row.classList.add('selected');
+        selectedComponentRow = row;
+      });
+	  
+      // ADD THESE HOVER HANDLERS:
+        row.addEventListener('mouseenter', () => {
+          showComponentPreview(comp, compType);
+        });
+        
+        row.addEventListener('mouseleave', () => {
+          hideComponentPreview();
+        });	  
+      
+      // Populate cells
+      columns.forEach(col => {
+        const td = document.createElement('td');
+        let value = comp[col.key];
+        
+        // Handle nested stats
+        if (value === undefined && comp.stats && comp.stats[col.key] !== undefined) {
+          value = comp.stats[col.key];
+        }
+        
+        // Format value
+        if (col.format && value !== null && value !== undefined) {
+          td.innerHTML = col.format(value);
+        } else {
+          td.textContent = value ?? '—';
+        }
+        
+        row.appendChild(td);
+      });
+      
+      tbody.appendChild(row);
+    });
+    
+    console.log(`[Modal] Table populated with ${availableComponents.length} rows`);
+  }
+  
+  /**
+   * Show component preview in sidebar on hover
+   */
+  function showComponentPreview(comp, compType) {
+    const section = document.getElementById('comp-preview-section');
+    const content = document.getElementById('comp-preview-content');
+    
+    if (!comp) {
+      section.style.display = 'none';
+      return;
+    }
+    
+    // Build preview HTML based on component type
+    let previewHtml = `
+      <div class="preview-header">
+        <div class="preview-name">${comp.display_name || comp.entity_name}</div>
+        <div class="preview-meta">
+          <span class="size-badge s${comp.size}">S${comp.size}</span>
+          <span class="preview-grade">${comp.class || '—'} · Grade ${comp.grade_letter || '?'}</span>
+        </div>
+        <div class="preview-mfr">${comp.manufacturer || '—'}</div>
+      </div>
+      <div class="preview-stats">
+    `;
+    
+    // Add type-specific stats
+    if (compType === 'PowerPlant') {
+      previewHtml += `
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Power Output</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.power_output, 0, 'units')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">EM Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.em_signature, 0, '')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">IR Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.ir_signature, 0, '')}</span>
+        </div>
+      `;
+    } else if (compType === 'Shield') {
+      const regenTime = comp.stats.max_shield_health / comp.stats.max_shield_regen;
+      previewHtml += `
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Shield HP</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.max_shield_health, 0, 'hp')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Regen Rate</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.max_shield_regen, 0, '/s')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Regen Time</span>
+          <span class="preview-stat-val">${fmtStat(regenTime, 1, 's')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Downed Delay</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.downed_regen_delay, 1, 's')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Damaged Delay</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.damaged_regen_delay, 1, 's')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Power Draw</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.power_draw, 0, 'pwr')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">EM Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.em_signature, 0, '')}</span>
+        </div>
+      `;
+    } else if (compType === 'Cooler') {
+      previewHtml += `
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Cooling Ouptut</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.cooling_output, 0, 'units')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Power Draw</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.power_draw, 0, 'pwr')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">EM Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.em_signature, 0, '')}</span>
+        </div>
+      `;
+    } else if (compType === 'QuantumDrive') {
+      previewHtml += `
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Speed</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.speed_mps, 0, 'm/s')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Fuel per Gm</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.quantum_fuel_requirement, 2, '')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Spool Up Time</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.spool_up_time, 1, 's')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Cooldown Time</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.cooldown_time, 1, 's')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Power Draw</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.power_draw, 0, 'pwr')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">EM Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.em_signature, 0, '')}</span>
+        </div>
+      `;
+    } else if (compType === 'Radar') {
+      previewHtml += `
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Detection Range</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.detection_range, 0, 'm')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">Power Draw</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.power_draw, 0, 'pwr')}</span>
+        </div>
+        <div class="preview-stat-row">
+          <span class="preview-stat-label">EM Signature</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.em_signature, 0, '')}</span>
+        </div>
+      `;
+    }
+    
+    previewHtml += `</div>`;
+    
+    content.innerHTML = previewHtml;
+    section.style.display = 'block';
+    
+    console.log('[Preview] Showing preview for:', comp.display_name || comp.entity_name);
+  }
+  
+  /**
+   * Hide component preview
+   */
+  function hideComponentPreview() {
+    document.getElementById('comp-preview-section').style.display = 'none';
+  }
+  
+  //
+  // Apply the selected component swap
+  //
+  function applyComponentSwap() {
+    if (!selectedComponentRow) {
+      alert('Please select a component first');
+      return;
+    }
+    
+    const componentIndex = parseInt(selectedComponentRow.dataset.index);
+    const newComponent = availableComponents[componentIndex];
+    const { compType, hardpointIndex } = shipLoadout.currentSwap;
+    
+    console.log('[Swap] Applying:', newComponent.display_name || newComponent.entity_name);
+    
+    // Update current loadout state
+    const typeKey = compType.toLowerCase() + 's';
+    shipLoadout.current[typeKey][hardpointIndex] = newComponent;
+    
+    // Re-render the component card
+    updateComponentCard(compType, hardpointIndex, newComponent);
+    
+    // Close modal
+    closeSwapModal();
+  }
+  
+  /**
+   * Update a single component card with new data
+   */
+  function updateComponentCard(compType, hardpointIndex, component) {
+    const typeKey = compType.toLowerCase() + 's';
+    // Map component types to their actual container IDs
+	const containerMap = {
+	  'PowerPlant': 'power-content',
+	  'Shield': 'shields-content',
+	  'Cooler': 'coolers-content',
+	  'QuantumDrive': 'qd-content',
+	  'Radar': 'radar-content'
+	};
+	
+	const containerId = containerMap[compType];
+	const container = document.getElementById(containerId);
+    
+    if (!container) {
+      console.error('[Update] Container not found for', compType);
+      return;
+    }
+    
+    // Find the specific card (for multi-slot components like shields)
+    const cards = container.querySelectorAll('.comp-card-h');
+    const card = cards[hardpointIndex];
+    
+    if (!card) {
+      console.error('[Update] Card not found at index', hardpointIndex);
+      return;
+    }
+    
+    // Update card content based on component type
+    if (compType === 'PowerPlant') {
+      updatePowerPlantCard(card, component);
+    } else if (compType === 'Shield') {
+      updateShieldCard(card, component);
+    } else if (compType === 'Cooler') {
+      updateCoolerCard(card, component);
+    } else if (compType === 'QuantumDrive') {
+      updateQuantumDriveCard(card, component);
+    } else if (compType === 'Radar') {
+      updateRadarCard(card, component);
+    }
+    
+    console.log('[Update] Card updated for', component.display_name || component.entity_name);
+  }
+  
+  /**
+   * Update a PowerPlant card specifically
+   */
+  function updatePowerPlantCard(card, comp) {
+    console.log('[Update] Updating powerplant card with:', comp.display_name || comp.entity_name);
+    
+    // Update name
+    const nameEl = card.querySelector('.comp-name-text-h');
+    if (nameEl) {
+      nameEl.textContent = comp.display_name || comp.entity_name;
+    } else {
+      console.warn('[Update] Could not find .comp-name-text-h');
+    }
+    
+    // Update main stat (power output in .comp-hp-h)
+    const powerEl = card.querySelector('.comp-hp-h');
+    if (powerEl) {
+      powerEl.textContent = `${fmt(comp.stats.power_output, 0)} units`;
+    } else {
+      console.warn('[Update] Could not find .comp-hp-h');
+    }
+    
+    // Update EM signature
+    const emEl = card.querySelector('.stat-val-h');
+    if (emEl) {
+      emEl.textContent = fmt(comp.stats.em_signature, 0);
+    } else {
+      console.warn('[Update] Could not find .stat-val-h');
+    }
+    
+    // Update size (in case different size powerplants become swappable later)
+    const sizeEl = card.querySelector('.comp-size-h');
+    if (sizeEl) {
+      sizeEl.textContent = `S${comp.size || '?'}`;
+    }
+    
+    console.log('[Update] Card update complete');
+  }
+  
+  /**
+   * Update a Shield card specifically
+   */
+  function updateShieldCard(card, comp) {
+    console.log('[Update] Updating shield card with:', comp.display_name || comp.entity_name);
+    
+    // Update name
+    const nameEl = card.querySelector('.comp-name-text-h');
+    if (nameEl) {
+      nameEl.textContent = comp.display_name || comp.entity_name;
+    }
+    
+    // Update main stat (shield HP in .comp-hp-h)
+    const hpEl = card.querySelector('.comp-hp-h');
+    if (hpEl) {
+      hpEl.textContent = `${fmt(comp.stats.max_shield_health, 0)} hp`;
+    }
+    
+    // Update regen time (calculated: HP / regen rate)
+    const regenTime = comp.stats.max_shield_health / comp.stats.max_shield_regen;
+    const regenTextEl = card.querySelector('.comp-stat-text-h');
+    if (regenTextEl) {
+      regenTextEl.textContent = `${fmt(regenTime, 1)} s to regen`;
+    }
+    
+    // Update stats in .comp-stats-h
+    const statVals = card.querySelectorAll('.stat-val-h');
+    if (statVals.length >= 2) {
+      statVals[0].textContent = fmt(comp.stats.power_draw, 0); // Power consumption
+      statVals[1].textContent = fmt(comp.stats.em_signature, 0); // EM signature
+    }
+    
+    // Update size
+    const sizeEl = card.querySelector('.comp-size-h');
+    if (sizeEl) {
+      sizeEl.textContent = `S${comp.size || '?'}`;
+    }
+    
+    console.log('[Update] Shield card update complete');
+  }
+  
+  /**
+   * Update a Cooler card specifically
+   */
+  function updateCoolerCard(card, comp) {
+    console.log('[Update] Updating cooler card with:', comp.display_name || comp.entity_name);
+    
+    // Update name
+    const nameEl = card.querySelector('.comp-name-text-h');
+    if (nameEl) {
+      nameEl.textContent = comp.display_name || comp.entity_name;
+    }
+    
+    // Update main stat (cooling output in .comp-hp-h)
+    const coolEl = card.querySelector('.comp-hp-h');
+    if (coolEl) {
+      coolEl.textContent = `${fmt(comp.stats.cooling_output, 0)} units`;
+    }
+    
+    // Update stats in .comp-stats-h
+    const statVals = card.querySelectorAll('.stat-val-h');
+    if (statVals.length >= 2) {
+      statVals[0].textContent = fmt(comp.stats.power_draw, 0); // Power consumption
+      statVals[1].textContent = fmt(comp.stats.em_signature, 0); // EM signature
+    }
+    
+    // Update size
+    const sizeEl = card.querySelector('.comp-size-h');
+    if (sizeEl) {
+      sizeEl.textContent = `S${comp.size || '?'}`;
+    }
+    
+    console.log('[Update] Cooler card update complete');
+  }
+  
+  /**
+   * Update a Quantum Drive card specifically
+   */
+  function updateQuantumDriveCard(card, comp) {
+    console.log('[Update] Updating quantum drive card with:', comp.display_name || comp.entity_name);
+    
+    // Update name
+    const nameEl = card.querySelector('.comp-name-text-h');
+    if (nameEl) {
+      nameEl.textContent = comp.display_name || comp.entity_name;
+    }
+    
+    // Update main stat (speed in .comp-hp-h)
+    const speedEl = card.querySelector('.comp-hp-h');
+    if (speedEl) {
+      speedEl.textContent = `${fmt(comp.stats.speed_mps, 0)} m/s`;
+    }
+    
+    // Update stats - quantum drives have more varied stat displays
+    // You may need to adjust these selectors based on your actual card HTML
+    const statVals = card.querySelectorAll('.stat-val-h');
+    if (statVals.length >= 3) {
+      statVals[0].textContent = fmt(comp.stats.quantum_fuel_requirement, 2); // Fuel req
+      statVals[1].textContent = fmt(comp.stats.spool_up_time, 1); // Spool time
+      statVals[2].textContent = fmt(comp.stats.power_draw, 0); // Power
+    }
+    
+    // Update size
+    const sizeEl = card.querySelector('.comp-size-h');
+    if (sizeEl) {
+      sizeEl.textContent = `S${comp.size || '?'}`;
+    }
+    
+    console.log('[Update] Quantum drive card update complete');
+  }
+  
+  /**
+   * Update a Radar card specifically
+   */
+  function updateRadarCard(card, comp) {
+    console.log('[Update] Updating radar card with:', comp.display_name || comp.entity_name);
+    
+    // Update name
+    const nameEl = card.querySelector('.comp-name-text-h');
+    if (nameEl) {
+      nameEl.textContent = comp.display_name || comp.entity_name;
+    }
+    
+    // Update main stat (detection range in .comp-hp-h)
+    const rangeEl = card.querySelector('.comp-hp-h');
+    if (rangeEl) {
+      rangeEl.textContent = `${fmt(comp.stats.detection_range, 0)} m`;
+    }
+    
+    // Update stats
+    const statVals = card.querySelectorAll('.stat-val-h');
+    if (statVals.length >= 2) {
+      statVals[0].textContent = fmt(comp.stats.power_draw, 0); // Power
+      statVals[1].textContent = fmt(comp.stats.em_signature, 0); // EM sig
+    }
+    
+    // Update size
+    const sizeEl = card.querySelector('.comp-size-h');
+    if (sizeEl) {
+      sizeEl.textContent = `S${comp.size || '?'}`;
+    }
+    
+    console.log('[Update] Radar card update complete');
+  }
+  
+  /**
+   * Reset a specific component type to stock loadout
+   */
+  function resetComponentType(compType) {
+    if (!confirm(`Reset ${compType}s to stock loadout?`)) {
+      return;
+    }
+    
+    console.log(`[Reset] Restoring stock ${compType}s`);
+    
+    const typeKey = compType.toLowerCase() + 's'; // 'PowerPlant' -> 'powerplants'
+    
+    // Deep copy original back to current for this type only
+    shipLoadout.current[typeKey] = JSON.parse(JSON.stringify(shipLoadout.original[typeKey]));
+    
+    // Re-render just this component type's cards
+    if (compType === 'PowerPlant') {
+      // Rebuild powerplant HTML
+      let powerHtml = '';
+      shipLoadout.current.powerplants.forEach((pp, i) => {
+        const power_out = fmt(pp.power_output, 0);
+        const emSig = fmt(pp.em_signature, 0);
+        const displayName = pp.display_name || pp.entity_name;
+        let specSuffix = '';
+        if (pp.class) {
+          specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${pp.class} - Grade ${pp.grade_letter || '?'}</span>`;
+        }
+        
+        powerHtml += `
+        <div class="comp-card-h swappable" onclick="openSwapModal('PowerPlant', ${i})">
+            <div class="comp-hdr-h">
+              ${iconPrimary('powerplant')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${pp.size || '?'}</div>
+                <div class="comp-name-h">
+                  <span class="comp-name-text-h">${displayName}</span>${specSuffix}
+                </div>
+              </div>
+              <div class="comp-hp-h">${power_out || '—'} units</div>
+            </div>
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+            </div>
+        </div>`;
+      });
+      
+      document.getElementById('power-content').innerHTML = powerHtml;
+      
+    } else if (compType === 'Shield') {
+      // Rebuild shield HTML
+      let shieldsHtml = `
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Shields</div>
+          <div class="comp-actions-top">
+            <button class="btn-reset-sm" onclick="resetComponentType('Shield')">RESET</button>
+          </div>
+        </div>
+        <div class="comp-grid">`;
+      
+      shipLoadout.current.shields.forEach((shld, i) => {
+        const hp = fmt(shld.max_shield_health, 0);
+        const regen_time = fmt(shld.max_shield_health / shld.max_shield_regen, 1);
+        const powerCons = fmt(shld.power_draw, 0);
+        const emSig = fmt(shld.em_signature, 0);
+        const displayName = shld.display_name || shld.entity_name;
+        let specSuffix = '';
+        if (shld.class) {
+          specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${shld.class} - Grade ${shld.grade_letter || '?'}</span>`;
+        }
+        
+        shieldsHtml += `
+        <div class="comp-card-h swappable" onclick="openSwapModal('Shield', ${i})">
+            <div class="comp-hdr-h">
+              ${iconPrimary('shield')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${shld.size || '?'}</div>
+                <div class="comp-name-h">
+                  <span class="comp-name-text-h">${displayName}</span>${specSuffix}
+                </div>
+              </div>
+              <div class="comp-hp-h">${hp || '—'} hp</div>
+            </div>
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
+              </div>
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+              <div class="comp-stat-text-h">${regen_time || '—'} s to regen</div>
+            </div>
+        </div>`;
+      });
+      
+      shieldsHtml += '</div>';
+      document.getElementById('shields-content').innerHTML = shieldsHtml;
+    } else if (compType === 'Cooler') {
+      // Rebuild cooler HTML
+      let coolersHtml = `
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Coolers</div>
+          <div class="comp-actions-top">
+            <button class="btn-reset-sm" onclick="resetComponentType('Cooler')">RESET</button>
+          </div>
+        </div>
+        <div class="comp-grid">`;
+      
+      shipLoadout.current.coolers.forEach((cool, i) => {
+        const coolRate = fmt(cool.cooling_output, 0);
+        const powerCons = fmt(cool.power_draw, 0);
+        const emSig = fmt(cool.em_signature, 0);
+		const irSig = fmt(cool.ir_signature, 0);
+        const displayName = cool.display_name || cool.entity_name;
+        let specSuffix = '';
+        if (cool.class) {
+          specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${cool.class} - Grade ${cool.grade_letter || '?'}</span>`;
+        }
+        
+        // NOTE: Adjust this HTML to match your actual cooler card structure
+        coolersHtml += `
+        <div class="comp-card-h swappable" onclick="openSwapModal('Cooler', ${i})">
+            <div class="comp-hdr-h">
+              ${iconPrimary('cooler')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${cooler.size || '?'}</div>
+                <div class="comp-name-h">
+                  <span class="comp-name-text-h">${displayName}</span>${specSuffix}
+                </div>
+              </div>
+              <div class="comp-hp-h">${coolRate || '—'} /s</div>
+            </div>
+            <div class="comp-stats-h">
+              <div class="comp-stat-h">
+                ${iconStat('power-cons')}
+                <span class="stat-val-h">${powerCons || '—'}</span>
+              </div>
+              <div class="comp-stat-h">
+                ${iconStat('em')}
+                <span class="stat-val-h">${emSig || '—'}</span>
+              </div>
+			  <div class="comp-stat-h">
+                ${iconStat('ir')}
+                <span class="stat-val-h">${irSig || '—'}</span>
+              </div>
+            </div>
+        </div>`;
+      });
+      
+      coolersHtml += '</div>';
+      document.getElementById('coolers-content').innerHTML = coolersHtml;
+      
+    } else if (compType === 'QuantumDrive') {
+      // TODO: Copy pattern from Cooler, adjust for quantum drive card structure
+      
+    } else if (compType === 'Radar') {
+      // TODO: Copy pattern from Cooler, adjust for radar card structure
+    }
+    
+    console.log(`[Reset] ${compType}s restored`);
+  }
+
   const ENTITY_NAME = {{ entity_name | tojson }};
 
   // ── Formatters ───────────────────────────────────────────────────────────────
@@ -1703,9 +2845,8 @@ body::before {
       
       // Width - bottom left edge, rotated 90deg, lying flat
       labelWidth.style.transform = `
-        translate3d(-${scaledHalfWidth}px, ${scaledHalfHeight}px, ${scaledHalfLength}px)
+        translate3d(-${scaledHalfWidth}px, 0, ${scaledHalfLength * 1.5}px)
         rotateX(90deg)
-        translateY(${scaledHalfHeight}px)
       `;
       labelWidth.style.left = '50%';
       labelWidth.style.top = '50%';
@@ -1895,13 +3036,12 @@ body::before {
     let shieldsHtml = '';
     if (c.shields.length) {
 	  shieldsHtml = `
-		<div class="loadout-hdr-row">
-		  <div class="loadout-card-hdr">Shields</div>
-		  <div class="comp-actions-top">
-			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
-			<button class="btn-reset-sm" disabled>RESET</button>
-		  </div>
-		</div>
+          <div class="loadout-hdr-row">
+            <div class="loadout-card-hdr">Shields</div>
+            <div class="comp-actions-top">
+              <button class="btn-reset-sm" onclick="resetComponentType('Shield')">RESET</button>
+            </div>
+          </div>
 		<div class="comp-grid">`;
       c.shields.forEach((shld, i) => {
         const hp = fmt(shld.max_shield_health, 0);
@@ -1919,7 +3059,7 @@ body::before {
 			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${shld.class} - Grade ${shld.grade_letter || '?'}</span>`;
 		}
         shieldsHtml += `
-        <div class="comp-card-h">
+        <div class="comp-card-h swappable" onclick="openSwapModal('Shield', ${i})">
             <div class="comp-hdr-h">
               ${iconPrimary('shield')}
               <div class="comp-title-h">
@@ -1958,8 +3098,7 @@ body::before {
 	  <div class="loadout-hdr-row">
           <div class="loadout-card-hdr">Power Plants</div>
           <div class="comp-actions-top">
-            <button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
-            <button class="btn-reset-sm" disabled>RESET</button>
+            <button class="btn-reset-sm" onclick="resetComponentType('PowerPlant')">RESET</button>
           </div>
       </div>
 	  <div class="comp-grid">`;
@@ -1976,25 +3115,26 @@ body::before {
 		}
         
         powerHtml += `
-        <div class="comp-card-h">
-            <div class="comp-hdr-h">
-              ${iconPrimary('powerplant')}
-              <div class="comp-title-h">
-                <div class="comp-size-h">S${pp.size || '?'}</div>
-                <div class="comp-name-h">
+		<div class="comp-card-h swappable" onclick="openSwapModal('PowerPlant', ${i})">
+			<div class="comp-hdr-h">
+				${iconPrimary('powerplant')}
+				<div class="comp-title-h">
+				<div class="comp-size-h">S${pp.size || '?'}</div>
+				<div class="comp-name-h">
 					<span class="comp-name-text-h">${displayName}</span>${specSuffix}
 				</div>
-              </div>
-              <div class="comp-hp-h">${power_out || '—'} units</div>
-            </div>
-            <div class="comp-stats-h">
-              <div class="comp-stat-h">
-                ${iconStat('em')}
-                <span class="stat-val-h">${emSig || '—'}</span>
-              </div>
-            </div>
-        </div>`;
+				</div>
+				<div class="comp-hp-h">${power_out || '—'} units</div>
+			</div>
+			<div class="comp-stats-h">
+				<div class="comp-stat-h">
+				${iconStat('em')}
+				<span class="stat-val-h">${emSig || '—'}</span>
+				</div>
+			</div>
+		</div>`;
       });
+	
       powerHtml += '</div>';
     } else {
       powerHtml = '<div class="gap-block"><div class="gap-text">No powerplants indexed</div></div>';
@@ -2006,13 +3146,12 @@ body::before {
     let coolersHtml = '';
     if (c.coolers.length) {
 	  coolersHtml = `
-		<div class="loadout-hdr-row">
-		  <div class="loadout-card-hdr">Coolers</div>
-		  <div class="comp-actions-top">
-			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
-			<button class="btn-reset-sm" disabled>RESET</button>
-		  </div>
-		</div>
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Coolers</div>
+          <div class="comp-actions-top">
+            <button class="btn-reset-sm" onclick="resetComponentType('Cooler')">RESET</button>
+          </div>
+        </div>
 		<div class="comp-grid">`;
       c.coolers.forEach((cool, i) => {
         const coolingRate = fmt(cool.cooling_output, 0);
@@ -2028,7 +3167,7 @@ body::before {
 			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${cool.class} - Grade ${cool.grade_letter || '?'}</span>`;
 		}
         coolersHtml += `
-        <div class="comp-card-h">
+        <div class="comp-card-h swappable" onclick="openSwapModal('Cooler', ${i})">
             <div class="comp-hdr-h">
               ${iconPrimary('cooler')}
               <div class="comp-title-h">
@@ -2066,12 +3205,11 @@ body::before {
     // Quantum Drives
     let qdHtml = '';
     if (c.quantum_drives.length) {
-      qdHtml = `
+      quantumHtml = `
         <div class="loadout-hdr-row">
-          <div class="loadout-card-hdr">Quantum Drive</div>
+          <div class="loadout-card-hdr">Quantum Drives</div>
           <div class="comp-actions-top">
-            <button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
-            <button class="btn-reset-sm" disabled>RESET</button>
+            <button class="btn-reset-sm" onclick="resetComponentType('QuantumDrive')">RESET</button>
           </div>
         </div>
         <div class="comp-grid">`;
@@ -2097,7 +3235,7 @@ body::before {
         const cardId = `qd-${i}`;
         
         qdHtml += `
-        <div class="comp-card-h">
+        <div class="comp-card-h swappable" onclick="openSwapModal('QuantumDrive', ${i})">
             <div class="comp-hdr-h">
               ${iconPrimary('quantum')}
               <div class="comp-title-h">
@@ -2198,13 +3336,12 @@ body::before {
     let radarHtml = '';
     if (c.radars.length) {
 	  radarHtml = `
-		<div class="loadout-hdr-row">
-		  <div class="loadout-card-hdr">Radar</div>
-		  <div class="comp-actions-top">
-			<button class="btn-quick-sel-sm" disabled>QUICK SEL</button>
-			<button class="btn-reset-sm" disabled>RESET</button>
-		  </div>
-		</div>
+        <div class="loadout-hdr-row">
+          <div class="loadout-card-hdr">Radars</div>
+          <div class="comp-actions-top">
+            <button class="btn-reset-sm" onclick="resetComponentType('Radar')">RESET</button>
+          </div>
+        </div>
 		<div class="comp-grid">`;
       c.radars.forEach((rdr, i) => {
         const hp = fmt(rdr.health, 0);
@@ -2226,7 +3363,7 @@ body::before {
 			specSuffix = `<span class="comp-spec-h">&emsp;&emsp;${rdr.class} - Grade ${rdr.grade_letter || '?'}</span>`;
 		}
         radarHtml += `
-        <div class="comp-card-h">
+        <div class="comp-card-h swappable" onclick="openSwapModal('Radar', ${i})">
             <div class="comp-hdr-h">
               ${iconPrimary('radar')}
               <div class="comp-title-h">
@@ -2552,6 +3689,9 @@ body::before {
 
       document.getElementById('loading').style.display    = 'none';
       document.getElementById('ship-content').style.display = 'block';
+	  
+	  // Initialize loadout state for component swapping
+      initLoadoutState(ship);
 
       populateSidebar(ship);
       populateOverview(ship);

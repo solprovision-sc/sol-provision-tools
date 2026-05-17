@@ -22,10 +22,33 @@ MFR_MAP = {
     "misc":"MISC","mrai":"Mirai","orig":"Origin","rsi":"RSI","tmbl":"Tumbril",
     "behr":"Behring","klwe":"Klaus & Werner","apar":"Apocalypse","acas":"Castra",
     "acom":"Achilles","amrs":"Armistice","basl":"Basilisk","clda":"CLDA","cdas":"CDS",
-    "vncl":"Vanduul","xian":"Xi'an","csin":"Preacher","taln":"Talon",
+    "vncl":"Vanduul","xian":"Xi'an","csin":"Preacher","taln":"Talon", "just":"Juno Starwerk"
 }
 def get_mfr(n): return MFR_MAP.get((n or "").split("_")[0].lower(), (n or "").split("_")[0].upper())
+def comp_grade(grade_num):
+    """
+    Convert numeric grade (1-5) to letter grade (A-F).
+    1 = A (Military)
+    2 = B (Civilian) 
+    3 = C (Industrial)
+    4 = D (Competition)
+    5 = F (Stealth)
+    """
+    if grade_num is None:
+        return '—'
+    
+    grade_map = {
+        1: 'A',
+        2: 'B', 
+        3: 'C',
+        4: 'D',
+        5: 'F'
+    }
+    
+    return grade_map.get(grade_num, '—')
+
 def clean_career(s): return (s or "").replace("@vehicle_focus_","").replace("@vehicle_class_","").replace("_"," ").title()
+
 def clean_role(s):   return (s or "").replace("@vehicle_class_","").replace("@vehicle_role_","").replace("_"," ").title()
 
 def best_name(display_name, entity_name):
@@ -628,31 +651,160 @@ def api_components():
         })
     return jsonify(result)
 
-@app.route("/api/component/<entity_name>")
-def api_component_detail(entity_name):
-    conn = get_db(); p = PATCH or latest_patch(conn)
-    row = conn.execute(
-        "SELECT * FROM entities WHERE entity_name=? AND patch_version=?", (entity_name, p)
-    ).fetchone()
-    conn.close()
-    if not row: return jsonify({"error":"Not found"}), 404
 
-    d = json.loads(row["data"])
-    param_key = COMP_PARAMS.get(row["item_type"], "")
-    stats = d.get(param_key, {}) or {}
-    power = d.get("power", {}) or {}
-
+@app.route('/api/components/compatible')
+def get_compatible_components():
+    """
+    Get all components compatible with a specific hardpoint.
+    Query params:
+      - type: component type (PowerPlant, Shield, Cooler, QuantumDrive, Radar)
+      - size: hardpoint size (1-7)
+      - patch: optional patch version (defaults to latest)
+    """
+    comp_type = request.args.get('type', 'PowerPlant')
+    size = request.args.get('size', type=int)
+    patch = request.args.get('patch')
+    
+    if not size:
+        return jsonify({"error": "size parameter required"}), 400
+    
+    # Get latest patch if not specified
+    if not patch:
+        conn = get_db()
+        patch = conn.execute(
+            "SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1"
+        ).fetchone()['patch_version']
+    
+    conn = get_db()
+    
+    # Map component type to dedicated table
+    table_map = {
+        'PowerPlant': 'item_powerplants',
+        'Shield': 'item_shields',
+        'Cooler': 'item_coolers',
+        'QuantumDrive': 'item_quantum_drives',
+        'Radar': 'item_radars'
+    }
+    
+    table_name = table_map.get(comp_type)
+    if not table_name:
+        return jsonify({"error": f"Unknown component type: {comp_type}"}), 400
+    
+    # Query the dedicated component table joined with entities for size
+    query = f"""
+        SELECT 
+            c.*,
+            e.size,
+            e.grade
+        FROM {table_name} c
+        JOIN entities e ON c.entity_name = e.entity_name AND c.patch_version = e.patch_version
+        WHERE c.patch_version = ?
+          AND e.size = ?
+        ORDER BY c.entity_name
+    """
+    
+    rows = conn.execute(query, (patch, size)).fetchall()
+    
+    components = []
+    for row in rows:
+        # Convert row to dict
+        comp = dict(row)
+        
+        # Lookup display_name from localization table
+        # Entity format: powr_acom_s02_solarflare_scitem (lowercase, with _scitem)
+        # Key formats in DB:
+        #   - item_NamePOWR_ACOM_S02_...     (no underscore after Name)
+        #   - item_Name_POWR_ACOM_S02_...    (underscore after Name)
+        #   - May or may not have _SCItem suffix
+        # Keys preserve original casing (SolarFlare, not SOLARFLARE)
+        
+        entity_name = comp['entity_name']
+        # Strip _scitem suffix if present
+        entity_base = entity_name.lower().replace('_scitem', '')
+        entity_upper = entity_base.upper()
+        
+        # Try all four combinations with case-insensitive matching
+        loc_result = conn.execute("""
+            SELECT value FROM localization 
+            WHERE key LIKE ? COLLATE NOCASE 
+               OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
+            LIMIT 1
+        """, (
+            f"item_Name{entity_upper}",           # item_NamePOWR_ACOM_S02_SOLARFLARE
+            f"item_Name{entity_upper}_SCItem",    # item_NamePOWR_ACOM_S02_SOLARFLARE_SCItem
+            f"item_Name_{entity_upper}",          # item_Name_POWR_ACOM_S02_SOLARFLARE
+            f"item_Name_{entity_upper}_SCItem"    # item_Name_POWR_ACOM_S02_SOLARFLARE_SCItem
+        )).fetchone()
+        
+        display_name = loc_result['value'] if loc_result else comp.get('display_name')
+        
+        # Add grade letter
+        comp['grade_letter'] = comp_grade(comp.get('grade'))
+        
+        # Extract manufacturer from entity_name
+        entity_name_without_type = '_'.join(comp['entity_name'].split('_')[1:])
+        comp['manufacturer'] = get_mfr(entity_name_without_type)
+        
+        # Organize stats based on component type
+        stats = {}
+        
+        if comp_type == 'PowerPlant':
+            stats['power_output'] = comp.get('power_output', 0)
+            stats['em_signature'] = comp.get('em_signature', 0)
+            
+        elif comp_type == 'Shield':
+            stats['max_shield_health'] = comp.get('max_shield_health', 0)
+            stats['max_shield_regen'] = comp.get('max_shield_regen', 0)
+            stats['downed_regen_delay'] = comp.get('downed_regen_delay', 0)
+            stats['damaged_regen_delay'] = comp.get('damaged_regen_delay', 0)
+            stats['em_signature'] = comp.get('em_signature', 0)
+            stats['power_draw'] = comp.get('power_draw', 0)
+            
+        elif comp_type == 'Cooler':
+            stats['cooling_output'] = comp.get('cooling_output', 0)
+            stats['em_signature'] = comp.get('em_signature', 0)
+            stats['ir_signature'] = comp.get('ir_signature', 0)
+            stats['power_draw'] = comp.get('power_draw', 0)
+            
+        elif comp_type == 'QuantumDrive':
+            stats['quantum_fuel_requirement'] = comp.get('quantum_fuel_requirement', 0)
+            stats['speed_mps'] = comp.get('speed', 0)
+            stats['cooldown_time'] = comp.get('cooldown_time', 0)
+            stats['spool_up_time'] = comp.get('spool_up_time', 0)
+            stats['em_signature'] = comp.get('em_signature', 0)
+            stats['power_draw'] = comp.get('power_draw', 0)
+            
+        elif comp_type == 'Radar':
+            stats['detection_range'] = comp.get('detection_lifetime_max', 0)
+            stats['em_signature'] = comp.get('em_signature', 0)
+            stats['power_draw'] = comp.get('power_draw', 0)
+        
+        # Build simplified response
+        component = {
+            'uuid': comp.get('uuid'),
+            'entity_name': comp.get('entity_name'),
+            'display_name': display_name,  # ← Use the localized display_name
+            'manufacturer': comp['manufacturer'],
+            'size': comp.get('size'),
+            'grade': comp.get('grade'),
+            'grade_letter': comp['grade_letter'],
+            'class': comp.get('class'),
+            'item_type': comp_type,
+            'stats': stats
+        }
+        
+        components.append(component)
+    
     return jsonify({
-        "entity_name":  entity_name,
-        "display_name": best_name(row["display_name"], entity_name),
-        "description":  row["description"],
-        "item_type":    row["item_type"],
-        "item_subtype": row["item_subtype"],
-        "grade":        row["grade"],
-        "size":         row["size"],
-        "stats":        {k:v for k,v in stats.items() if not k.startswith("__")},
-        "power":        power,
+        'type': comp_type,
+        'size': size,
+        'patch_version': patch,
+        'count': len(components),
+        'components': components
     })
+
 
 @app.route("/api/compare/components")
 def api_compare_components():
