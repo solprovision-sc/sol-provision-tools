@@ -1055,110 +1055,79 @@
   margin-right: 4px;
 }
 
-.ship-volume-3d {
-  --scale: 1.5;
-  --base-size: 1px;
-  margin: 20px auto;
-  padding: 30px;
-}
+/* ── 3D SHIP DIMENSIONS VISUALIZATION ──────────────────────────────────── */
 
-.volume-isometric {
+.sb-3d-scene {
+  perspective: 600px;
+  width: 100%;
+  height: 240px;
+  margin-top: 12px;
   position: relative;
-  width: 200px;
-  height: 140px;
-  transform-style: preserve-3d;
-  transform: rotateX(60deg) rotateZ(45deg) scale3d(var(--scale), var(--scale), var(--scale));
 }
 
-.volume-layer {
-  position: absolute;
-  transform-style: preserve-3d;
+.sb-cube-wrapper {
   width: 100%;
   height: 100%;
-}
-
-.volume-layer-top {
-  transform: translateZ(calc(var(--height) * var(--base-size)));
-}
-
-.volume-box {
-  position: absolute;
+  position: relative;
   transform-style: preserve-3d;
-  width: calc(var(--length) * var(--base-size));
-  height: calc(var(--width) * var(--base-size));
-  left: 50%;
+  transform: rotateX(-45deg) rotateY(-45deg);
+  transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sb-3d-scene:hover .sb-cube-wrapper {
+  transform: rotateX(-90deg) rotateY(0deg);
+}
+
+.sb-cube {
+  position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.volume-face {
-  position: absolute;
-  background: rgba(126,38,25,0.3);
-  border: 1px solid rgba(126,38,25,0.6);
-}
-
-.volume-face-top {
-  width: 100%;
-  height: 100%;
-  transform: translateZ(0);
-  background: rgba(126,38,25,0.15);
-}
-
-.volume-face-front {
-  width: 100%;
-  height: calc(var(--height) * var(--base-size));
-  bottom: 0;
-  transform-origin: bottom;
-  transform: rotateX(-90deg);
-  background: rgba(126,38,25,0.25);
-}
-
-.volume-face-right {
-  width: calc(var(--height) * var(--base-size));
-  height: 100%;
-  right: 0;
-  transform-origin: right;
-  transform: rotateY(90deg);
-  background: rgba(126,38,25,0.35);
-}
-
-.volume-label {
-  position: absolute;
+  left: 50%;
   transform-style: preserve-3d;
-  font-size: 8px;
+  /* Dimensions set dynamically via JS */
+}
+
+.sb-face {
+  position: absolute;
+  background: linear-gradient(135deg, rgba(126,38,25,0.15) 0%, rgba(126,38,25,0.05) 100%);
+  border: 1px solid rgba(126,38,25,0.3);
+  opacity: 0.9;
+}
+
+.sb-face.sb-front  { transform-origin: center; }
+.sb-face.sb-back   { transform-origin: center; }
+.sb-face.sb-right  { transform-origin: center; }
+.sb-face.sb-left   { transform-origin: center; }
+.sb-face.sb-top    { 
+  transform-origin: center;
+  background: linear-gradient(135deg, rgba(126,38,25,0.25) 0%, rgba(126,38,25,0.1) 100%);
+}
+.sb-face.sb-bottom { transform-origin: center; }
+
+/* Dimension Labels */
+.sb-dim-label {
+  position: absolute;
+  font-size: 14px;
   white-space: nowrap;
+  transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
+  display: flex;
+  flex-direction: column;  /* This puts title and value on separate lines */
+  gap: 2px;
+  transform-style: preserve-3d;
 }
 
-.volume-label-height {
-  right: -40px;
-  top: 50%;
-  transform: translateY(-50%) rotateZ(-45deg) rotateX(-60deg);
-}
-
-.volume-label-length {
-  bottom: -35px;
-  left: 50%;
-  transform: translateX(-50%) rotateZ(-45deg) rotateX(-60deg);
-}
-
-.volume-label-width {
-  left: -40px;
-  top: 50%;
-  transform: translateY(-50%) rotateZ(-45deg) rotateX(-60deg);
-}
-
-.label-text {
-  color: #9A8C64;
-  font-size: 7px;
+.sb-dim-title {
+  font-size: 10px;
   letter-spacing: 1px;
+  color: #9A8C64;  /* This is already your khaki/gold color - keep it or change it */
   text-transform: uppercase;
 }
 
-.label-value {
-  color: #CBB8AA;
-  font-size: 9px;
+.sb-dim-value {
+  font-size: 14px;
+  color: #CBB8AA;  /* This is already your parchment color - change if you want */
   font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 
@@ -1217,31 +1186,41 @@ body::before {
 		<span class="sb-lbl">Total Hull HP</span>
 		<span class="sb-val" id="sb-hull-hp">—</span>
 	  </div>
-	  <div class="sb-volume">
-        <div class="ship-volume-3d" style="--length:51;--width:55;--height:19">
-          <div class="volume-isometric">
-            <!-- Top layer with box and labels -->
-            <div class="volume-layer volume-layer-top">
-              <div class="volume-box">
-                <div class="volume-face volume-face-top"></div>
-                <div class="volume-face volume-face-front"></div>
-                <div class="volume-face volume-face-right"></div>
-              </div>
-              <div class="volume-label volume-label-height">
-                <div class="label-text">Height</div>
-                <div class="label-value" id="sb-volume-h">19 m</div>
-              </div>
+	  <br>
+      <div class="sb-stats">
+        <div class="sb-lbl">Ship Dimensions</div>
+        
+        <!-- 3D Cube Visualization -->
+        <div class="sb-3d-scene">
+          <div class="sb-cube-wrapper">
+            <div class="sb-cube">
+              <div class="sb-face sb-front"></div>
+              <div class="sb-face sb-back"></div>
+              <div class="sb-face sb-right"></div>
+              <div class="sb-face sb-left"></div>
+              <div class="sb-face sb-top"></div>
+              <div class="sb-face sb-bottom"></div>
             </div>
-            <!-- Bottom layer with dimension labels -->
-            <div class="volume-layer volume-layer-bottom">
-              <div class="volume-label volume-label-length">
-                <div class="label-text">Length</div>
-                <div class="label-value" id="sb-volume-l">51 m</div>
-              </div>
-              <div class="volume-label volume-label-width">
-                <div class="label-text">Width</div>
-                <div class="label-value" id="sb-volume-w">55 m</div>
-              </div>
+            
+            <!-- Dimension Labels -->
+            <div class="sb-dim-label sb-dim-length">
+              <span class="sb-dim-title">Length</span>
+              <span class="sb-dim-value" id="dim-length">— m</span>
+            </div>
+            
+            <div class="sb-dim-label sb-dim-width">
+              <span class="sb-dim-title">Width</span>
+              <span class="sb-dim-value" id="dim-width">— m</span>
+            </div>
+            
+            <div class="sb-dim-label sb-dim-height">
+              <span class="sb-dim-title">Height</span>
+              <span class="sb-dim-value" id="dim-height">— m</span>
+            </div>
+            
+            <div class="sb-dim-label sb-dim-mass">
+              <span class="sb-dim-title">Mass</span>
+              <span class="sb-dim-value" id="dim-mass">— kg</span>
             </div>
           </div>
         </div>
@@ -1252,7 +1231,6 @@ body::before {
       <div class="nav-lbl">Sections</div>
       <a class="nav-a" href="#sec-overview">Overview</a>
       <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
-      <a class="nav-a" href="#sec-flight">Flight Performance</a>
       <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
       <a class="nav-a" href="#sec-cargo">Cargo</a>
       <a class="nav-a" href="#sec-fuel">Fuel</a>
@@ -1656,17 +1634,105 @@ body::before {
     document.getElementById('sb-mnv').textContent = ins_mnv;
     document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
   
-    // Update 3D volume box
-    const volumeEl = document.querySelector('.ship-volume-3d');
-    if (volumeEl) {
-      volumeEl.style.setProperty('--length', ship.length_m || 50);
-      volumeEl.style.setProperty('--width', ship.beam_m || 50);
-      volumeEl.style.setProperty('--height', ship.height_m || 20);
+    function updateShipDimensions(ship) {
+      const length = ship.length_m || 0;
+      const width = ship.beam_m || 0;
+      const height = ship.height_m || 0;
+      const mass = ship.mass_kg || 0;
+      
+      // Update text values
+      document.getElementById('dim-length').textContent = length ? `${fmt(length, 1)} m` : '— m';
+      document.getElementById('dim-width').textContent = width ? `${fmt(width, 1)} m` : '— m';
+      document.getElementById('dim-height').textContent = height ? `${fmt(height, 1)} m` : '— m';
+      document.getElementById('dim-mass').textContent = mass ? `${Math.round(mass).toLocaleString()} kg` : '— kg';
+      
+      // Calculate proportional scaling (0 to 1)
+      const maxDim = Math.max(length, width, height);
+      if (maxDim === 0) return; // No dimensions available
+      
+      const scaleLength = length / maxDim;  // e.g., 100/100 = 1.0
+      const scaleWidth = width / maxDim;    // e.g., 50/100 = 0.5
+      const scaleHeight = height / maxDim;  // e.g., 10/100 = 0.1
+      
+      const baseSize = 100; // Base cube size in pixels (for the 1.0 scale)
+      
+      const cube = document.querySelector('.sb-cube');
+      
+      // Apply scaling to the entire cube using scale3d
+      // scale3d(scaleWidth, scaleHeight, scaleLength)
+      // Note: In 3D space, X=width, Y=height, Z=depth(length)
+      cube.style.width = `${baseSize}px`;
+      cube.style.height = `${baseSize}px`;
+      cube.style.transform = `translate(-50%, -50%) scale3d(${scaleWidth}, ${scaleHeight}, ${scaleLength})`;
+      
+      const faces = document.querySelectorAll('.sb-face');
+      const halfSize = baseSize / 2;
+      
+      // Set all faces to base size
+      faces.forEach(face => {
+        face.style.width = `${baseSize}px`;
+        face.style.height = `${baseSize}px`;
+      });
+      
+      // Position faces at half the base size (they'll be scaled by parent cube)
+      document.querySelector('.sb-face.sb-front').style.transform = `translateZ(${halfSize}px)`;
+      document.querySelector('.sb-face.sb-back').style.transform = `translateZ(-${halfSize}px) rotateY(180deg)`;
+      document.querySelector('.sb-face.sb-right').style.transform = `rotateY(90deg) translateZ(${halfSize}px)`;
+      document.querySelector('.sb-face.sb-left').style.transform = `rotateY(-90deg) translateZ(${halfSize}px)`;
+      document.querySelector('.sb-face.sb-top').style.transform = `rotateX(90deg) translateZ(${halfSize}px)`;
+      document.querySelector('.sb-face.sb-bottom').style.transform = `rotateX(-90deg) translateZ(${halfSize}px)`;
+      
+      // Position labels flush with scaled cube faces
+      const scaledHalfWidth = halfSize * scaleWidth;
+      const scaledHalfHeight = halfSize * scaleHeight;
+      const scaledHalfLength = halfSize * scaleLength;
+      
+      const labelLength = document.querySelector('.sb-dim-length');
+      const labelWidth = document.querySelector('.sb-dim-width');
+      const labelHeight = document.querySelector('.sb-dim-height');
+      const labelMass = document.querySelector('.sb-dim-mass');
+      
+      // Length - bottom front edge, centered, lying flat
+      labelLength.style.transform = `
+        translate3d(${scaledHalfWidth}px, 0, ${scaledHalfLength * 0.5}px)
+        rotateX(90deg)
+		rotateZ(-90deg)
+      `;
+      labelLength.style.left = '50%';
+      labelLength.style.top = '50%';
+      
+      // Width - bottom left edge, rotated 90deg, lying flat
+      labelWidth.style.transform = `
+        translate3d(-${scaledHalfWidth}px, ${scaledHalfHeight}px, ${scaledHalfLength}px)
+        rotateX(90deg)
+        translateY(${scaledHalfHeight}px)
+      `;
+      labelWidth.style.left = '50%';
+      labelWidth.style.top = '50%';
+      
+      // Height - right side, parallel to screen
+      labelHeight.style.transform = `
+        translate3d(0, -50%, -${scaledHalfLength}px)
+		rotateY(0deg)
+		translateX(${scaledHalfWidth}px)
+		translateZ(-${scaledHalfHeight}px)
+		rotateY(45deg)
+		rotateX(45deg)
+      `;
+      labelHeight.style.left = '50%';
+      labelHeight.style.top = '50%';
+      
+      // Mass - top center, flush with top face, lying flat
+      labelMass.style.transform = `
+        translate3d(-${scaledHalfWidth}px, ${scaledHalfHeight}px, -${scaledHalfLength + 15}px)
+		rotateX(90deg)
+      `;
+      labelMass.style.left = '50%';
+      labelMass.style.top = '25%';
     }
-  
-    document.getElementById('sb-volume-l').textContent = `${fmt(ship.length_m, 0)} m`;
-    document.getElementById('sb-volume-w').textContent = `${fmt(ship.beam_m, 0)} m`;
-    document.getElementById('sb-volume-h').textContent = `${fmt(ship.height_m, 0)} m`;
+	
+	updateShipDimensions(ship);
+
   }   
       
 
