@@ -3,580 +3,213 @@
 
 {% block extra_css %}
 <style>
-/* ── Category View ─────────────────────────────────────────────────── */
-#category-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  padding: 8px 0;
+/* ── Breadcrumb ────────────────────────────────────────────────────── */
+.crafting-breadcrumb {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--text3); flex-wrap: wrap;
+}
+.crumb { cursor: pointer; color: var(--text2); transition: color 0.15s; }
+.crumb:hover { color: var(--accent); }
+.crumb.active { color: var(--text); font-weight: 600; cursor: default; }
+.crumb.active:hover { color: var(--text); }
+.crumb-sep { color: var(--text3); opacity: 0.6; }
+
+/* ── Category Grid ─────────────────────────────────────────────────── */
+.category-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px; padding: 8px 0;
 }
 .category-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 28px 20px;
-  cursor: pointer;
-  text-align: center;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 28px 20px; cursor: pointer; text-align: center;
   transition: border-color 0.15s, background 0.15s, transform 0.15s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
 }
-.category-card:hover {
-  border-color: var(--accent);
-  background: var(--bg3);
-  transform: translateY(-2px);
-}
-.category-card .cat-icon { font-size: 2rem; line-height: 1; }
+.category-card:hover { border-color: var(--accent); background: var(--bg3); transform: translateY(-2px); }
+.category-card .cat-icon { font-size: 2.2rem; line-height: 1; }
 .category-card .cat-name {
-  font-family: var(--font-ui);
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: var(--font-ui); font-size: 1.05rem; font-weight: 600;
+  color: var(--text); letter-spacing: 0.04em; text-transform: uppercase;
 }
-.category-card .cat-count {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text3);
+.category-card .cat-count { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text3); }
+
+.category-card .cat-icon { font-size: 2.2rem; line-height: 1; }
+
+.category-card .cat-icon img.cat-svg-icon {
+  width: 48px;
+  height: 48px;
+  filter: invert(1) brightness(0.85);  /* if your SVGs are dark, invert for the dark theme */
 }
 
-/* ── Blueprint List View ───────────────────────────────────────────── */
-#blueprint-view { display: none; }
-
-.view-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-.back-btn {
-  background: none;
-  border: 1px solid var(--border2);
-  border-radius: 4px;
-  color: var(--text2);
-  font-family: var(--font-ui);
-  font-size: 0.82rem;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.back-btn:hover { border-color: var(--accent); color: var(--accent); }
-.view-title {
-  font-family: var(--font-ui);
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-.view-subtitle {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text3);
-  margin-left: auto;
-}
-
-/* ── Blueprint Card Grid ───────────────────────────────────────────── */
+/* ── Blueprint card grid ─────────────────────────────────────────── */
 #blueprint-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px;
 }
-
 .bp-card {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s, background 0.15s;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; transition: border-color 0.15s, transform 0.15s, background 0.15s;
+  display: flex; flex-direction: column; overflow: hidden;
 }
-.bp-card:hover {
-  border-color: var(--accent);
-  transform: translateY(-2px);
-  background: var(--bg3);
-}
-
+.bp-card:hover { border-color: var(--accent); transform: translateY(-2px); background: var(--bg3); }
 .bp-card-header {
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
 }
 .bp-card-name {
-  font-family: var(--font-ui);
-  font-size: 0.97rem;
-  font-weight: 600;
-  color: var(--text);
-  line-height: 1.25;
-  flex: 1;
-  min-width: 0;
+  font-family: var(--font-ui); font-size: 0.97rem; font-weight: 600;
+  color: var(--text); line-height: 1.25; flex: 1; min-width: 0;
 }
 .bp-card-time {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text3);
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 2px 7px;
-  white-space: nowrap;
-  flex-shrink: 0;
-  align-self: flex-start;
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+  padding: 2px 7px; white-space: nowrap; flex-shrink: 0;
 }
-
-.bp-card-tags {
-  padding: 8px 16px 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.bp-card-ingredients {
-  padding: 10px 16px 14px;
-  flex: 1;
-}
+.bp-card-tags { padding: 8px 16px 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.bp-card-ingredients { padding: 10px 16px 14px; flex: 1; }
 .bp-card-ingredients-label {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 7px;
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 7px;
 }
-.bp-card-ingredient-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  min-height: 24px;
-}
+.bp-card-ingredient-list { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; }
 .bp-ingredient-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 3px 8px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text2);
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+  padding: 3px 8px; font-family: var(--font-mono); font-size: 0.72rem;
+  color: var(--text2); white-space: nowrap;
 }
-.bp-ingredient-chip .chip-qty {
-  color: var(--accent);
-  font-weight: 600;
-}
-
+.bp-ingredient-chip .chip-qty { color: var(--accent); font-weight: 600; }
 .bp-card-footer {
-  padding: 8px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  padding: 8px 16px; border-top: 1px solid var(--border); background: var(--bg2);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.bp-card-slots {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text3);
-}
+.bp-card-slots { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3); }
 .bp-card-slots span { color: var(--text2); font-weight: 600; }
 .bp-card-entity {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 160px;
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;
 }
-
-.bp-grid-empty {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 48px 24px;
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  color: var(--text3);
+.grid-empty {
+  grid-column: 1 / -1; text-align: center; padding: 48px 24px;
+  font-family: var(--font-mono); font-size: 0.82rem; color: var(--text3);
 }
 
 /* ── Tags ──────────────────────────────────────────────────────────── */
 .bp-tag {
-  display: inline-block;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--text2);
-  padding: 1px 6px;
-  white-space: nowrap;
+  display: inline-block; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 3px; font-family: var(--font-mono); font-size: 0.68rem;
+  color: var(--text2); padding: 1px 6px; white-space: nowrap;
 }
-.bp-tag.tag-energy    { border-color: var(--accent); color: var(--accent); }
-.bp-tag.tag-ballistic { border-color: var(--gold);   color: var(--gold); }
-.bp-tag.tag-laser     { border-color: #88ddff;       color: #88ddff; }
-.bp-tag.tag-plasma    { border-color: var(--purple);  color: var(--purple); }
-.bp-tag.tag-skin      { border-color: var(--orange);  color: var(--orange); }
+.bp-tag.tag-accent { border-color: var(--accent); color: var(--accent); }
+.bp-tag.tag-gold   { border-color: var(--gold);   color: var(--gold); }
 
 /* ── Modal ─────────────────────────────────────────────────────────── */
 #bp-modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(4, 8, 14, 0.85);
-  z-index: 200;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  display: none; position: fixed; inset: 0; background: rgba(4,8,14,0.85);
+  z-index: 200; align-items: center; justify-content: center; padding: 24px;
 }
 #bp-modal-overlay.open { display: flex; }
-
 #bp-modal {
-  background: var(--panel);
-  border: 1px solid var(--border2);
-  border-radius: 8px;
-  width: 100%;
-  max-width: 680px;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
-  display: flex;
-  flex-direction: column;
+  background: var(--panel); border: 1px solid var(--border2); border-radius: 8px;
+  width: 100%; max-width: 680px; max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7); display: flex; flex-direction: column;
 }
 .modal-header {
-  padding: 20px 24px 16px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  position: sticky;
-  top: 0;
-  background: var(--panel);
-  z-index: 1;
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+  position: sticky; top: 0; background: var(--panel); z-index: 1;
 }
 .modal-title-block { flex: 1; min-width: 0; }
 .modal-title {
-  font-family: var(--font-ui);
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  margin: 0 0 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-family: var(--font-ui); font-size: 1.2rem; font-weight: 700;
+  color: var(--text); letter-spacing: 0.03em; text-transform: uppercase;
+  margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .modal-entity { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3); }
 .modal-close {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text2);
-  font-size: 1.1rem;
-  width: 30px;
-  height: 30px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text2); font-size: 1.1rem; width: 30px; height: 30px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   transition: border-color 0.15s, color 0.15s;
 }
 .modal-close:hover { border-color: var(--red); color: var(--red); }
 .modal-meta {
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  gap: 24px;
-  flex-wrap: wrap;
-}
-/* ── Modal navigation ──────────────────────────────────────────────── */
-#modal-nav-bar {
-  padding: 8px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg2);
-}
-#modal-back-btn {
-  background: none;
-  border: 1px solid var(--border2);
-  border-radius: 4px;
-  color: var(--text2);
-  font-family: var(--font-ui);
-  font-size: 0.78rem;
-  padding: 4px 10px;
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-#modal-back-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-/* ── Mission drop section in blueprint detail ──────────────────────── */
-.modal-section-label {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin: 20px 0 8px;
-}
-.mission-chip-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.mission-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 5px 10px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text2);
-  cursor: pointer;
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
-  white-space: nowrap;
-}
-.mission-chip:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-dim);
-}
-.mission-chip .chip-faction {
-  color: var(--text3);
-  font-size: 0.65rem;
-}
-.mission-no-drops {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text3);
-  font-style: italic;
-}
-
-/* ── Mission detail view ───────────────────────────────────────────── */
-.mission-detail-header {
-  margin-bottom: 16px;
-}
-.mission-detail-name {
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--text);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.mission-detail-faction {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text2);
-}
-.mission-bp-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.mission-bp-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  gap: 12px;
-}
-.mission-bp-row:hover {
-  border-color: var(--accent);
-  background: var(--bg3);
-}
-.mission-bp-name {
-  font-family: var(--font-ui);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text);
-}
-.mission-bp-entity {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--text3);
-  margin-top: 2px;
-}
-.mission-bp-meta {
-  text-align: right;
-  flex-shrink: 0;
-}
-.mission-bp-time {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  color: var(--text2);
-}
-.mission-bp-category {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text3);
-  margin-top: 2px;
+  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  display: flex; gap: 24px; flex-wrap: wrap;
 }
 .modal-stat { display: flex; flex-direction: column; gap: 2px; }
 .modal-stat-label {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.08em;
 }
 .modal-stat-value {
-  font-family: var(--font-ui);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--accent);
+  font-family: var(--font-ui); font-size: 1rem; font-weight: 600; color: var(--accent);
 }
 .modal-body { padding: 20px 24px 24px; }
-
 .slots-required-note {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--gold);
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--gold-dim);
-  border: 1px solid var(--gold);
-  border-radius: 4px;
+  font-family: var(--font-mono); font-size: 0.78rem; color: var(--gold);
+  margin-bottom: 16px; padding: 8px 12px; background: var(--gold-dim);
+  border: 1px solid var(--gold); border-radius: 4px;
 }
 .slot-card {
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  margin-bottom: 12px;
-  overflow: hidden;
+  border: 1px solid var(--border); border-radius: 5px;
+  margin-bottom: 12px; overflow: hidden;
 }
 .slot-header {
-  background: var(--bg2);
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
+  background: var(--bg2); padding: 8px 14px;
+  display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);
 }
 .slot-number {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text3);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  padding: 1px 6px;
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px;
 }
 .slot-name {
-  font-family: var(--font-ui);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--text);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.slot-display {
-  font-family: var(--font-mono);
-  font-size: 0.73rem;
-  color: var(--text2);
-  margin-left: auto;
+  font-family: var(--font-ui); font-size: 0.88rem; font-weight: 600;
+  color: var(--text); letter-spacing: 0.05em; text-transform: uppercase;
 }
 .slot-ingredients { padding: 10px 14px; }
 .ingredient-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--border);
-  gap: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid var(--border); gap: 12px;
 }
 .ingredient-row:last-child { border-bottom: none; }
 .ingredient-name { font-family: var(--font-ui); font-size: 0.9rem; color: var(--text); }
 .ingredient-entity { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text3); margin-top: 1px; }
 .ingredient-qty {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--accent);
-  white-space: nowrap;
-  text-align: right;
-  flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 0.85rem; color: var(--accent);
+  white-space: nowrap; text-align: right; flex-shrink: 0;
 }
 .ingredient-type { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3); text-transform: uppercase; }
-.multi-option-note {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  color: var(--text3);
-  padding: 4px 0 2px;
-  font-style: italic;
-}
 
 /* ── Sidebar filters ───────────────────────────────────────────────── */
 .filter-group { margin-bottom: 20px; }
 .filter-input {
-  width: 100%;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 0.82rem;
-  padding: 7px 10px;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color 0.15s;
+  width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--font-mono); font-size: 0.82rem;
+  padding: 7px 10px; box-sizing: border-box; outline: none; transition: border-color 0.15s;
 }
 .filter-input:focus { border-color: var(--accent); }
 .filter-chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .filter-chip {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text2);
-  padding: 3px 8px;
-  cursor: pointer;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text2);
+  padding: 3px 8px; cursor: pointer; user-select: none;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
-  user-select: none;
 }
-.filter-chip:hover  { border-color: var(--accent); color: var(--accent); }
+.filter-chip:hover { border-color: var(--accent); color: var(--accent); }
 .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-.result-count {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text3);
-  margin-bottom: 10px;
-}
+.result-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text3); margin-bottom: 10px; }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="layout">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────────── -->
   <aside id="sidebar">
-    <div id="sidebar-category">
+    <div id="sidebar-intro">
       <div class="sidebar-section">
         <span class="section-label">Crafting</span>
         <p style="font-family:var(--font-body);font-size:0.82rem;color:var(--text2);line-height:1.5;margin:0;">
-          Select a category to browse available blueprints. Click any card to view the full ingredient list and slot details.
+          Browse blueprints by category. Click any card to drill down further, or click a blueprint card to view its full ingredient list.
         </p>
       </div>
     </div>
@@ -588,13 +221,9 @@
           <input type="search" id="filter-search" class="filter-input" placeholder="Search blueprints…">
         </div>
       </div>
-      <div class="sidebar-section" id="sidebar-weapon-filters" style="display:none;">
-        <span class="section-label">Weapon Type</span>
-        <div class="filter-chips" id="chips-weapon-type"></div>
-      </div>
-      <div class="sidebar-section" id="sidebar-ammo-filters" style="display:none;">
-        <span class="section-label">Ammo Type</span>
-        <div class="filter-chips" id="chips-ammo-type"></div>
+      <div class="sidebar-section" id="sidebar-sub-filters" style="display:none;">
+        <span class="section-label" id="sub-filter-label">Sub-Category</span>
+        <div class="filter-chips" id="chips-sub-level"></div>
       </div>
       <div class="sidebar-section">
         <span class="section-label">Craft Time</span>
@@ -616,30 +245,30 @@
     </div>
   </aside>
 
-  <!-- ── Main ─────────────────────────────────────────────────────── -->
   <main>
-    <div id="category-view">
-      <div class="loading">Loading categories…</div>
+    <div class="crafting-breadcrumb" id="breadcrumb">
+      <span class="crumb active" data-level="0">Crafting</span>
     </div>
-    <div id="blueprint-view">
-      <div class="view-header">
-        <button class="back-btn" id="btn-back">← Categories</button>
-        <span class="view-title" id="view-title">—</span>
-        <span class="view-subtitle" id="view-subtitle"></span>
+
+    <div id="top-level-view">
+      <div class="category-grid" id="top-level-grid">
+        <div class="grid-empty">Loading…</div>
       </div>
+    </div>
+
+    <div id="mid-level-view" style="display:none;">
+      <div class="category-grid" id="mid-level-grid"></div>
+    </div>
+
+    <div id="blueprint-view" style="display:none;">
       <div class="result-count" id="result-count"></div>
       <div id="blueprint-grid"></div>
     </div>
   </main>
 </div>
 
-<!-- ── Blueprint Detail Modal ──────────────────────────────────────── -->
 <div id="bp-modal-overlay">
   <div id="bp-modal">
-	<!-- Navigation back bar — hidden until user navigates into a mission -->
-    <div id="modal-nav-bar" style="display:none;">
-        <button id="modal-back-btn">← Back to Blueprint</button>
-    </div>
     <div class="modal-header">
       <div class="modal-title-block">
         <div class="modal-title" id="modal-title">—</div>
@@ -654,16 +283,12 @@
 {% endblock %}
 
 {% block page_script %}
-// ── State ──────────────────────────────────────────────────────────────
-let allBlueprints  = [];
-let filteredBPs    = [];
-let activeCategory = null;
-let activeFilters  = { search: "", weaponType: null, ammoType: null, time: "all", sort: "name" };
-const detailCache  = {};  // uuid:pv → detail object, avoids re-fetching
-const missionCache = {};  // mission_name:pv → mission detail object
-let modalHistory   = [];  // navigation stack: [{type, data}]
+let nav = { level: 0, top_level: null, top_display: null, mid_level: null, mid_display: null };
+let allBlueprints = [];
+let filteredBPs   = [];
+let activeFilters = { search: "", sub_level: null, time: "all", sort: "name" };
+const detailCache = {};
 
-// ── Formatters ────────────────────────────────────────────────────────
 function fmtTime(sec) {
   if (sec === null || sec === undefined) return "—";
   if (sec < 60)   return `${sec}s`;
@@ -671,129 +296,176 @@ function fmtTime(sec) {
   const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
   return m ? `${h}h ${m}m` : `${h}h`;
 }
-
-// standardCargoUnits (e.g. 0.03) → "3 cSCU" | item quantity → "×3"
 function fmtQty(ing) {
   if (ing.cost_type === "resource") return `${Math.round((ing.quantity||0) * 100)} cSCU`;
   return `×${Math.round(ing.quantity || 1)}`;
 }
 
-// ── Tag helpers ───────────────────────────────────────────────────────
-const WEAPON_TYPES = ["lmg","smg","pistol","rifle","shotgun","sniper","launcher","carbine","ar"];
-const AMMO_TYPES   = ["energy","ballistic","laser","plasma","incendiary"];
+const ICON_PATH = "/static/img/icons/";
 
-function extractTags(entityName) {
-  if (!entityName) return {};
-  const parts = entityName.toLowerCase().split("_");
-  const weaponType = WEAPON_TYPES.find(t => parts.includes(t));
-  const ammoType   = AMMO_TYPES.find(t => parts.includes(t));
-  const tintMatch  = entityName.match(/_tint(\d+)$/i);
-  return {
-    weaponType: weaponType ? weaponType.toUpperCase() : null,
-    ammoType:   ammoType   ? ammoType.charAt(0).toUpperCase() + ammoType.slice(1) : null,
-    skinIndex:  tintMatch  ? parseInt(tintMatch[1]) : 0,
-  };
-}
-
-function tagClass(ammoType) {
-  const t = (ammoType||"").toLowerCase();
-  return { energy:"tag-energy", ballistic:"tag-ballistic", laser:"tag-laser", plasma:"tag-plasma" }[t] || "";
+function svg(filename) {
+  return `<img src="${ICON_PATH}${filename}" alt="" class="cat-svg-icon" />`;
 }
 
 function catIcon(name) {
   if (!name) return "📦";
   const n = name.toLowerCase();
-  if (n.includes("weapon") || n.includes("smg")) return "🔫";
-  if (n.includes("armor")  || n.includes("armour") || n.includes("suit")) return "🛡️";
-  if (n.includes("ammo")   || n.includes("mag"))  return "🔋";
+  if (n.includes("fps gear") || n === "fpsgear")          return "🪖";
+  if (n.includes("vehicle gear") || n === "vehiclegear")  return "🚀";
+  if (n.includes("mission"))                              return "📋";
+  if (n.includes("weapon"))                               return "🔫";
+  if (n.includes("armor") || n.includes("armour") || n.includes("suit")) return "🛡️";
+  if (n.includes("ammo"))    return "🔋";
+
+  // ── Vehicle gear sub-categories — use SVG icons ──
+  if (n.includes("shield"))  return svg("ItemShields.svg");
+  if (n.includes("cooler"))  return svg("ItemCooler.svg");
+  if (n.includes("power"))   return svg("ItemPowerPlant.svg");
+  if (n.includes("quantum")) return svg("ItemQuantumdrive.svg");
+  if (n.includes("radar"))   return svg("ItemRadar.svg");
+  if (n.includes("mining"))  return svg("mininglaser.svg");
+  if (n.includes("refuel"))  return svg("refuelling.svg");
+  if (n.includes("salvage")) return svg("salvage.svg");
+  if (n.includes("tractor")) return svg("tractorbeam.svg");
+
   if (n.includes("medical")) return "💉";
-  if (n.includes("tool"))    return "🔧";
-  if (n.includes("ship"))    return "🚀";
   return "📦";
 }
 
-// ── Category View ──────────────────────────────────────────────────────
-async function loadCategories() {
-  const data = await api("/api/crafting/categories");
-  const view = document.getElementById("category-view");
-  if (!data || data.length === 0) {
-    view.innerHTML = '<p style="color:var(--text3);font-family:var(--font-mono);">No crafting data found. Run the crafting parser first.</p>';
-    return;
-  }
-  view.innerHTML = data.map(cat => `
-    <div class="category-card"
-         data-uuid="${cat.uuid}"
-         data-name="${cat.name || 'Unknown'}"
-         data-filtertype="${cat.filter_type || ''}">
-      <div class="cat-icon">${catIcon(cat.name)}</div>
-      <div class="cat-name">${cat.name || cat.uuid}</div>
-      <div class="cat-count">${cat.count} blueprint${cat.count !== 1 ? "s" : ""}</div>
-    </div>
-  `).join("");
-  view.querySelectorAll(".category-card").forEach(card => {
-    card.addEventListener("click", () =>
-      selectCategory(card.dataset.uuid, card.dataset.name, card.dataset.filtertype));
+
+function renderBreadcrumb() {
+  const el = document.getElementById("breadcrumb");
+  const crumbs = [{ label: "Crafting", level: 0 }];
+  if (nav.top_display) crumbs.push({ label: nav.top_display, level: 1 });
+  if (nav.mid_display) crumbs.push({ label: nav.mid_display, level: 2 });
+
+  el.innerHTML = crumbs.map((c, i) => {
+    const isLast = i === crumbs.length - 1;
+    return (i > 0 ? '<span class="crumb-sep">/</span>' : '')
+      + `<span class="crumb ${isLast ? 'active' : ''}" data-level="${c.level}">${c.label}</span>`;
+  }).join("");
+
+  el.querySelectorAll(".crumb:not(.active)").forEach(c => {
+    c.addEventListener("click", () => navigateTo(parseInt(c.dataset.level)));
   });
 }
 
-// ── Blueprint List View ────────────────────────────────────────────────
-async function selectCategory(uuid, name, filterType) {
-  activeCategory = { uuid, name, filterType };
-  document.getElementById("category-view").style.display   = "none";
-  document.getElementById("blueprint-view").style.display  = "block";
-  document.getElementById("sidebar-category").style.display  = "none";
-  document.getElementById("sidebar-blueprint").style.display = "block";
-  document.getElementById("view-title").textContent = name || "Unknown Category";
+function showLevel(level) {
+  nav.level = level;
+  document.getElementById("top-level-view").style.display     = level === 0 ? "" : "none";
+  document.getElementById("mid-level-view").style.display     = level === 1 ? "" : "none";
+  document.getElementById("blueprint-view").style.display     = level === 2 ? "" : "none";
+  document.getElementById("sidebar-intro").style.display      = level === 2 ? "none" : "";
+  document.getElementById("sidebar-blueprint").style.display  = level === 2 ? "" : "none";
+  renderBreadcrumb();
+}
 
-  activeFilters = { search: "", weaponType: null, ammoType: null, time: "all", sort: "name" };
+function navigateTo(level) {
+  if (level === 0) {
+    nav = { level: 0, top_level: null, top_display: null, mid_level: null, mid_display: null };
+    showLevel(0); loadTopLevels();
+  } else if (level === 1) {
+    nav.mid_level = null; nav.mid_display = null;
+    showLevel(1); loadMidLevels(nav.top_level);
+  }
+}
+
+async function loadTopLevels() {
+  const data = await api("/api/crafting/top_levels");
+  const grid = document.getElementById("top-level-grid");
+  if (!data || data.length === 0) {
+    grid.innerHTML = '<div class="grid-empty">No crafting data found. Run the parser first.</div>';
+    return;
+  }
+  grid.innerHTML = data.map(t => `
+    <div class="category-card" data-top="${t.top_level}" data-top-display="${t.top_display}">
+      <div class="cat-icon">${catIcon(t.top_display)}</div>
+      <div class="cat-name">${t.top_display}</div>
+      <div class="cat-count">${t.blueprint_count} blueprint${t.blueprint_count !== 1 ? "s" : ""}</div>
+    </div>`).join("");
+  grid.querySelectorAll(".category-card").forEach(card => {
+    card.addEventListener("click", () => {
+      nav.top_level   = card.dataset.top;
+      nav.top_display = card.dataset.topDisplay;
+      showLevel(1); loadMidLevels(nav.top_level);
+    });
+  });
+}
+
+async function loadMidLevels(topLevel) {
+  const grid = document.getElementById("mid-level-grid");
+  grid.innerHTML = '<div class="grid-empty">Loading categories…</div>';
+
+  const data = await api(`/api/crafting/categories?top_level=${encodeURIComponent(topLevel)}`);
+  if (!data || data.length === 0) {
+    grid.innerHTML = '<div class="grid-empty">No sub-categories found.</div>';
+    return;
+  }
+
+  // If only one mid-level, skip to blueprint view
+  if (data.length === 1) {
+    nav.mid_level   = data[0].mid_level;
+    nav.mid_display = data[0].mid_display;
+    showLevel(2); loadBlueprints();
+    return;
+  }
+
+  grid.innerHTML = data.map(m => `
+    <div class="category-card" data-mid="${m.mid_level || ''}" data-mid-display="${m.mid_display}">
+      <div class="cat-icon">${catIcon(m.mid_display)}</div>
+      <div class="cat-name">${m.mid_display}</div>
+      <div class="cat-count">${m.blueprint_count} blueprint${m.blueprint_count !== 1 ? "s" : ""}</div>
+    </div>`).join("");
+
+  grid.querySelectorAll(".category-card").forEach(card => {
+    card.addEventListener("click", () => {
+      nav.mid_level   = card.dataset.mid || null;
+      nav.mid_display = card.dataset.midDisplay;
+      showLevel(2); loadBlueprints();
+    });
+  });
+}
+
+async function loadBlueprints() {
+  activeFilters = { search: "", sub_level: null, time: "all", sort: "name" };
   document.getElementById("filter-search").value = "";
   document.querySelectorAll("[data-time]").forEach(c => c.classList.toggle("active", c.dataset.time === "all"));
   document.querySelectorAll("[data-sort]").forEach(c => c.classList.toggle("active", c.dataset.sort === "name"));
-  document.getElementById("blueprint-grid").innerHTML = '<div class="bp-grid-empty">Loading blueprints…</div>';
+  document.getElementById("blueprint-grid").innerHTML = '<div class="grid-empty">Loading blueprints…</div>';
 
-  const url = filterType === "ammo"
-    ? `/api/crafting/blueprints?category_uuid=${encodeURIComponent(uuid)}&subcategory=ammo`
-    : `/api/crafting/blueprints?category_uuid=${encodeURIComponent(uuid)}`;
+  let url = `/api/crafting/blueprints?top_level=${encodeURIComponent(nav.top_level)}`;
+  if (nav.mid_level) url += `&mid_level=${encodeURIComponent(nav.mid_level)}`;
 
   const data = await api(url);
   allBlueprints = data || [];
-
-  const hasWeaponTags = allBlueprints.some(bp => {
-    const t = extractTags(bp.output_name);
-    return t.weaponType || t.ammoType;
-  });
-  buildFilterChips(hasWeaponTags);
-  document.getElementById("sidebar-weapon-filters").style.display = hasWeaponTags ? "" : "none";
-  document.getElementById("sidebar-ammo-filters").style.display   = hasWeaponTags ? "" : "none";
-
+  await loadSubLevelChips();
   applyFilters();
 }
 
-function buildFilterChips(hasWeaponTags) {
-  if (!hasWeaponTags) return;
-  const weaponTypes = [...new Set(allBlueprints.map(bp => extractTags(bp.output_name).weaponType).filter(Boolean))].sort();
-  const ammoTypes   = [...new Set(allBlueprints.map(bp => extractTags(bp.output_name).ammoType).filter(Boolean))].sort();
+async function loadSubLevelChips() {
+  const subFilterEl = document.getElementById("sidebar-sub-filters");
+  if (!nav.mid_level) { subFilterEl.style.display = "none"; return; }
 
-  const wtC = document.getElementById("chips-weapon-type");
-  wtC.innerHTML = [`<span class="filter-chip active" data-wt="all">All</span>`,
-    ...weaponTypes.map(t => `<span class="filter-chip" data-wt="${t}">${t}</span>`)].join("");
+  const data = await api(
+    `/api/crafting/sublevels?top_level=${encodeURIComponent(nav.top_level)}&mid_level=${encodeURIComponent(nav.mid_level)}`
+  );
+  if (!data || data.length === 0) { subFilterEl.style.display = "none"; return; }
 
-  const atC = document.getElementById("chips-ammo-type");
-  atC.innerHTML = [`<span class="filter-chip active" data-at="all">All</span>`,
-    ...ammoTypes.map(t => `<span class="filter-chip ${tagClass(t)}" data-at="${t}">${t}</span>`)].join("");
+  subFilterEl.style.display = "";
+  const container = document.getElementById("chips-sub-level");
+  container.innerHTML = [
+    `<span class="filter-chip active" data-sub="all">All</span>`,
+    ...data.map(s => `<span class="filter-chip" data-sub="${s.sub_level}">${s.sub_display}</span>`)
+  ].join("");
 
-  wtC.querySelectorAll(".filter-chip").forEach(chip => chip.addEventListener("click", () => {
-    wtC.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
-    activeFilters.weaponType = chip.dataset.wt === "all" ? null : chip.dataset.wt;
-    applyFilters();
-  }));
-  atC.querySelectorAll(".filter-chip").forEach(chip => chip.addEventListener("click", () => {
-    atC.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active");
-    activeFilters.ammoType = chip.dataset.at === "all" ? null : chip.dataset.at;
-    applyFilters();
-  }));
+  container.querySelectorAll(".filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      container.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      activeFilters.sub_level = chip.dataset.sub === "all" ? null : chip.dataset.sub;
+      applyFilters();
+    });
+  });
 }
 
 function applyFilters() {
@@ -801,9 +473,7 @@ function applyFilters() {
   filteredBPs = allBlueprints.filter(bp => {
     const dn = (bp.output_display || bp.output_name || bp.entity_name || "").toLowerCase();
     if (search && !dn.includes(search) && !(bp.entity_name||"").toLowerCase().includes(search)) return false;
-    const tags = extractTags(bp.output_name);
-    if (activeFilters.weaponType && tags.weaponType !== activeFilters.weaponType) return false;
-    if (activeFilters.ammoType   && tags.ammoType   !== activeFilters.ammoType)   return false;
+    if (activeFilters.sub_level && bp.sub_level !== activeFilters.sub_level) return false;
     if (activeFilters.time !== "all") {
       const t = bp.craft_time_sec || 0;
       if (activeFilters.time === "fast" && t >= 60)             return false;
@@ -822,30 +492,23 @@ function applyFilters() {
   renderBlueprintCards();
 }
 
-// ── Card Renderer ──────────────────────────────────────────────────────
 function renderBlueprintCards() {
   const grid = document.getElementById("blueprint-grid");
-  document.getElementById("view-subtitle").textContent = `${filteredBPs.length} of ${allBlueprints.length}`;
-  document.getElementById("result-count").textContent  =
+  document.getElementById("result-count").textContent =
     `Showing ${filteredBPs.length} blueprint${filteredBPs.length !== 1 ? "s" : ""}`;
-
   if (filteredBPs.length === 0) {
-    grid.innerHTML = '<div class="bp-grid-empty">No blueprints match your filters.</div>';
+    grid.innerHTML = '<div class="grid-empty">No blueprints match your filters.</div>';
     return;
   }
-
   grid.innerHTML = filteredBPs.map(bp => {
-    const name  = bp.output_display || bp.output_name || bp.entity_name || "—";
+    const name   = bp.output_display || bp.output_name || bp.entity_name || "—";
     const entity = bp.output_name || bp.entity_name || "";
-    const tags  = extractTags(bp.output_name);
-    const tagHtml = [
-      tags.weaponType ? `<span class="bp-tag">${tags.weaponType}</span>` : "",
-      tags.ammoType   ? `<span class="bp-tag ${tagClass(tags.ammoType)}">${tags.ammoType}</span>` : "",
-      tags.skinIndex  ? `<span class="bp-tag tag-skin">Skin ${tags.skinIndex}</span>` : "",
-    ].filter(Boolean).join("");
+    const tags = [];
+    if (bp.sub_display)     tags.push(`<span class="bp-tag tag-accent">${bp.sub_display}</span>`);
+    if (bp.sub_sub_display) tags.push(`<span class="bp-tag tag-gold">${bp.sub_sub_display}</span>`);
+    const tagHtml = tags.join("");
     const slotsLabel = bp.slots_required != null
-      ? `<span>${bp.slots_required}</span> slot${bp.slots_required !== 1 ? "s" : ""}`
-      : "—";
+      ? `<span>${bp.slots_required}</span> slot${bp.slots_required !== 1 ? "s" : ""}` : "—";
 
     return `
       <div class="bp-card" data-uuid="${bp.uuid}" data-pv="${bp.patch_version}">
@@ -870,8 +533,6 @@ function renderBlueprintCards() {
   grid.querySelectorAll(".bp-card").forEach(card => {
     card.addEventListener("click", () => openModal(card.dataset.uuid, card.dataset.pv));
   });
-
-  // Prefetch ingredient data for all visible cards
   prefetchPreviews();
 }
 
@@ -885,12 +546,10 @@ async function prefetchPreviews() {
       const key  = `${uuid}:${pv}`;
       try {
         if (!detailCache[key]) {
-          detailCache[key] = await api(
-            `/api/crafting/blueprint/${encodeURIComponent(uuid)}?patch=${encodeURIComponent(pv)}`
-          );
+          detailCache[key] = await api(`/api/crafting/blueprint/${encodeURIComponent(uuid)}?patch=${encodeURIComponent(pv)}`);
         }
         populatePreview(uuid, detailCache[key]);
-      } catch(e) { /* silently skip */ }
+      } catch(e) {}
     }));
   }
 }
@@ -898,8 +557,6 @@ async function prefetchPreviews() {
 function populatePreview(uuid, detail) {
   const el = document.getElementById(`ing-${uuid}`);
   if (!el || !detail) return;
-
-  // Aggregate ingredients across all slots (de-duplicate by resource_name)
   const seen = new Map();
   (detail.slots || []).forEach(slot => {
     (slot.ingredients || []).forEach(ing => {
@@ -912,12 +569,10 @@ function populatePreview(uuid, detail) {
       }
     });
   });
-
   if (seen.size === 0) {
     el.innerHTML = `<span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text3);">No ingredients</span>`;
     return;
   }
-
   el.innerHTML = [...seen.values()].map(v => `
     <div class="bp-ingredient-chip">
       ${v.display_name}
@@ -927,13 +582,10 @@ function populatePreview(uuid, detail) {
     </div>`).join("");
 }
 
-// ── Modal ──────────────────────────────────────────────────────────────
 async function openModal(uuid, pv) {
   const key = `${uuid}:${pv}`;
   if (!detailCache[key]) {
-    detailCache[key] = await api(
-      `/api/crafting/blueprint/${encodeURIComponent(uuid)}?patch=${encodeURIComponent(pv)}`
-    );
+    detailCache[key] = await api(`/api/crafting/blueprint/${encodeURIComponent(uuid)}?patch=${encodeURIComponent(pv)}`);
   }
   const data = detailCache[key];
   if (!data) return;
@@ -953,17 +605,11 @@ async function openModal(uuid, pv) {
     </div>
     <div class="modal-stat">
       <span class="modal-stat-label">Category</span>
-      <span class="modal-stat-value" style="color:var(--text2);font-size:0.88rem;">${data.category_name || "—"}</span>
-    </div>
-    ${data.output_display ? `
-    <div class="modal-stat">
-      <span class="modal-stat-label">Output Item</span>
-      <span class="modal-stat-value" style="color:var(--text2);font-size:0.88rem;">${data.output_display}</span>
-    </div>` : ""}`;
+      <span class="modal-stat-value" style="color:var(--text2);font-size:0.82rem;">${data.category_path || "—"}</span>
+    </div>`;
 
   const slots = data.slots || [];
   let body = "";
-
   if (slots.length > 0) {
     const note = (data.slots_required && data.slots_required < slots.length)
       ? `⚠ Select ${data.slots_required} of ${slots.length} aspect slots to craft this item.`
@@ -977,12 +623,10 @@ async function openModal(uuid, pv) {
 
   slots.forEach((slot, i) => {
     const ings = slot.ingredients || [];
-    const multi = ings.length > 1;
-    const ingHtml = ings.map((ing, j) => {
+    const ingHtml = ings.map(ing => {
       const name   = ing.display_name || ing.resource_name || ing.resource_uuid || "Unknown";
       const entity = ing.resource_name || "";
       return `
-        ${multi && j > 0 ? `<div class="multi-option-note">— or —</div>` : ""}
         <div class="ingredient-row">
           <div>
             <div class="ingredient-name">${name}</div>
@@ -999,196 +643,20 @@ async function openModal(uuid, pv) {
       <div class="slot-card">
         <div class="slot-header">
           <span class="slot-number">Slot ${i + 1}</span>
-          <span class="slot-name">${slot.slot_debug_name || "—"}</span>
-          ${slot.slot_display && slot.slot_display !== slot.slot_debug_name
-            ? `<span class="slot-display">${slot.slot_display}</span>` : ""}
+          <span class="slot-name">${slot.slot_display || slot.slot_debug_name || "—"}</span>
         </div>
         <div class="slot-ingredients">${ingHtml}</div>
       </div>`;
   });
 
   document.getElementById("modal-body").innerHTML = body;
-  // Clear navigation history when opening a fresh blueprint
-  modalHistory = [];
-  document.getElementById("modal-nav-bar").style.display = "none";
-
   document.getElementById("bp-modal-overlay").classList.add("open");
   document.getElementById("bp-modal").scrollTop = 0;
-
-  // Append mission drops asynchronously after modal is visible
-  appendMissionDrops(uuid, pv, document.getElementById("modal-body"));
 }
 
-function closeModal() {
-  document.getElementById("bp-modal-overlay").classList.remove("open");
-}
-// ── Mission drop lookup — appended to blueprint modal body ─────────────
-async function appendMissionDrops(blueprintUuid, patchVersion, bodyEl) {
-  const key = `${blueprintUuid}:${patchVersion}`;
-  let missions;
-  try {
-    missions = await api(
-      `/api/crafting/blueprint/${encodeURIComponent(blueprintUuid)}/missions?patch=${encodeURIComponent(patchVersion)}`
-    );
-  } catch(e) { return; }
+function closeModal() { document.getElementById("bp-modal-overlay").classList.remove("open"); }
 
-  const section = document.createElement('div');
-
-  const label = document.createElement('div');
-  label.className = 'modal-section-label';
-  label.textContent = 'Drops From Missions';
-  section.appendChild(label);
-
-  if (!missions || missions.length === 0) {
-    const empty = document.createElement('div');
-    empty.className = 'mission-no-drops';
-    empty.textContent = 'Not found in any mission reward pool.';
-    section.appendChild(empty);
-  } else {
-    const chipList = document.createElement('div');
-    chipList.className = 'mission-chip-list';
-
-    missions.forEach(m => {
-      const chip = document.createElement('div');
-      chip.className = 'mission-chip';
-      chip.innerHTML = `
-        <span>${m.mission_name}</span>
-        ${m.faction ? `<span class="chip-faction">· ${m.faction}</span>` : ''}
-      `;
-      chip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMissionDetail(m.mission_name, patchVersion);
-      });
-      chipList.appendChild(chip);
-    });
-
-    section.appendChild(chipList);
-  }
-
-  bodyEl.appendChild(section);
-}
-
-// ── Mission detail view ────────────────────────────────────────────────
-async function openMissionDetail(missionName, patchVersion) {
-  const key = `${missionName}:${patchVersion}`;
-
-  if (!missionCache[key]) {
-    missionCache[key] = await api(
-      `/api/crafting/mission/${encodeURIComponent(missionName)}?patch=${encodeURIComponent(patchVersion)}`
-    );
-  }
-  const data = missionCache[key];
-  if (!data) return;
-
-  // Push current modal state onto history stack before navigating
-  modalHistory.push({
-    title:  document.getElementById("modal-title").textContent,
-    entity: document.getElementById("modal-entity").textContent,
-    meta:   document.getElementById("modal-meta").innerHTML,
-    body:   document.getElementById("modal-body").innerHTML,
-  });
-
-  // Show nav back bar
-  document.getElementById("modal-nav-bar").style.display = "block";
-
-  // Update modal header
-  document.getElementById("modal-title").textContent = missionName;
-  document.getElementById("modal-entity").textContent =
-    data.faction ? `Faction: ${data.faction}` : "Faction: Unknown";
-  document.getElementById("modal-meta").innerHTML = `
-    <div class="modal-stat">
-      <span class="modal-stat-label">Pool Size</span>
-      <span class="modal-stat-value">${data.blueprints?.length ?? 0}</span>
-    </div>
-    <div class="modal-stat">
-      <span class="modal-stat-label">Faction</span>
-      <span class="modal-stat-value" style="color:var(--text2);font-size:0.88rem;">
-        ${data.faction || "Unknown"}
-      </span>
-    </div>
-  `;
-
-  // Render blueprint list
-  const bps = data.blueprints || [];
-  let bodyHtml = "";
-
-  if (bps.length === 0) {
-    bodyHtml = `<p style="color:var(--text3);font-family:var(--font-mono);font-size:0.82rem;">No blueprints found in this pool.</p>`;
-  } else {
-    bodyHtml = `<div class="mission-bp-list">` +
-      bps.map(bp => {
-        const name   = bp.output_display || bp.output_name || bp.entity_name || "—";
-        const entity = bp.output_name || bp.entity_name || "";
-        return `
-          <div class="mission-bp-row"
-               data-uuid="${bp.blueprint_uuid}"
-               data-pv="${patchVersion}">
-            <div>
-              <div class="mission-bp-name">${name}</div>
-              ${entity && entity !== name
-                ? `<div class="mission-bp-entity">${entity}</div>` : ""}
-            </div>
-            <div class="mission-bp-meta">
-              <div class="mission-bp-time">${fmtTime(bp.craft_time_sec)}</div>
-              <div class="mission-bp-category">${bp.category_name || ""}</div>
-            </div>
-          </div>`;
-      }).join("") +
-    `</div>`;
-  }
-
-  document.getElementById("modal-body").innerHTML = bodyHtml;
-  document.getElementById("bp-modal").scrollTop = 0;
-
-  // Wire clicks on blueprint rows → navigate to that blueprint
-  document.querySelectorAll(".mission-bp-row").forEach(row => {
-    row.addEventListener("click", () => {
-      // Clear history so back button doesn't stack infinitely
-      modalHistory = [];
-      document.getElementById("modal-nav-bar").style.display = "none";
-      openModal(row.dataset.uuid, row.dataset.pv);
-    });
-  });
-}
-
-// ── Back / nav ─────────────────────────────────────────────────────────
-function showCategories() {
-  document.getElementById("blueprint-view").style.display  = "none";
-  document.getElementById("category-view").style.display   = "grid";
-  document.getElementById("sidebar-category").style.display  = "";
-  document.getElementById("sidebar-blueprint").style.display = "none";
-  activeCategory = null;
-  allBlueprints  = [];
-}
-
-document.getElementById("btn-back").addEventListener("click", showCategories);
 document.getElementById("modal-close").addEventListener("click", closeModal);
-document.getElementById("modal-back-btn").addEventListener("click", () => {
-  if (modalHistory.length === 0) return;
-  const prev = modalHistory.pop();
-
-  document.getElementById("modal-title").textContent  = prev.title;
-  document.getElementById("modal-entity").textContent = prev.entity;
-  document.getElementById("modal-meta").innerHTML     = prev.meta;
-  document.getElementById("modal-body").innerHTML     = prev.body;
-  document.getElementById("bp-modal").scrollTop       = 0;
-
-  // Hide nav bar if we're back at the root
-  if (modalHistory.length === 0) {
-    document.getElementById("modal-nav-bar").style.display = "none";
-  }
-
-  // Re-wire mission chip clicks since we restored innerHTML
-  document.querySelectorAll(".mission-chip").forEach(chip => {
-    const missionName = chip.querySelector("span").textContent.trim();
-    chip.addEventListener("click", (e) => {
-      e.stopPropagation();
-      // Get pv from the current active blueprint UUID in detailCache
-      const pv = Object.keys(detailCache)[0]?.split(":")[1];
-      if (pv) openMissionDetail(missionName, pv);
-    });
-  });
-});
 document.getElementById("bp-modal-overlay").addEventListener("click", e => {
   if (e.target === document.getElementById("bp-modal-overlay")) closeModal();
 });
@@ -1206,5 +674,6 @@ document.querySelectorAll("[data-sort]").forEach(chip => chip.addEventListener("
   chip.classList.add("active"); activeFilters.sort = chip.dataset.sort; applyFilters();
 }));
 
-loadCategories();
+loadTopLevels();
+renderBreadcrumb();
 {% endblock %}

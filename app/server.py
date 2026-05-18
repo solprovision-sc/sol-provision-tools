@@ -87,30 +87,42 @@ COMP_PARAMS = {
 }
 
 # ── Page routes ───────────────────────────────────────────────────────────────
+
 @app.route("/")
 def index(): return render_template("index.html", active_page="/")
+
 @app.route("/ships")
 def ships_page():
     return render_template("ships.html", active_page="/ships")
+
 @app.route("/ships/<entity_name>")
 def ship_detail(entity_name):
     return render_template("ship_detail.html", entity_name=entity_name, active_page="ships")
+
 #@app.route("/components")
 #def components_page(): return render_template("components.html", active_page="/components")
+
 #@app.route("/weapons/ship")
 #def weapons_ship_page(): return render_template("weapons_ship.html", active_page="/weapons/ship")
+
 #@app.route("/weapons/fps")
 #def weapons_fps_page(): return render_template("weapons_fps.html", active_page="/weapons/fps")
+
 #@app.route("/armor")
 #def armor_page(): return render_template("armor.html", active_page="/armor")
+
 @app.route("/crafting")
-def crafting(): return render_template("crafting.html", active_page="/crafting")
+def crafting():
+    return render_template("crafting.html", active_page="/crafting")
+
 #@app.route("/cargo-planner")
 #def cargo_planner_page():
 #    from flask import send_from_directory
 #    return send_from_directory("templates", "cargo_planner.html")
+
 @app.route("/ledger")
 def ledger(): return render_template("ledger.html", active_page="ledger")
+
 @app.route("/item_collection")
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
@@ -898,137 +910,215 @@ def api_armor():
         })
     return jsonify(result)
     
-# ── API: Categories ───────────────────────────────────────────────────────────
-#
-# Returns distinct categories with blueprint counts.
-# Joins crafting_blueprints with itself to get latest patch data.
-#
-# GET /api/crafting/categories
-# Response: [{uuid, name, count}]
+# ─────────────────────────────────────────────────────────────────────────────
+# CRAFTING — Add these routes to server.py
+# ─────────────────────────────────────────────────────────────────────────────
 
-@app.route("/api/crafting/categories")
-def api_crafting_categories():
-    db    = get_db()
+# ── API: Top-level categories ─────────────────────────────────────────────────
+# GET /api/crafting/top_levels
+# Returns the three top-level groupings (FPS Gear, Vehicle Gear, Mission Items)
+# with blueprint counts. Always uses latest patch.
+
+@app.route("/api/crafting/top_levels")
+def api_crafting_top_levels():
+    db = get_db()
     patch = latest_patch(db)
     if not patch:
         return jsonify([])
 
     rows = db.execute("""
         SELECT
-            cb.category_uuid,
-            cb.category_name,
-            CASE
-                WHEN cb.entity_name LIKE '%mag' AND cb.entity_name LIKE '%craft%'
-                THEN 'Ammo'
-                ELSE cb.category_name
-            END AS display_category,
-            COUNT(*) AS count
-        FROM crafting_blueprints cb
-        WHERE cb.patch_version = ?
-          AND cb.category_uuid IS NOT NULL
-        GROUP BY cb.category_uuid, display_category
-        ORDER BY display_category ASC
+            c.top_level,
+            c.top_display,
+            COUNT(b.uuid) AS blueprint_count
+        FROM crafting_categories c
+        LEFT JOIN crafting_blueprints b
+            ON b.category_id = c.id
+            AND b.patch_version = c.patch_version
+        WHERE c.patch_version = ?
+        GROUP BY c.top_level, c.top_display
+        HAVING blueprint_count > 0
+        ORDER BY c.top_display
     """, (patch,)).fetchall()
 
-    result = []
-    for r in rows:
-        result.append({
-            "uuid":        r["category_uuid"],
-            "name":        r["display_category"],
-            "filter_type": "ammo" if r["display_category"] == "Ammo" else "weapons",
-            "count":       r["count"],
+    return jsonify([dict(r) for r in rows])
+
+
+# ── API: Mid-level categories within a top level ─────────────────────────────
+# GET /api/crafting/categories?top_level=fpsgear
+# Returns mid-level categories under that top group.
+
+@app.route("/api/crafting/categories")
+def api_crafting_categories():
+    db = get_db()
+    patch = latest_patch(db)
+    top_level = request.args.get("top_level", "").strip()
+
+    if not patch or not top_level:
+        return jsonify([])
+
+    rows = db.execute("""
+        SELECT
+            c.mid_level,
+            c.mid_display,
+            COUNT(b.uuid) AS blueprint_count
+        FROM crafting_categories c
+        LEFT JOIN crafting_blueprints b
+            ON b.category_id = c.id
+            AND b.patch_version = c.patch_version
+        WHERE c.patch_version = ?
+          AND c.top_level = ?
+          AND c.mid_level IS NOT NULL
+        GROUP BY c.mid_level, c.mid_display
+        HAVING blueprint_count > 0
+        ORDER BY c.mid_display
+    """, (patch, top_level)).fetchall()
+
+    # Also count blueprints directly under the top level (no mid_level)
+    direct = db.execute("""
+        SELECT COUNT(b.uuid) AS cnt
+        FROM crafting_categories c
+        LEFT JOIN crafting_blueprints b
+            ON b.category_id = c.id
+            AND b.patch_version = c.patch_version
+        WHERE c.patch_version = ?
+          AND c.top_level = ?
+          AND c.mid_level IS NULL
+    """, (patch, top_level)).fetchone()
+
+    result = [dict(r) for r in rows]
+
+    # If there are blueprints directly under the top level, add an "All" pseudo-card
+    if direct and direct["cnt"] > 0:
+        result.insert(0, {
+            "mid_level":       None,
+            "mid_display":     "All Items",
+            "blueprint_count": direct["cnt"],
         })
 
     return jsonify(result)
 
 
-# ── API: Blueprint List ───────────────────────────────────────────────────────
-#
-# Returns all blueprints for a given category UUID (latest patch).
-# Joins entities table on output_uuid to get the authoritative display name.
-#
-# GET /api/crafting/blueprints?category_uuid=<uuid>
-# Response: [{uuid, patch_version, entity_name, display_name, category_name,
-#             output_uuid, output_name, output_display, craft_time_sec, slots_required}]
+# ── API: Sub-level categories (for filter chips) ──────────────────────────────
+# GET /api/crafting/sublevels?top_level=fpsgear&mid_level=armour
+# Returns distinct sub_level values found under (top, mid).
+
+@app.route("/api/crafting/sublevels")
+def api_crafting_sublevels():
+    db = get_db()
+    patch = latest_patch(db)
+    top_level = request.args.get("top_level", "").strip()
+    mid_level = request.args.get("mid_level", "").strip()
+
+    if not patch or not top_level:
+        return jsonify([])
+
+    rows = db.execute("""
+        SELECT DISTINCT
+            c.sub_level,
+            c.sub_display
+        FROM crafting_categories c
+        WHERE c.patch_version = ?
+          AND c.top_level = ?
+          AND c.mid_level = ?
+          AND c.sub_level IS NOT NULL
+        ORDER BY c.sub_display
+    """, (patch, top_level, mid_level)).fetchall()
+
+    return jsonify([dict(r) for r in rows])
+
+
+# ── API: Blueprint list ───────────────────────────────────────────────────────
+# GET /api/crafting/blueprints?top_level=&mid_level=&sub_level=
+# Returns blueprints matching the category filter.
 
 @app.route("/api/crafting/blueprints")
 def api_crafting_blueprints():
-    db           = get_db()
-    patch        = latest_patch(db)
-    category_uuid = request.args.get("category_uuid", "").strip()
-    subcategory   = request.args.get("subcategory", "").strip()  # 'ammo' or ''
+    db = get_db()
+    patch = latest_patch(db)
+    top_level = request.args.get("top_level", "").strip()
+    mid_level = request.args.get("mid_level", "").strip()
+    sub_level = request.args.get("sub_level", "").strip()
+
+    if not patch:
+        return jsonify([])
 
     query = """
         SELECT
-            cb.uuid,
-            cb.patch_version,
-            cb.entity_name,
-            cb.category_name,
-            cb.output_uuid,
-            cb.output_name,
-            COALESCE(e.display_name, cb.output_display, cb.output_name, cb.entity_name) AS output_display,
-            cb.craft_time_sec,
-            cb.slots_required
-        FROM crafting_blueprints cb
+            b.uuid,
+            b.patch_version,
+            b.entity_name,
+            b.output_uuid,
+            b.output_name,
+            COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) AS output_display,
+            b.craft_time_sec,
+            b.slots_required,
+            c.top_level,
+            c.mid_level,
+            c.sub_level,
+            c.sub_sub_level,
+            c.display_path,
+            c.sub_display,
+            c.sub_sub_display
+        FROM crafting_blueprints b
+        LEFT JOIN crafting_categories c
+            ON c.id = b.category_id
         LEFT JOIN entities e
-            ON e.uuid = cb.output_uuid
-           AND e.patch_version = cb.patch_version
-        WHERE cb.patch_version = ?
+            ON e.uuid = b.output_uuid
+            AND e.patch_version = b.patch_version
+        WHERE b.patch_version = ?
     """
     params = [patch]
 
-    if category_uuid:
-        query += " AND cb.category_uuid = ?"
-        params.append(category_uuid)
+    if top_level:
+        query += " AND c.top_level = ?"
+        params.append(top_level)
+    if mid_level:
+        query += " AND c.mid_level = ?"
+        params.append(mid_level)
+    if sub_level:
+        query += " AND c.sub_level = ?"
+        params.append(sub_level)
 
-    # Split ammo out from weapons within the same category UUID
-    if subcategory == "ammo":
-        query += " AND cb.entity_name LIKE '%mag' AND cb.entity_name LIKE '%craft%'"
-    elif category_uuid:
-        query += " AND NOT (cb.entity_name LIKE '%mag' AND cb.entity_name LIKE '%craft%')"
-
-    query += " ORDER BY COALESCE(e.display_name, cb.output_display, cb.output_name, cb.entity_name) ASC"
+    query += " ORDER BY COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) ASC"
 
     rows = db.execute(query, params).fetchall()
     return jsonify([dict(r) for r in rows])
 
 
-# ── API: Blueprint Detail ─────────────────────────────────────────────────────
-#
-# Returns full blueprint detail including all slots and ingredients.
-# All ingredient display names are resolved via entities join.
-#
-# GET /api/crafting/blueprint/<uuid>?patch=<patch_version>
-# Response: {uuid, entity_name, output_display, category_name, craft_time_sec,
-#            slots_required, slots: [{slot_debug_name, slot_display, ingredients: [...]}]}
+# ── API: Blueprint detail (with slots, ingredients, modifiers) ────────────────
+# GET /api/crafting/blueprint/<uuid>?patch=
+# Now also includes piecewise modifier ranges.
 
 @app.route("/api/crafting/blueprint/<uuid>")
 def api_crafting_blueprint_detail(uuid):
-    db    = get_db()
+    db = get_db()
     patch = request.args.get("patch") or latest_patch(db)
-
     if not patch:
         return jsonify({"error": "No patch data available"}), 404
 
-    # Blueprint header — join entities for authoritative output display name
     bp = db.execute("""
         SELECT
-            cb.uuid,
-            cb.patch_version,
-            cb.entity_name,
-            cb.category_name,
-            cb.category_uuid,
-            cb.output_uuid,
-            cb.output_name,
-            COALESCE(e.display_name, cb.output_display, cb.output_name, cb.entity_name) AS output_display,
-            cb.craft_time_sec,
-            cb.slots_required,
-            cb.has_optional
-        FROM crafting_blueprints cb
+            b.uuid,
+            b.patch_version,
+            b.entity_name,
+            b.output_uuid,
+            b.output_name,
+            COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) AS output_display,
+            b.craft_time_sec,
+            b.slots_required,
+            b.has_optional,
+            c.display_path AS category_path,
+            c.top_display,
+            c.mid_display,
+            c.sub_display,
+            c.sub_sub_display
+        FROM crafting_blueprints b
+        LEFT JOIN crafting_categories c ON c.id = b.category_id
         LEFT JOIN entities e
-            ON e.uuid = cb.output_uuid
-           AND e.patch_version = cb.patch_version
-        WHERE cb.uuid = ? AND cb.patch_version = ?
+            ON e.uuid = b.output_uuid
+            AND e.patch_version = b.patch_version
+        WHERE b.uuid = ? AND b.patch_version = ?
     """, (uuid, patch)).fetchone()
 
     if not bp:
@@ -1036,7 +1126,6 @@ def api_crafting_blueprint_detail(uuid):
 
     result = dict(bp)
 
-    # Slots
     slots = db.execute("""
         SELECT id, slot_index, slot_debug_name, slot_display
         FROM crafting_slots
@@ -1046,7 +1135,6 @@ def api_crafting_blueprint_detail(uuid):
 
     result["slots"] = []
     for slot in slots:
-        # Ingredients — join entities for display name resolution
         ingredients = db.execute("""
             SELECT
                 ci.cost_type,
@@ -1058,64 +1146,94 @@ def api_crafting_blueprint_detail(uuid):
             FROM crafting_ingredients ci
             LEFT JOIN entities e
                 ON e.uuid = ci.resource_uuid
-               AND e.patch_version = ci.patch_version
+                AND e.patch_version = ci.patch_version
             WHERE ci.slot_id = ?
             ORDER BY ci.id ASC
         """, (slot["id"],)).fetchall()
+
+        # Modifiers — collect all ranges and group by gameplay_prop_uuid
+        # so the UI can render piecewise curves correctly.
+        mod_rows = db.execute("""
+            SELECT
+                gameplay_prop_uuid,
+                gameplay_prop_name,
+                prop_display_name,
+                range_index,
+                modifier_at_start,
+                modifier_at_end,
+                start_quality,
+                end_quality
+            FROM crafting_slot_modifiers
+            WHERE slot_id = ?
+            ORDER BY gameplay_prop_uuid, range_index
+        """, (slot["id"],)).fetchall()
+
+        # Group rows by gameplay_prop_uuid → list of ranges
+        modifiers = []
+        current = None
+        for r in mod_rows:
+            if current is None or current["gameplay_prop_uuid"] != r["gameplay_prop_uuid"]:
+                current = {
+                    "gameplay_prop_uuid": r["gameplay_prop_uuid"],
+                    "gameplay_prop_name": r["gameplay_prop_name"],
+                    "prop_display_name":  r["prop_display_name"],
+                    "ranges":             [],
+                }
+                modifiers.append(current)
+            current["ranges"].append({
+                "range_index":       r["range_index"],
+                "modifier_at_start": r["modifier_at_start"],
+                "modifier_at_end":   r["modifier_at_end"],
+                "start_quality":     r["start_quality"],
+                "end_quality":       r["end_quality"],
+            })
 
         result["slots"].append({
             "slot_index":      slot["slot_index"],
             "slot_debug_name": slot["slot_debug_name"],
             "slot_display":    slot["slot_display"],
             "ingredients":     [dict(i) for i in ingredients],
+            "modifiers":       modifiers,
         })
 
     return jsonify(result)
-    
-# GET /api/crafting/blueprint/<uuid>/missions?patch=
-# Returns all mission pools that can drop this blueprint
+
+
+# ── API: Mission lookup for a blueprint (unchanged from 4.7) ──────────────────
+
 @app.route("/api/crafting/blueprint/<uuid>/missions")
 def api_crafting_blueprint_missions(uuid):
     db    = get_db()
     patch = request.args.get("patch") or latest_patch(db)
     if not patch:
         return jsonify([])
-
     rows = db.execute("""
-        SELECT DISTINCT
-            pool_uuid,
-            mission_name,
-            faction,
+        SELECT DISTINCT pool_uuid, mission_name, faction,
             COUNT(*) OVER (PARTITION BY pool_uuid) as pool_size
         FROM crafting_mission_pools
         WHERE blueprint_uuid = ? AND patch_version = ?
-        ORDER BY faction NULLS LAST, mission_name
+        ORDER BY faction, mission_name
     """, (uuid, patch)).fetchall()
-
     return jsonify([dict(r) for r in rows])
 
 
-# GET /api/crafting/mission/<mission_name>?patch=
-# Returns all blueprints in a mission pool
+# ── API: Mission detail (unchanged from 4.7) ─────────────────────────────────
+
 @app.route("/api/crafting/mission/<mission_name>")
 def api_crafting_mission_detail(mission_name):
     db    = get_db()
     patch = request.args.get("patch") or latest_patch(db)
     if not patch:
         return jsonify({})
-
-    # Get pool metadata
     pool = db.execute("""
         SELECT pool_uuid, mission_name, faction
         FROM crafting_mission_pools
         WHERE mission_name = ? AND patch_version = ?
         LIMIT 1
     """, (mission_name, patch)).fetchone()
-
     if not pool:
         return jsonify({"error": "Mission not found"}), 404
 
-    # Get all blueprints in this pool with resolved display names
     blueprints = db.execute("""
         SELECT
             cmp.blueprint_uuid,
@@ -1124,11 +1242,13 @@ def api_crafting_mission_detail(mission_name):
             cb.output_name,
             cb.craft_time_sec,
             cb.slots_required,
-            cb.category_name
+            c.display_path AS category_path
         FROM crafting_mission_pools cmp
         LEFT JOIN crafting_blueprints cb
             ON cb.uuid = cmp.blueprint_uuid
             AND cb.patch_version = cmp.patch_version
+        LEFT JOIN crafting_categories c
+            ON c.id = cb.category_id
         LEFT JOIN entities e
             ON e.uuid = cb.output_uuid
             AND e.patch_version = cb.patch_version
@@ -1142,7 +1262,8 @@ def api_crafting_mission_detail(mission_name):
         "faction":      pool["faction"],
         "blueprints":   [dict(b) for b in blueprints],
     })
-    
+
+ 
 # ─────────────────────────────────────────────────────────────────────────────
 # SHOPS — Add these routes to server.py
 # ─────────────────────────────────────────────────────────────────────────────
