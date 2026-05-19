@@ -319,6 +319,113 @@
   margin-top: 2px;
 }
 
+/* ── Mission count link (replaces inline chips) ────────────────────── */
+.mission-count-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 6px 0;
+  user-select: none;
+}
+.mission-count-link:hover { text-decoration: underline; }
+.mission-count-link .count-num { font-weight: 700; }
+.mission-count-link .count-cta {
+  color: var(--text3);
+  font-size: 0.72rem;
+}
+
+/* ── Missions popup (nested on top of blueprint modal) ─────────────── */
+#missions-popup-overlay {
+  position: fixed; inset: 0;
+  display: none;
+  background: rgba(0,0,0,0.55);
+  z-index: 1100;            /* above the blueprint modal (which is 1000) */
+  justify-content: center;
+  align-items: flex-start;
+  padding: 60px 16px;
+}
+#missions-popup-overlay.open { display: flex; }
+#missions-popup {
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 100%;
+  max-width: 640px;
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+.missions-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.missions-popup-title {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.missions-popup-close {
+  background: none; border: none; color: var(--text2);
+  font-size: 1.15rem; cursor: pointer; padding: 0 4px;
+}
+.missions-popup-body {
+  overflow-y: auto;
+  padding: 12px 18px 18px;
+}
+.popup-faction-section { margin-bottom: 14px; }
+.popup-faction-section:last-child { margin-bottom: 0; }
+.popup-faction-name {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin: 4px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.popup-mission-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.popup-mission-row:hover { background: var(--bg2); }
+.popup-mission-tier {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-radius: 3px;
+  padding: 2px 6px;
+  min-width: 36px;
+  text-align: center;
+}
+.popup-mission-tier.t-none { color: var(--text3); background: var(--bg2); }
+.popup-mission-title {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  color: var(--text);
+}
+.popup-mission-regions {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text3);
+  white-space: nowrap;
+}
 
 </style>
 {% endblock %}
@@ -403,6 +510,16 @@
     </div>
     <div class="modal-meta" id="modal-meta"></div>
     <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div id="missions-popup-overlay">
+  <div id="missions-popup">
+    <div class="missions-popup-header">
+      <div class="missions-popup-title" id="missions-popup-title">Missions that drop this blueprint</div>
+      <button class="missions-popup-close" id="missions-popup-close" aria-label="Close">✕</button>
+    </div>
+    <div class="missions-popup-body" id="missions-popup-body"></div>
   </div>
 </div>
 {% endblock %}
@@ -798,14 +915,21 @@ async function openModal(uuid, pv) {
 
 function closeModal() { document.getElementById("bp-modal-overlay").classList.remove("open"); }
 
-// ── Append mission drops to blueprint modal body ───────────────────────
+// ── Append "X missions" link to blueprint modal body ──────────────────
+// Caches the grouped mission data per blueprint:patch so the popup opens
+// instantly on the second click.
+const missionDropsCache = {};
+
 async function appendMissionDrops(blueprintUuid, patchVersion, bodyEl) {
-  let missions;
+  let data;
   try {
-    missions = await api(
+    data = await api(
       `/api/crafting/blueprint/${encodeURIComponent(blueprintUuid)}/missions?patch=${encodeURIComponent(patchVersion)}`
     );
   } catch(e) { return; }
+
+  const cacheKey = `${blueprintUuid}:${patchVersion}`;
+  missionDropsCache[cacheKey] = data;
 
   const section = document.createElement('div');
 
@@ -814,39 +938,96 @@ async function appendMissionDrops(blueprintUuid, patchVersion, bodyEl) {
   label.textContent = 'Drops From Missions';
   section.appendChild(label);
 
-  if (!missions || missions.length === 0) {
+  const total = data?.total || 0;
+  if (total === 0) {
     const empty = document.createElement('div');
     empty.className = 'mission-no-drops';
     empty.textContent = 'Not found in any mission reward pool.';
     section.appendChild(empty);
   } else {
-    const chipList = document.createElement('div');
-    chipList.className = 'mission-chip-list';
-
-    missions.forEach(m => {
-      const chip = document.createElement('div');
-      chip.className = 'mission-chip';
-      chip.innerHTML = `
-        <span>${m.mission_name}</span>
-        ${m.faction ? `<span class="chip-faction">· ${m.faction}</span>` : ''}
-      `;
-      chip.dataset.mission = m.mission_name;
-      chip.dataset.pv = patchVersion;
-      chip.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openMissionDetail(m.mission_name, patchVersion);
-      });
-      chipList.appendChild(chip);
+    const link = document.createElement('span');
+    link.className = 'mission-count-link';
+    link.dataset.blueprint = blueprintUuid;
+    link.dataset.pv = patchVersion;
+    link.innerHTML = `
+      <span class="count-num">${total}</span>
+      <span>${total === 1 ? 'mission' : 'missions'}</span>
+      <span class="count-cta">— view all</span>
+    `;
+    link.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMissionsPopup(blueprintUuid, patchVersion);
     });
-
-    section.appendChild(chipList);
+    section.appendChild(link);
   }
 
   bodyEl.appendChild(section);
 }
 
+// ── Missions popup ────────────────────────────────────────────────────
+async function openMissionsPopup(blueprintUuid, patchVersion) {
+  const cacheKey = `${blueprintUuid}:${patchVersion}`;
+  let data = missionDropsCache[cacheKey];
+  if (!data) {
+    try {
+      data = await api(
+        `/api/crafting/blueprint/${encodeURIComponent(blueprintUuid)}/missions?patch=${encodeURIComponent(patchVersion)}`
+      );
+      missionDropsCache[cacheKey] = data;
+    } catch(e) { return; }
+  }
+
+  const body = document.getElementById("missions-popup-body");
+  const titleEl = document.getElementById("missions-popup-title");
+
+  const total = data?.total || 0;
+  titleEl.textContent = `${total} mission${total === 1 ? '' : 's'} drop this blueprint`;
+
+  if (!data || !data.factions || data.factions.length === 0) {
+    body.innerHTML = `<p class="mission-no-drops">No missions found.</p>`;
+  } else {
+    body.innerHTML = data.factions.map(f => `
+      <div class="popup-faction-section">
+        <div class="popup-faction-name">${escapeHtml(f.name)}</div>
+        ${f.missions.map(m => `
+          <div class="popup-mission-row"
+               data-mission="${escapeHtml(m.mission_name)}"
+               data-title="${escapeHtml(m.title)}"
+               data-pv="${escapeHtml(patchVersion)}">
+            <span class="popup-mission-tier ${m.tier ? '' : 't-none'}">${m.tier || '—'}</span>
+            <span class="popup-mission-title">${escapeHtml(m.title)}</span>
+            <span class="popup-mission-regions">${(m.regions || []).join(', ')}</span>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+
+    body.querySelectorAll('.popup-mission-row').forEach(row => {
+      row.addEventListener('click', () => {
+        closeMissionsPopup();
+        openMissionDetail(row.dataset.mission, row.dataset.pv, row.dataset.title);
+      });
+    });
+  }
+
+  document.getElementById("missions-popup-overlay").classList.add("open");
+}
+
+function closeMissionsPopup() {
+  document.getElementById("missions-popup-overlay").classList.remove("open");
+}
+
+// Minimal HTML escape for popup row content
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 // ── Open mission detail view (drills into a mission's full blueprint pool) ──
-async function openMissionDetail(missionName, patchVersion) {
+//   displayTitle is optional — when provided, used as the modal title
+//   instead of the raw mission_name identifier.
+async function openMissionDetail(missionName, patchVersion, displayTitle) {
   const key = `${missionName}:${patchVersion}`;
 
   if (!missionCache[key]) {
@@ -868,8 +1049,8 @@ async function openMissionDetail(missionName, patchVersion) {
   // Show nav back bar
   document.getElementById("modal-nav-bar").style.display = "block";
 
-  // Update modal header
-  document.getElementById("modal-title").textContent = missionName;
+  // Update modal header — prefer the resolved title over the raw identifier
+  document.getElementById("modal-title").textContent = displayTitle || missionName;
   document.getElementById("modal-entity").textContent =
     data.faction ? `Faction: ${data.faction}` : "Faction: Unknown";
   document.getElementById("modal-meta").innerHTML = `
@@ -931,7 +1112,17 @@ document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("bp-modal-overlay").addEventListener("click", e => {
   if (e.target === document.getElementById("bp-modal-overlay")) closeModal();
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
+document.getElementById("missions-popup-close").addEventListener("click", closeMissionsPopup);
+document.getElementById("missions-popup-overlay").addEventListener("click", e => {
+  if (e.target === document.getElementById("missions-popup-overlay")) closeMissionsPopup();
+});
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  // Esc closes the popup first if it's open, then the modal on a second press.
+  const popupOpen = document.getElementById("missions-popup-overlay").classList.contains("open");
+  if (popupOpen) closeMissionsPopup();
+  else closeModal();
+});
 
 document.getElementById("filter-search").addEventListener("input", e => {
   activeFilters.search = e.target.value; applyFilters();
@@ -957,14 +1148,13 @@ document.getElementById("modal-back-btn").addEventListener("click", () => {
   // Hide nav bar if we're back at the root
   if (modalHistory.length === 0) {
     document.getElementById("modal-nav-bar").style.display = "none";
-    document.getElementById("modal-nav-bar").style.display = "none";
   }
 
-  // Re-wire mission chip clicks since we restored innerHTML
-  document.querySelectorAll(".mission-chip").forEach(chip => {
-    chip.addEventListener("click", (e) => {
+  // Re-wire the missions count link since we restored innerHTML
+  document.querySelectorAll(".mission-count-link").forEach(link => {
+    link.addEventListener("click", (e) => {
       e.stopPropagation();
-      openMissionDetail(chip.dataset.mission, chip.dataset.pv);
+      openMissionsPopup(link.dataset.blueprint, link.dataset.pv);
     });
   });
 });

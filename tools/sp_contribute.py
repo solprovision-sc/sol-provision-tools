@@ -220,7 +220,7 @@ def step_create_branch():
     while True:
         name = ask("Feature branch name (feature/...):")
         # Strip prefix if user typed it manually
-        name = name.removeprefix(BRANCH_PREFIX).strip()
+        name = name[len(BRANCH_PREFIX):].strip() if name.startswith(BRANCH_PREFIX) else name.strip()
         # Sanitize — lowercase, spaces to hyphens
         name = name.lower().replace(" ", "-").replace("_", "-")
         branch = f"{BRANCH_PREFIX}{name}"
@@ -279,15 +279,13 @@ def step_stage_files():
         if confirm("Exit without committing?"):
             sys.exit(0)
 
-    # Parse file list
+    # Parse file list — porcelain format: 'XY path' but spacing can vary
+    # safest approach is to split on whitespace and take everything after the status code
     all_files = []
     for line in status.splitlines():
-        # porcelain format: 'XY filepath' — status code is always first 2 chars
-        # split on the space after the status code rather than hardcoding index
-        if len(line) < 4:
+        if len(line) < 3:
             continue
-        # status code = line[:2], space = line[2], path = line[3:]
-        # but strip any leading/trailing whitespace from the path to be safe
+        # Use lstrip on the path portion to handle 1 or 2 spaces after status code
         raw_path = line[2:].lstrip()
         if " -> " in raw_path:
             # renamed file: 'old -> new' — we want the new name

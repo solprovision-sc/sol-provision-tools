@@ -1199,22 +1199,158 @@ def api_crafting_blueprint_detail(uuid):
     return jsonify(result)
 
 
-# ── API: Mission lookup for a blueprint (unchanged from 4.7) ──────────────────
+# ── API: Mission lookup for a blueprint ───────────────────────────────────────
+#
+# Resolves each blueprint to the real, human-readable missions that drop it.
+# Returns a grouped structure:
+#
+#   { "total": <int>,
+#     "factions": [
+#        { "name": "Bit Zeros",
+#          "missions": [
+#             { "title": "Data Transfer", "tier": "Intro",
+#               "regions": ["Stanton", "Nyx"],
+#               "pool_uuid": "...", "mission_name": "BitZeros_BlackBoxRecovery" },
+#             ...
+#          ]
+#        }, ...
+#     ]
+#   }
+#
+# Pools without a contract link (XenoThreat / collector / event rewards) appear
+# under an "Other" faction with prettified mission_name as the title.
+
+import re as _re
+
+_TIER_ORDER = {"Intro": 0, "VE": 1, "E": 2, "M": 3, "H": 4, "VH": 5, "S": 6}
+_REGION_RX = _re.compile(r"(?:^|[_ ])(Stanton|Nyx|Pyro)(?:[_ ]|$)", _re.I)
+
+def _extract_region(*candidates):
+    for c in candidates:
+        if not c:
+            continue
+        m = _REGION_RX.search(c)
+        if m:
+            return m.group(1).title()
+    return None
+
+def _prettify_mission_name(name):
+    """Turn 'XenoThreat2_15_01' / 'BitZeros_BlackBoxRecovery' into readable text."""
+    if not name:
+        return ""
+    s = name.replace("_", " ")
+    # Insert spaces between camel-case transitions.
+    s = _re.sub(r"(?<=[a-z])(?=[A-Z])", " ", s)
+    s = _re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
+    return _re.sub(r"\s+", " ", s).strip()
+
 
 @app.route("/api/crafting/blueprint/<uuid>/missions")
 def api_crafting_blueprint_missions(uuid):
     db    = get_db()
     patch = request.args.get("patch") or latest_patch(db)
     if not patch:
-        return jsonify([])
-    rows = db.execute("""
-        SELECT DISTINCT pool_uuid, mission_name, faction,
-            COUNT(*) OVER (PARTITION BY pool_uuid) as pool_size
+        return jsonify({"factions": [], "total": 0})
+
+    # 1) Every pool this blueprint can drop from
+    pools = db.execute("""
+        SELECT DISTINCT pool_uuid, mission_name, faction
         FROM crafting_mission_pools
         WHERE blueprint_uuid = ? AND patch_version = ?
-        ORDER BY faction, mission_name
     """, (uuid, patch)).fetchall()
-    return jsonify([dict(r) for r in rows])
+    if not pools:
+        return jsonify({"factions": [], "total": 0})
+
+    pool_uuids = [p["pool_uuid"] for p in pools]
+    placeholders = ",".join("?" * len(pool_uuids))
+
+    # 2) Every contract that drops from any of those pools
+    rows = db.execute(f"""
+        SELECT
+            r.pool_uuid,
+            c.title_resolved,
+            c.tier,
+            c.career_debug_name,
+            c.debug_name,
+            o.display_name AS org_display,
+            o.name         AS org_name,
+            cmp.mission_name,
+            cmp.faction    AS pool_faction
+        FROM contract_blueprint_rewards r
+        JOIN contracts c
+          ON c.contract_uuid = r.contract_uuid
+         AND c.patch_version = r.patch_version
+        LEFT JOIN mission_organizations o
+          ON o.org_uuid = c.contractor_org_uuid
+         AND o.patch_version = c.patch_version
+        JOIN crafting_mission_pools cmp
+          ON cmp.pool_uuid = r.pool_uuid
+         AND cmp.patch_version = r.patch_version
+         AND cmp.blueprint_uuid = ?
+        WHERE r.pool_uuid IN ({placeholders})
+          AND r.patch_version = ?
+    """, (uuid, *pool_uuids, patch)).fetchall()
+
+    # 3) Aggregate: faction → { (title, tier) → {regions, pool_uuid, mission_name} }
+    grouped = {}
+    pools_with_contracts = set()
+    for r in rows:
+        faction = r["org_display"] or r["org_name"] or "Unknown"
+        title   = r["title_resolved"] or _prettify_mission_name(r["mission_name"])
+        tier    = r["tier"]
+        region  = _extract_region(r["debug_name"], r["career_debug_name"])
+        key     = (title, tier)
+        slot    = grouped.setdefault(faction, {}).setdefault(key, {
+            "regions": set(),
+            "pool_uuid": r["pool_uuid"],
+            "mission_name": r["mission_name"],
+        })
+        if region:
+            slot["regions"].add(region)
+        pools_with_contracts.add(r["pool_uuid"])
+
+    factions = []
+    for faction_name in sorted(grouped, key=str.lower):
+        missions = []
+        for (title, tier), info in grouped[faction_name].items():
+            missions.append({
+                "title":        title,
+                "tier":         tier,
+                "regions":      sorted(info["regions"]),
+                "pool_uuid":    info["pool_uuid"],
+                "mission_name": info["mission_name"],
+            })
+        missions.sort(key=lambda m: (
+            _TIER_ORDER.get(m["tier"], 99),
+            m["title"].lower(),
+        ))
+        factions.append({"name": faction_name, "missions": missions})
+
+    # 4) Orphan pools (no contract linkage — XenoThreat, collectors, events)
+    orphans = [p for p in pools if p["pool_uuid"] not in pools_with_contracts]
+    if orphans:
+        by_faction = {}
+        for p in orphans:
+            faction = _prettify_mission_name(p["faction"]) if p["faction"] else "Other"
+            by_faction.setdefault(faction or "Other", []).append({
+                "title":        _prettify_mission_name(p["mission_name"]),
+                "tier":         None,
+                "regions":      [],
+                "pool_uuid":    p["pool_uuid"],
+                "mission_name": p["mission_name"],
+            })
+        for faction_name in sorted(by_faction, key=str.lower):
+            missions = by_faction[faction_name]
+            missions.sort(key=lambda m: m["title"].lower())
+            # Merge into an existing faction bucket if same name; otherwise append
+            existing = next((f for f in factions if f["name"].lower() == faction_name.lower()), None)
+            if existing:
+                existing["missions"].extend(missions)
+            else:
+                factions.append({"name": faction_name, "missions": missions})
+
+    total = sum(len(f["missions"]) for f in factions)
+    return jsonify({"factions": factions, "total": total})
 
 
 # ── API: Mission detail (unchanged from 4.7) ─────────────────────────────────
