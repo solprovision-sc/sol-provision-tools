@@ -420,6 +420,10 @@
   font-size: 0.85rem;
   color: var(--text);
 }
+.mission-var {
+  color: #E8855C;
+  font-weight: 600;
+}
 .popup-mission-regions {
   font-family: var(--font-mono);
   font-size: 0.7rem;
@@ -995,7 +999,7 @@ async function openMissionsPopup(blueprintUuid, patchVersion) {
                data-title="${escapeHtml(m.title)}"
                data-pv="${escapeHtml(patchVersion)}">
             <span class="popup-mission-tier ${m.tier ? '' : 't-none'}">${m.tier || '—'}</span>
-            <span class="popup-mission-title">${escapeHtml(m.title)}</span>
+            <span class="popup-mission-title">${formatMissionTokens(m.title)}</span>
             <span class="popup-mission-regions">${(m.regions || []).join(', ')}</span>
           </div>
         `).join('')}
@@ -1024,6 +1028,25 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+// Replace runtime substitution tokens like `~mission(Location|Address)` with a
+// styled `[Location|Address]` span. Surrounding text is escaped so this returns
+// HTML safe to drop into innerHTML.
+function formatMissionTokens(s) {
+  if (s == null) return "";
+  const str = String(s);
+  const rx = /~mission\(([^)]+)\)/g;
+  let out = "";
+  let lastIdx = 0;
+  let m;
+  while ((m = rx.exec(str)) !== null) {
+    if (m.index > lastIdx) out += escapeHtml(str.slice(lastIdx, m.index));
+    out += `<span class="mission-var">[${escapeHtml(m[1])}]</span>`;
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < str.length) out += escapeHtml(str.slice(lastIdx));
+  return out;
+}
+
 // ── Open mission detail view (drills into a mission's full blueprint pool) ──
 //   displayTitle is optional — when provided, used as the modal title
 //   instead of the raw mission_name identifier.
@@ -1049,8 +1072,11 @@ async function openMissionDetail(missionName, patchVersion, displayTitle) {
   // Show nav back bar
   document.getElementById("modal-nav-bar").style.display = "block";
 
-  // Update modal header — prefer the resolved title over the raw identifier
-  document.getElementById("modal-title").textContent = displayTitle || missionName;
+  // Update modal header — prefer the resolved title over the raw identifier.
+  // Use innerHTML so runtime tokens like ~mission(Location) render as styled
+  // [Location] spans instead of leaking through as literal text.
+  document.getElementById("modal-title").innerHTML =
+    formatMissionTokens(displayTitle || missionName);
   document.getElementById("modal-entity").textContent =
     data.faction ? `Faction: ${data.faction}` : "Faction: Unknown";
   document.getElementById("modal-meta").innerHTML = `
