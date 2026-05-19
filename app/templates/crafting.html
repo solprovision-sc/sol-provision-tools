@@ -198,6 +198,128 @@
 .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
 .filter-chip.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .result-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text3); margin-bottom: 10px; }
+
+/* ── Modal navigation back bar ─────────────────────────────────────── */
+#modal-nav-bar {
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+#modal-back-btn {
+  background: none;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  color: var(--text2);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+#modal-back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Mission drop section in blueprint modal ───────────────────────── */
+.modal-section-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 24px 0 8px;
+}
+.mission-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mission-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  white-space: nowrap;
+}
+.mission-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.mission-chip .chip-faction {
+  color: var(--text3);
+  font-size: 0.65rem;
+}
+.mission-no-drops {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text3);
+  font-style: italic;
+}
+
+/* ── Mission detail view ───────────────────────────────────────────── */
+.mission-detail-header { margin-bottom: 16px; }
+.mission-bp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mission-bp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  gap: 12px;
+}
+.mission-bp-row:hover {
+  border-color: var(--accent);
+  background: var(--bg3);
+}
+.mission-bp-name {
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.mission-bp-entity {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.mission-bp-meta {
+  text-align: right;
+  flex-shrink: 0;
+}
+.mission-bp-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text2);
+}
+.mission-bp-category {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+
 </style>
 {% endblock %}
 
@@ -269,6 +391,9 @@
 
 <div id="bp-modal-overlay">
   <div id="bp-modal">
+	<div id="modal-nav-bar" style="display:none;">
+      <button id="modal-back-btn">← Back to Blueprint</button>
+    </div>
     <div class="modal-header">
       <div class="modal-title-block">
         <div class="modal-title" id="modal-title">—</div>
@@ -288,6 +413,8 @@ let allBlueprints = [];
 let filteredBPs   = [];
 let activeFilters = { search: "", sub_level: null, time: "all", sort: "name" };
 const detailCache = {};
+const missionCache = {};  // mission_name:pv → mission detail object
+let modalHistory   = [];  // navigation stack: [{title, entity, meta, body}]
 
 function fmtTime(sec) {
   if (sec === null || sec === undefined) return "—";
@@ -622,21 +749,28 @@ async function openModal(uuid, pv) {
   }
 
   slots.forEach((slot, i) => {
-    const ings = slot.ingredients || [];
-    const ingHtml = ings.map(ing => {
-      const name   = ing.display_name || ing.resource_name || ing.resource_uuid || "Unknown";
-      const entity = ing.resource_name || "";
-      return `
-        <div class="ingredient-row">
-          <div>
-            <div class="ingredient-name">${name}</div>
-            ${entity && entity !== name ? `<div class="ingredient-entity">${entity}</div>` : ""}
-          </div>
-          <div style="text-align:right;">
-            <div class="ingredient-qty">${fmtQty(ing)}</div>
-            <div class="ingredient-type">${ing.cost_type || ""}</div>
-          </div>
-        </div>`;
+        const ings = slot.ingredients || [];
+        const ingHtml = ings.map(ing => {
+          const name   = ing.display_name || ing.resource_name || ing.resource_uuid || "Unknown";
+          const entity = ing.resource_name || "";
+
+          // Hide entity sub-line when it's a carryable filename for a resolved commodity —
+          // those are noise. Show it only when it adds useful info (e.g. a specific
+          // item variant that we don't have a friendlier name for).
+          const isCommodityCarryable = entity.startsWith("carryable_") && name && !name.startsWith("carryable_");
+          const showEntity = entity && entity !== name && !isCommodityCarryable;
+
+          return `
+            <div class="ingredient-row">
+              <div>
+                <div class="ingredient-name">${name}</div>
+                ${showEntity ? `<div class="ingredient-entity">${entity}</div>` : ""}
+              </div>
+              <div style="text-align:right;">
+                <div class="ingredient-qty">${fmtQty(ing)}</div>
+                <div class="ingredient-type">${ing.cost_type || ""}</div>
+              </div>
+            </div>`;
     }).join("");
 
     body += `
@@ -650,11 +784,148 @@ async function openModal(uuid, pv) {
   });
 
   document.getElementById("modal-body").innerHTML = body;
+  // Clear navigation history when opening a fresh blueprint
+  modalHistory = [];
+  document.getElementById("modal-nav-bar").style.display = "none";
+
   document.getElementById("bp-modal-overlay").classList.add("open");
   document.getElementById("bp-modal").scrollTop = 0;
+
+  // Append mission drops asynchronously after modal is visible
+  appendMissionDrops(uuid, pv, document.getElementById("modal-body"));
+  
 }
 
 function closeModal() { document.getElementById("bp-modal-overlay").classList.remove("open"); }
+
+// ── Append mission drops to blueprint modal body ───────────────────────
+async function appendMissionDrops(blueprintUuid, patchVersion, bodyEl) {
+  let missions;
+  try {
+    missions = await api(
+      `/api/crafting/blueprint/${encodeURIComponent(blueprintUuid)}/missions?patch=${encodeURIComponent(patchVersion)}`
+    );
+  } catch(e) { return; }
+
+  const section = document.createElement('div');
+
+  const label = document.createElement('div');
+  label.className = 'modal-section-label';
+  label.textContent = 'Drops From Missions';
+  section.appendChild(label);
+
+  if (!missions || missions.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'mission-no-drops';
+    empty.textContent = 'Not found in any mission reward pool.';
+    section.appendChild(empty);
+  } else {
+    const chipList = document.createElement('div');
+    chipList.className = 'mission-chip-list';
+
+    missions.forEach(m => {
+      const chip = document.createElement('div');
+      chip.className = 'mission-chip';
+      chip.innerHTML = `
+        <span>${m.mission_name}</span>
+        ${m.faction ? `<span class="chip-faction">· ${m.faction}</span>` : ''}
+      `;
+      chip.dataset.mission = m.mission_name;
+      chip.dataset.pv = patchVersion;
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openMissionDetail(m.mission_name, patchVersion);
+      });
+      chipList.appendChild(chip);
+    });
+
+    section.appendChild(chipList);
+  }
+
+  bodyEl.appendChild(section);
+}
+
+// ── Open mission detail view (drills into a mission's full blueprint pool) ──
+async function openMissionDetail(missionName, patchVersion) {
+  const key = `${missionName}:${patchVersion}`;
+
+  if (!missionCache[key]) {
+    missionCache[key] = await api(
+      `/api/crafting/mission/${encodeURIComponent(missionName)}?patch=${encodeURIComponent(patchVersion)}`
+    );
+  }
+  const data = missionCache[key];
+  if (!data) return;
+
+  // Push current modal state onto history stack before navigating
+  modalHistory.push({
+    title:  document.getElementById("modal-title").textContent,
+    entity: document.getElementById("modal-entity").textContent,
+    meta:   document.getElementById("modal-meta").innerHTML,
+    body:   document.getElementById("modal-body").innerHTML,
+  });
+
+  // Show nav back bar
+  document.getElementById("modal-nav-bar").style.display = "block";
+
+  // Update modal header
+  document.getElementById("modal-title").textContent = missionName;
+  document.getElementById("modal-entity").textContent =
+    data.faction ? `Faction: ${data.faction}` : "Faction: Unknown";
+  document.getElementById("modal-meta").innerHTML = `
+    <div class="modal-stat">
+      <span class="modal-stat-label">Pool Size</span>
+      <span class="modal-stat-value">${data.blueprints?.length ?? 0}</span>
+    </div>
+    <div class="modal-stat">
+      <span class="modal-stat-label">Faction</span>
+      <span class="modal-stat-value" style="color:var(--text2);font-size:0.88rem;">
+        ${data.faction || "Unknown"}
+      </span>
+    </div>
+  `;
+
+  // Render blueprint list
+  const bps = data.blueprints || [];
+  let bodyHtml = "";
+
+  if (bps.length === 0) {
+    bodyHtml = `<p style="color:var(--text3);font-family:var(--font-mono);font-size:0.82rem;">No blueprints found in this pool.</p>`;
+  } else {
+    bodyHtml = `<div class="mission-bp-list">` +
+      bps.map(bp => {
+        const name   = bp.output_display || bp.output_name || bp.entity_name || "—";
+        const entity = bp.output_name || bp.entity_name || "";
+        return `
+          <div class="mission-bp-row"
+               data-uuid="${bp.blueprint_uuid}"
+               data-pv="${patchVersion}">
+            <div>
+              <div class="mission-bp-name">${name}</div>
+              ${entity && entity !== name
+                ? `<div class="mission-bp-entity">${entity}</div>` : ""}
+            </div>
+            <div class="mission-bp-meta">
+              <div class="mission-bp-time">${fmtTime(bp.craft_time_sec)}</div>
+              <div class="mission-bp-category">${bp.category_path || ""}</div>
+            </div>
+          </div>`;
+      }).join("") +
+    `</div>`;
+  }
+
+  document.getElementById("modal-body").innerHTML = bodyHtml;
+  document.getElementById("bp-modal").scrollTop = 0;
+
+  // Wire clicks on blueprint rows → navigate to that blueprint
+  document.querySelectorAll(".mission-bp-row").forEach(row => {
+    row.addEventListener("click", () => {
+      modalHistory = [];
+      document.getElementById("modal-nav-bar").style.display = "none";
+      openModal(row.dataset.uuid, row.dataset.pv);
+    });
+  });
+}
 
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("bp-modal-overlay").addEventListener("click", e => {
@@ -673,6 +944,30 @@ document.querySelectorAll("[data-sort]").forEach(chip => chip.addEventListener("
   document.querySelectorAll("[data-sort]").forEach(c => c.classList.remove("active"));
   chip.classList.add("active"); activeFilters.sort = chip.dataset.sort; applyFilters();
 }));
+document.getElementById("modal-back-btn").addEventListener("click", () => {
+  if (modalHistory.length === 0) return;
+  const prev = modalHistory.pop();
+
+  document.getElementById("modal-title").textContent  = prev.title;
+  document.getElementById("modal-entity").textContent = prev.entity;
+  document.getElementById("modal-meta").innerHTML     = prev.meta;
+  document.getElementById("modal-body").innerHTML     = prev.body;
+  document.getElementById("bp-modal").scrollTop       = 0;
+
+  // Hide nav bar if we're back at the root
+  if (modalHistory.length === 0) {
+    document.getElementById("modal-nav-bar").style.display = "none";
+    document.getElementById("modal-nav-bar").style.display = "none";
+  }
+
+  // Re-wire mission chip clicks since we restored innerHTML
+  document.querySelectorAll(".mission-chip").forEach(chip => {
+    chip.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openMissionDetail(chip.dataset.mission, chip.dataset.pv);
+    });
+  });
+});
 
 loadTopLevels();
 renderBreadcrumb();
