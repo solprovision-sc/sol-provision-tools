@@ -736,18 +736,29 @@ def get_compatible_components():
         entity_upper = entity_base.upper()
         
         # Try all four combinations with case-insensitive matching
+        # Plus a 5th attempt with common typo patterns (e.g., Idris -> Idirs)
+        entity_typo = entity_upper.replace('IDRIS', 'IDIRS')  # Handle known CIG typo
+        
         loc_result = conn.execute("""
             SELECT value FROM localization 
             WHERE key LIKE ? COLLATE NOCASE 
                OR key LIKE ? COLLATE NOCASE
                OR key LIKE ? COLLATE NOCASE
                OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
+               OR key LIKE ? COLLATE NOCASE
             LIMIT 1
         """, (
-            f"item_Name{entity_upper}",           # item_NamePOWR_ACOM_S02_SOLARFLARE
-            f"item_Name{entity_upper}_SCItem",    # item_NamePOWR_ACOM_S02_SOLARFLARE_SCItem
-            f"item_Name_{entity_upper}",          # item_Name_POWR_ACOM_S02_SOLARFLARE
-            f"item_Name_{entity_upper}_SCItem"    # item_Name_POWR_ACOM_S02_SOLARFLARE_SCItem
+            f"item_Name{entity_upper}",           # item_NameCOOL_AEGS_S04_IDRIS
+            f"item_Name{entity_upper}_SCItem",    # item_NameCOOL_AEGS_S04_IDRIS_SCItem
+            f"item_Name_{entity_upper}",          # item_Name_COOL_AEGS_S04_IDRIS
+            f"item_Name_{entity_upper}_SCItem",   # item_Name_COOL_AEGS_S04_IDRIS_SCItem
+            f"item_Name{entity_typo}",            # item_NameCOOL_AEGS_S04_IDIRS (typo)
+            f"item_Name{entity_typo}_SCItem",     # item_NameCOOL_AEGS_S04_IDIRS_SCItem
+            f"item_Name_{entity_typo}",           # item_Name_COOL_AEGS_S04_IDIRS
+            f"item_Name_{entity_typo}_SCItem"     # item_Name_COOL_AEGS_S04_IDIRS_SCItem
         )).fetchone()
         
         display_name = loc_result['value'] if loc_result else comp.get('display_name')
