@@ -1086,6 +1086,8 @@ def api_crafting_top_levels():
         LEFT JOIN crafting_blueprints b
             ON b.category_id = c.id
             AND b.patch_version = c.patch_version
+            -- Exclude *_template recipes so counts match the filtered list view
+            AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
         WHERE c.patch_version = ?
           AND c.top_level NOT IN ({placeholders})
         GROUP BY c.top_level, c.top_display
@@ -1118,6 +1120,8 @@ def api_crafting_categories():
         LEFT JOIN crafting_blueprints b
             ON b.category_id = c.id
             AND b.patch_version = c.patch_version
+            -- Exclude *_template recipes so counts match the filtered list view
+            AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
         WHERE c.patch_version = ?
           AND c.top_level = ?
           AND c.mid_level IS NOT NULL
@@ -1133,6 +1137,8 @@ def api_crafting_categories():
         LEFT JOIN crafting_blueprints b
             ON b.category_id = c.id
             AND b.patch_version = c.patch_version
+            -- Exclude *_template recipes so counts match the filtered list view
+            AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
         WHERE c.patch_version = ?
           AND c.top_level = ?
           AND c.mid_level IS NULL
