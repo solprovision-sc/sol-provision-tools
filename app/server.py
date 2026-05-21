@@ -86,6 +86,139 @@ COMP_PARAMS = {
     "PowerPlant":   "SCItemPowerPlantParams",
 }
 
+# Maps crafting gameplay-property entity_name → ordered list of (item_table, column)
+# candidates. Used by /api/crafting/blueprint to compute the base value that the
+# slot quality modifier scales — first table where the output's entity_name exists
+# with a non-null value wins.
+#
+# Tables not yet populated (or props with no clean column counterpart) are
+# omitted; the API returns base_value=null for those and the frontend falls
+# back to multiplier-only display.
+GPP_BASE_RESOLVERS = {
+    # Character armor — clothing params
+    "gpp_armor_temperaturemin":       [("item_char_armor", "temperature_min")],
+    "gpp_armor_temperaturemax":       [("item_char_armor", "temperature_max")],
+    "gpp_armor_radiationcapacity":    [("item_char_armor", "radiation_capacity")],
+    "gpp_armor_radiationdissipation": [("item_char_armor", "radiation_dissipation")],
+
+    # Generic health — try every item_* table with a health column, first hit wins.
+    "gpp_health_maxhealth": [
+        ("item_shields",             "health"),
+        ("item_coolers",             "health"),
+        ("item_powerplants",         "health"),
+        ("item_quantum_drives",      "health"),
+        ("item_radars",              "health"),
+        ("item_fuel_nozzles",        "health"),
+        ("item_external_fuel_tanks", "health"),
+        ("item_fuel_tanks",          "health"),
+        ("item_quantum_fuel_tanks",  "health"),
+        ("item_armor",               "health"),
+        ("item_scanners",            "health"),
+        ("item_weapons",             "health"),
+    ],
+
+    # Coolers
+    "gpp_itemresource_coolantgeneration": [("item_coolers", "cooling_output")],
+
+    # Quantum drives
+    "gpp_quantum_fuelrequirement": [("item_quantum_drives", "quantum_fuel_req")],
+    "gpp_quantum_speed":           [("item_quantum_drives", "drive_speed")],
+
+    # Radars
+    "gpp_radar_maxaimassistdistance": [("item_radars", "aim_assist_max_m")],
+    "gpp_radar_minaimassistdistance": [("item_radars", "aim_assist_min_m")],
+
+    # Shields
+    "gpp_shield_maxhealth": [("item_shields", "max_shield_health")],
+
+    # FPS weapons
+    "gpp_weapon_firerate": [("item_fps_weapons", "fire_rate")],
+    "gpp_weapon_spread":   [("item_fps_weapons", "spread_max")],
+
+    # Salvage scrapers
+    "gpp_weapon_hullscraping_speed":      [("item_salvage_modifiers", "salvage_speed_multiplier")],
+    "gpp_weapon_hullscraping_radius":     [("item_salvage_modifiers", "radius_multiplier")],
+    "gpp_weapon_hullscraping_efficiency": [("item_salvage_modifiers", "extraction_efficiency")],
+
+    # Tractor / towing beams (extracted from SWeaponActionFireTractorBeamParams
+    # into item_weapons tractor_* columns).
+    "gpp_weapon_tractor_force":            [("item_weapons", "tractor_min_force")],
+    "gpp_weapon_tractor_fullstrengthdist": [("item_weapons", "tractor_fullstrength_dist")],
+    "gpp_weapon_tractor_maxdist":          [("item_weapons", "tractor_max_distance")],
+    "gpp_weapon_tractor_maxvolume":        [("item_weapons", "tractor_max_volume")],
+}
+
+# Properties whose modifier curve is shown as a signed percent change rather
+# than an absolute value × base. The frontend renders these as "+18%" / "-7%"
+# using just (multiplier - 1) × 100; no base lookup needed.
+GPP_PERCENT_PROPS = {
+    "gpp_weapon_damage",
+    "gpp_weapon_damage_override_laser",
+    "gpp_weapon_recoil_handling",
+    "gpp_weapon_recoil_kick",
+    "gpp_weapon_recoil_smoothness",
+    "gpp_armor_damagemitigation",
+}
+
+
+def resolve_ingredient_quantization(db, patch, resource_uuid):
+    """Look up the quantization curve for an ingredient resource.
+
+    Returns a dict with {uuid, material_name, bands: [{start, end, mapped}]}
+    or None if the resource has no linked quantization (most non-mineable
+    resources — food, plants — don't have one).
+    """
+    if not resource_uuid:
+        return None
+    head = db.execute("""
+        SELECT crq.quantization_uuid, qr.material_name
+        FROM crafting_resource_quantization crq
+        JOIN crafting_quantization_records qr
+            ON qr.uuid = crq.quantization_uuid
+           AND qr.patch_version = crq.patch_version
+        WHERE crq.resource_uuid = ? AND crq.patch_version = ?
+        LIMIT 1
+    """, (resource_uuid, patch)).fetchone()
+    if not head:
+        return None
+    bands = db.execute("""
+        SELECT band_start AS start, band_end AS "end", mapped_value AS mapped
+        FROM crafting_quantization_bands
+        WHERE quantization_uuid = ? AND patch_version = ?
+        ORDER BY band_index ASC
+    """, (head["quantization_uuid"], patch)).fetchall()
+    return {
+        "uuid":          head["quantization_uuid"],
+        "material_name": head["material_name"],
+        "bands":         [dict(b) for b in bands],
+    }
+
+
+def resolve_gpp_base_value(db, patch, gpp_entity_name, output_entity_name):
+    """Look up the output's base value for a given gameplay property.
+
+    Returns (value, table_name) or (None, None) when no candidate hits. The
+    table_name is returned so the caller can surface it for debugging or
+    cite where the base came from.
+    """
+    if not gpp_entity_name or not output_entity_name:
+        return None, None
+    candidates = GPP_BASE_RESOLVERS.get(gpp_entity_name.lower())
+    if not candidates:
+        return None, None
+    for table, column in candidates:
+        try:
+            row = db.execute(
+                f"SELECT {column} AS v FROM {table} "
+                f"WHERE entity_name=? AND patch_version=? LIMIT 1",
+                (output_entity_name, patch),
+            ).fetchone()
+        except sqlite3.Error:
+            continue
+        if row and row["v"] is not None:
+            return row["v"], table
+    return None, None
+
 # ── Page routes ───────────────────────────────────────────────────────────────
 
 @app.route("/")
@@ -930,6 +1063,12 @@ def api_armor():
 # Returns the three top-level groupings (FPS Gear, Vehicle Gear, Mission Items)
 # with blueprint counts. Always uses latest patch.
 
+# Top-level crafting categories to hide from the UI. CIG ships some categories
+# (e.g. mission items) whose blueprints aren't real crafting recipes from a
+# player's perspective. Add to this set to hide additional top levels.
+HIDDEN_CRAFTING_TOP_LEVELS = {"missionitems"}
+
+
 @app.route("/api/crafting/top_levels")
 def api_crafting_top_levels():
     db = get_db()
@@ -937,7 +1076,8 @@ def api_crafting_top_levels():
     if not patch:
         return jsonify([])
 
-    rows = db.execute("""
+    placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
+    rows = db.execute(f"""
         SELECT
             c.top_level,
             c.top_display,
@@ -947,10 +1087,11 @@ def api_crafting_top_levels():
             ON b.category_id = c.id
             AND b.patch_version = c.patch_version
         WHERE c.patch_version = ?
+          AND c.top_level NOT IN ({placeholders})
         GROUP BY c.top_level, c.top_display
         HAVING blueprint_count > 0
         ORDER BY c.top_display
-    """, (patch,)).fetchall()
+    """, (patch, *HIDDEN_CRAFTING_TOP_LEVELS)).fetchall()
 
     return jsonify([dict(r) for r in rows])
 
@@ -1050,18 +1191,44 @@ def api_crafting_blueprints():
     top_level = request.args.get("top_level", "").strip()
     mid_level = request.args.get("mid_level", "").strip()
     sub_level = request.args.get("sub_level", "").strip()
-
     if not patch:
         return jsonify([])
-
+    # Aggregated mission counts + lawful breakdown per blueprint.
+    # mission_count uses DISTINCT (title, tier) to match how the missions popup
+    # groups identical missions across regions; orphan pools (no contract link)
+    # count toward mission_count but contribute to lawful counts as 'unknown'.
     query = """
+        WITH mission_stats AS (
+            SELECT
+                cmp.blueprint_uuid,
+                cmp.patch_version,
+                COUNT(DISTINCT COALESCE(c.title_resolved, cmp.mission_name)) AS mission_count,
+                SUM(CASE WHEN c.lawful = 1 THEN 1 ELSE 0 END) AS lawful_count,
+                SUM(CASE WHEN c.lawful = 0 THEN 1 ELSE 0 END) AS unlawful_count
+            FROM crafting_mission_pools cmp
+            LEFT JOIN contract_blueprint_rewards r
+                ON r.pool_uuid = cmp.pool_uuid
+               AND r.patch_version = cmp.patch_version
+            LEFT JOIN contracts c
+                ON c.contract_uuid = r.contract_uuid
+               AND c.patch_version = r.patch_version
+            GROUP BY cmp.blueprint_uuid, cmp.patch_version
+        )
         SELECT
             b.uuid,
             b.patch_version,
             b.entity_name,
             b.output_uuid,
             b.output_name,
-            COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) AS output_display,
+            -- Filter empty strings and CIG's "<= PLACEHOLDER =>" sentinel so a real name
+-- further down the chain (or our ship-name override on b.output_display) can win.
+COALESCE(
+    NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+    NULLIF(e.display_name, ''),
+    NULLIF(b.output_display, ''),
+    b.output_name,
+    b.entity_name
+) AS output_display,
             b.craft_time_sec,
             b.slots_required,
             c.top_level,
@@ -1070,17 +1237,33 @@ def api_crafting_blueprints():
             c.sub_sub_level,
             c.display_path,
             c.sub_display,
-            c.sub_sub_display
+            c.sub_sub_display,
+            COALESCE(ms.mission_count, 0)  AS mission_count,
+            COALESCE(ms.lawful_count, 0)   AS lawful_count,
+            COALESCE(ms.unlawful_count, 0) AS unlawful_count
         FROM crafting_blueprints b
         LEFT JOIN crafting_categories c
             ON c.id = b.category_id
         LEFT JOIN entities e
             ON e.uuid = b.output_uuid
             AND e.patch_version = b.patch_version
+        -- item_components carries the canonical display_name for ship/FPS
+        -- components (resolved from the entity's own loc_name_key) — covers
+        -- categories whose loc keys don't fit the item_Name* patterns the
+        -- entity-level localizer knows about (e.g. fuel nozzles).
+        LEFT JOIN item_components ic
+            ON ic.entity_name = b.output_name
+           AND ic.patch_version = b.patch_version
+        LEFT JOIN mission_stats ms
+            ON ms.blueprint_uuid = b.uuid
+           AND ms.patch_version = b.patch_version
         WHERE b.patch_version = ?
+          -- *_template blueprints are CIG's internal recipe templates that all
+          -- point at the same default output (e.g. all 7 bp_craftnozzle_*_template
+          -- → RN-7s) rather than craftable per-item recipes. Hide them.
+          AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
     """
     params = [patch]
-
     if top_level:
         query += " AND c.top_level = ?"
         params.append(top_level)
@@ -1090,13 +1273,55 @@ def api_crafting_blueprints():
     if sub_level:
         query += " AND c.sub_level = ?"
         params.append(sub_level)
-
     query += " ORDER BY COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) ASC"
-
     rows = db.execute(query, params).fetchall()
-    return jsonify([dict(r) for r in rows])
-
-
+    
+    # Apply localization lookup for blueprints without proper display names
+    results = []
+    for row in rows:
+        bp = dict(row)
+        
+        # If output_display is still the output_name (entity name), try localization
+        if bp['output_display'] == bp['output_name'] and bp['output_name']:
+            entity_name = bp['output_name']
+            # Strip _scitem suffix
+            entity_base = entity_name.lower().replace('_scitem', '')
+            entity_upper = entity_base.upper()
+            
+            # Handle known typos (Idris -> Idirs)
+            entity_typo = entity_upper.replace('IDRIS', 'IDIRS')
+            
+            # Try all localization key variations
+            loc_result = db.execute("""
+                SELECT value FROM localization 
+                WHERE key LIKE ? COLLATE NOCASE 
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                   OR key LIKE ? COLLATE NOCASE
+                LIMIT 1
+            """, (
+                f"item_Name{entity_upper}",
+                f"item_Name{entity_upper}_SCItem",
+                f"item_Name_{entity_upper}",
+                f"item_Name_{entity_upper}_SCItem",
+                f"item_Name{entity_typo}",
+                f"item_Name{entity_typo}_SCItem",
+                f"item_Name_{entity_typo}",
+                f"item_Name_{entity_typo}_SCItem"
+            )).fetchone()
+            
+            if loc_result:
+                bp['output_display'] = loc_result['value']
+        
+        results.append(bp)
+    
+    return jsonify(results)
+    
+    
 # ── API: Blueprint detail (with slots, ingredients, modifiers) ────────────────
 # GET /api/crafting/blueprint/<uuid>?patch=
 # Now also includes piecewise modifier ranges.
@@ -1115,7 +1340,15 @@ def api_crafting_blueprint_detail(uuid):
             b.entity_name,
             b.output_uuid,
             b.output_name,
-            COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) AS output_display,
+            -- Filter empty strings and CIG's "<= PLACEHOLDER =>" sentinel so a real name
+-- further down the chain (or our ship-name override on b.output_display) can win.
+COALESCE(
+    NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+    NULLIF(e.display_name, ''),
+    NULLIF(b.output_display, ''),
+    b.output_name,
+    b.entity_name
+) AS output_display,
             b.craft_time_sec,
             b.slots_required,
             b.has_optional,
@@ -1129,6 +1362,11 @@ def api_crafting_blueprint_detail(uuid):
         LEFT JOIN entities e
             ON e.uuid = b.output_uuid
             AND e.patch_version = b.patch_version
+        -- See note in /api/crafting/blueprints — item_components covers cases
+        -- where the entity-level localizer didn't find a matching pattern.
+        LEFT JOIN item_components ic
+            ON ic.entity_name = b.output_name
+           AND ic.patch_version = b.patch_version
         WHERE b.uuid = ? AND b.patch_version = ?
     """, (uuid, patch)).fetchone()
 
@@ -1146,7 +1384,7 @@ def api_crafting_blueprint_detail(uuid):
 
     result["slots"] = []
     for slot in slots:
-        ingredients = db.execute("""
+        ingredients_raw = db.execute("""
             SELECT
                 ci.cost_type,
                 ci.resource_uuid,
@@ -1161,33 +1399,130 @@ def api_crafting_blueprint_detail(uuid):
             WHERE ci.slot_id = ?
             ORDER BY ci.id ASC
         """, (slot["id"],)).fetchall()
+        
+        # Apply localization lookup for ingredients without display_name
+        ingredients = []
+        for ing_row in ingredients_raw:
+            ing = dict(ing_row)
+            
+            print(f"[DEBUG] Ingredient: display_name={ing.get('display_name')}, resource_name={ing.get('resource_name')}")
+            
+            # If display_name is still the resource_name, try localization
+            if ing['display_name'] == ing['resource_name'] and ing['resource_name']:
+                entity_name = ing['resource_name']
+                
+                # DEBUG - print what we're looking up
+                print(f"[DEBUG] Looking up localization for: {entity_name}")
+                
+                # Strip _scitem suffix
+                entity_base = entity_name.lower().replace('_scitem', '')
+                entity_upper = entity_base.upper()
+                
+                print(f"[DEBUG] Entity upper: {entity_upper}")
+                
+                # Handle known typos (Idris -> Idirs)
+                entity_typo = entity_upper.replace('IDRIS', 'IDIRS')
+                
+                print(f"[DEBUG] Entity typo: {entity_typo}")
+                # Strip _scitem suffix
+                entity_base = entity_name.lower().replace('_scitem', '')
+                entity_upper = entity_base.upper()
+                
+                # Handle known typos (Idris -> Idirs)
+                entity_typo = entity_upper.replace('IDRIS', 'IDIRS')
+                
+                # Try all localization key variations
+                loc_result = db.execute("""
+                    SELECT value FROM localization 
+                    WHERE key LIKE ? COLLATE NOCASE 
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                       OR key LIKE ? COLLATE NOCASE
+                    LIMIT 1
+                """, (
+                    f"item_Name{entity_upper}",
+                    f"item_Name{entity_upper}_SCItem",
+                    f"item_Name_{entity_upper}",
+                    f"item_Name_{entity_upper}_SCItem",
+                    f"item_Name{entity_typo}",
+                    f"item_Name{entity_typo}_SCItem",
+                    f"item_Name_{entity_typo}",
+                    f"item_Name_{entity_typo}_SCItem"
+                )).fetchone()
+                
+                if loc_result:
+                    ing['display_name'] = loc_result['value']
+
+            # Attach the per-material quantization curve so the frontend can
+            # apply the same raw-quality → mapped-quality step the game does
+            # before evaluating the slot's modifier curve.
+            if ing.get("cost_type") == "resource":
+                ing["quantization"] = resolve_ingredient_quantization(
+                    db, patch, ing.get("resource_uuid")
+                )
+
+            ingredients.append(ing)
 
         # Modifiers — collect all ranges and group by gameplay_prop_uuid
-        # so the UI can render piecewise curves correctly.
+        # so the UI can render piecewise curves correctly. The crafting_gameplay_properties
+        # join provides canonical localized labels ("Integrity", "Fire Rate") and
+        # unit formats ("%.2f RPM") from the gpp_*.xml records; we fall back to the
+        # extractor's heuristic prop_display_name when loc resolution misses.
         mod_rows = db.execute("""
             SELECT
-                gameplay_prop_uuid,
-                gameplay_prop_name,
-                prop_display_name,
-                range_index,
-                modifier_at_start,
-                modifier_at_end,
-                start_quality,
-                end_quality
-            FROM crafting_slot_modifiers
-            WHERE slot_id = ?
-            ORDER BY gameplay_prop_uuid, range_index
+                m.gameplay_prop_uuid,
+                m.gameplay_prop_name,
+                m.prop_display_name,
+                COALESCE(loc_label.value, m.prop_display_name) AS display_label,
+                loc_unit.value AS unit_format,
+                m.range_index,
+                m.modifier_at_start,
+                m.modifier_at_end,
+                m.start_quality,
+                m.end_quality
+            FROM crafting_slot_modifiers m
+            LEFT JOIN crafting_gameplay_properties p
+                ON p.uuid = m.gameplay_prop_uuid
+               AND p.patch_version = m.patch_version
+            LEFT JOIN localization loc_label
+                ON loc_label.key = p.property_loc_key
+            LEFT JOIN localization loc_unit
+                ON loc_unit.key = p.unit_loc_key
+            WHERE m.slot_id = ?
+            ORDER BY m.gameplay_prop_uuid, m.range_index
         """, (slot["id"],)).fetchall()
 
-        # Group rows by gameplay_prop_uuid → list of ranges
+        # Group rows by gameplay_prop_uuid → list of ranges. We also resolve
+        # base_value once per group (not per range) by looking up the output
+        # entity's value for this property — the frontend uses it to compute
+        # final_stat = base_value × Π(quality_multipliers).
         modifiers = []
         current = None
         for r in mod_rows:
             if current is None or current["gameplay_prop_uuid"] != r["gameplay_prop_uuid"]:
+                gpp = (r["gameplay_prop_name"] or "").lower()
+                is_percent = gpp in GPP_PERCENT_PROPS
+                if is_percent:
+                    # Percent-style: no base lookup needed — frontend uses
+                    # (multiplier - 1) × 100% directly.
+                    base_value, base_source = None, None
+                else:
+                    base_value, base_source = resolve_gpp_base_value(
+                        db, patch, r["gameplay_prop_name"], result.get("output_name")
+                    )
                 current = {
                     "gameplay_prop_uuid": r["gameplay_prop_uuid"],
                     "gameplay_prop_name": r["gameplay_prop_name"],
                     "prop_display_name":  r["prop_display_name"],
+                    "display_label":      r["display_label"],
+                    "unit_format":        r["unit_format"],
+                    "is_percent":         is_percent,
+                    "base_value":         base_value,
+                    "base_source":        base_source,
                     "ranges":             [],
                 }
                 modifiers.append(current)
@@ -1385,7 +1720,12 @@ def api_crafting_mission_detail(mission_name):
         SELECT
             cmp.blueprint_uuid,
             cb.entity_name,
-            COALESCE(e.display_name, cb.output_display, cb.output_name) AS output_display,
+            COALESCE(
+                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+                NULLIF(e.display_name, ''),
+                NULLIF(cb.output_display, ''),
+                cb.output_name
+            ) AS output_display,
             cb.output_name,
             cb.craft_time_sec,
             cb.slots_required,
@@ -1399,8 +1739,16 @@ def api_crafting_mission_detail(mission_name):
         LEFT JOIN entities e
             ON e.uuid = cb.output_uuid
             AND e.patch_version = cb.patch_version
+        LEFT JOIN item_components ic
+            ON ic.entity_name = cb.output_name
+           AND ic.patch_version = cb.patch_version
         WHERE cmp.mission_name = ? AND cmp.patch_version = ?
-        ORDER BY COALESCE(e.display_name, cb.output_display, cb.output_name) ASC
+        ORDER BY COALESCE(
+            NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+            NULLIF(e.display_name, ''),
+            NULLIF(cb.output_display, ''),
+            cb.output_name
+        ) ASC
     """, (mission_name, patch)).fetchall()
 
     return jsonify({
