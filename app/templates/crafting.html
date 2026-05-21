@@ -56,7 +56,7 @@
   display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
 }
 .bp-card-name {
-  font-family: var(--font-ui); font-size: 0.97rem; font-weight: 600;
+  font-family: var(--font-title); font-size: 0.97rem; font-weight: 600;
   color: var(--text); line-height: 1.25; flex: 1; min-width: 0;
 }
 .bp-card-time {
@@ -70,24 +70,43 @@
   font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 7px;
 }
-.bp-card-ingredient-list { display: flex; flex-wrap: wrap; gap: 5px; min-height: 24px; }
-.bp-ingredient-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
-  padding: 3px 8px; font-family: var(--font-mono); font-size: 0.72rem;
-  color: var(--text2); white-space: nowrap;
+.bp-card-ingredient-list {
+  display: flex; flex-direction: column; align-items: stretch;
+  gap: 4px; min-height: 24px;
 }
+.bp-ingredient-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 3px;
+  padding: 4px 8px; font-family: var(--font-mono); font-size: 0.72rem;
+  color: var(--text2);
+}
+.bp-ingredient-chip > :first-child {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.bp-ingredient-chip .chip-qty { flex-shrink: 0; }
 .bp-ingredient-chip .chip-qty { color: var(--accent); font-weight: 600; }
 .bp-card-footer {
   padding: 8px 16px; border-top: 1px solid var(--border); background: var(--bg2);
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.bp-card-slots { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3); }
-.bp-card-slots span { color: var(--text2); font-weight: 600; }
-.bp-card-entity {
-  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px;
+.bp-card-missions {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text2);
+  cursor: pointer; user-select: none; display: inline-flex; align-items: center; gap: 6px;
+  transition: color 0.15s;
 }
+.bp-card-missions:hover { color: var(--accent); text-decoration: underline; }
+.bp-card-missions.no-missions { color: var(--text3); cursor: default; }
+.bp-card-missions.no-missions:hover { color: var(--text3); text-decoration: none; }
+.bp-card-missions .mission-num { color: var(--text); font-weight: 600; }
+/* Lawful/unlawful dots — show one or both based on what missions exist */
+.lawful-dots { display: inline-flex; gap: 3px; align-items: center; }
+.lawful-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  display: inline-block;
+}
+.lawful-dot.lawful   { background: #4ea35b; box-shadow: 0 0 4px rgba(78,163,91,0.5); }
+.lawful-dot.unlawful { background: #c44545; box-shadow: 0 0 4px rgba(196,69,69,0.5); }
+.lawful-dot.unknown  { background: var(--text3); opacity: 0.5; }
 .grid-empty {
   grid-column: 1 / -1; text-align: center; padding: 48px 24px;
   font-family: var(--font-mono); font-size: 0.82rem; color: var(--text3);
@@ -133,7 +152,7 @@
 }
 .modal-close:hover { border-color: var(--red); color: var(--red); }
 .modal-meta {
-  padding: 14px 24px; border-bottom: 1px solid var(--border);
+  padding: 10px 24px; border-bottom: 1px solid var(--border);
   display: flex; gap: 24px; flex-wrap: wrap;
 }
 .modal-stat { display: flex; flex-direction: column; gap: 2px; }
@@ -144,7 +163,7 @@
 .modal-stat-value {
   font-family: var(--font-ui); font-size: 1rem; font-weight: 600; color: var(--accent);
 }
-.modal-body { padding: 20px 24px 24px; }
+.modal-body { padding: 12px 24px 20px; }
 .slots-required-note {
   font-family: var(--font-mono); font-size: 0.78rem; color: var(--gold);
   margin-bottom: 16px; padding: 8px 12px; background: var(--gold-dim);
@@ -152,10 +171,10 @@
 }
 .slot-card {
   border: 1px solid var(--border); border-radius: 5px;
-  margin-bottom: 12px; overflow: hidden;
+  margin-bottom: 8px; overflow: hidden;
 }
 .slot-header {
-  background: var(--bg2); padding: 8px 14px;
+  background: var(--bg2); padding: 5px 12px;
   display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border);
 }
 .slot-number {
@@ -166,10 +185,10 @@
   font-family: var(--font-ui); font-size: 0.88rem; font-weight: 600;
   color: var(--text); letter-spacing: 0.05em; text-transform: uppercase;
 }
-.slot-ingredients { padding: 10px 14px; }
+.slot-ingredients { padding: 6px 12px; }
 .ingredient-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 0; border-bottom: 1px solid var(--border); gap: 12px;
+  padding: 3px 0; border-bottom: 1px solid var(--border); gap: 12px;
 }
 .ingredient-row:last-child { border-bottom: none; }
 .ingredient-name { font-family: var(--font-ui); font-size: 0.9rem; color: var(--text); }
@@ -179,6 +198,79 @@
   white-space: nowrap; text-align: right; flex-shrink: 0;
 }
 .ingredient-type { font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3); text-transform: uppercase; }
+
+/* ── Quality slider (per slot) ─────────────────────────────────────── */
+.slot-quality {
+  padding: 5px 12px 7px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.slot-quality.no-impact { opacity: 0.55; }
+.slot-quality-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 3px;
+  gap: 8px;
+}
+.slot-quality-label .quality-name-group {
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.slot-quality-label .quality-value {
+  color: var(--accent); font-weight: 700; font-size: 0.85rem; letter-spacing: 0;
+}
+.slot-quality-label .quality-mapped {
+  color: var(--text3); font-size: 0.68rem; margin-left: 6px;
+}
+.slot-quality-label .quality-note {
+  color: var(--text3); font-style: italic; text-transform: none; letter-spacing: 0;
+}
+.quality-reset-btn {
+  font-family: var(--font-mono); font-size: 0.62rem;
+  background: transparent; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 3px;
+  padding: 1px 6px; cursor: pointer; letter-spacing: 0.05em;
+  text-transform: uppercase; line-height: 1.3;
+  transition: border-color 0.15s, color 0.15s;
+}
+.quality-reset-btn:hover { border-color: var(--accent); color: var(--accent); }
+.quality-reset-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+.quality-reset-btn:disabled:hover { border-color: var(--border); color: var(--text3); }
+.slot-quality input[type="range"] {
+  width: 100%; accent-color: var(--accent); cursor: pointer; margin: 0;
+  height: 14px;
+}
+.slot-quality input[type="range"]:disabled { cursor: not-allowed; }
+
+/* ── Predicted stats panel (live-computed) ─────────────────────────── */
+.predicted-stats {
+  margin-top: 10px; padding: 8px 14px 10px;
+  background: var(--bg2); border: 1px solid var(--accent);
+  border-radius: 5px;
+}
+.predicted-stats-title {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.predicted-stat-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  gap: 12px; align-items: baseline;
+  padding: 3px 0; border-bottom: 1px dotted var(--border);
+}
+.predicted-stat-row:last-child { border-bottom: none; }
+.predicted-stat-label { font-family: var(--font-ui); font-size: 0.88rem; color: var(--text); }
+.predicted-stat-base  { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text3); }
+.predicted-stat-final {
+  font-family: var(--font-mono); font-size: 0.92rem; color: var(--accent); font-weight: 600;
+  white-space: nowrap;
+}
+.predicted-stat-final.is-percent { color: var(--gold); }
+.predicted-stat-delta {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3); margin-left: 6px;
+}
+.predicted-stat-delta.up   { color: #4ea35b; }
+.predicted-stat-delta.down { color: #c44545; }
 
 /* ── Sidebar filters ───────────────────────────────────────────────── */
 .filter-group { margin-bottom: 20px; }
@@ -342,7 +434,7 @@
 #missions-popup-overlay {
   position: fixed; inset: 0;
   display: none;
-  background: rgba(0,0,0,0.55);
+  background: rgba(2,4,8,0.88);
   z-index: 1100;            /* above the blueprint modal (which is 1000) */
   justify-content: center;
   align-items: flex-start;
@@ -350,14 +442,15 @@
 }
 #missions-popup-overlay.open { display: flex; }
 #missions-popup {
-  background: var(--bg1);
-  border: 1px solid var(--border);
+  background: var(--panel);
+  border: 1px solid var(--border2);
   border-radius: 6px;
   width: 100%;
   max-width: 640px;
   max-height: calc(100vh - 120px);
   display: flex;
   flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
 }
 .missions-popup-header {
   display: flex;
@@ -367,9 +460,9 @@
   border-bottom: 1px solid var(--border);
 }
 .missions-popup-title {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
   font-size: 0.95rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
 }
 .missions-popup-close {
@@ -416,7 +509,7 @@
 }
 .popup-mission-tier.t-none { color: var(--text3); background: var(--bg2); }
 .popup-mission-title {
-  font-family: var(--font-ui);
+  font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--text);
 }
@@ -427,7 +520,7 @@
 .popup-mission-regions {
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  color: var(--text3);
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -537,6 +630,120 @@ const detailCache = {};
 const missionCache = {};  // mission_name:pv → mission detail object
 let modalHistory   = [];  // navigation stack: [{title, entity, meta, body}]
 
+// ── Crafting quality math ──────────────────────────────────────────────
+// The slider chooses a raw quality (0-1000). The game first runs it through
+// the ingredient's per-material quantization band, then evaluates the slot's
+// piecewise-linear modifier curve at the quantized value. Final stat for an
+// absolute-unit property is base × Π(slot multipliers) for slots that modify
+// that property; for percent-unit properties we display (multiplier - 1) × 100%.
+
+function quantizeQuality(rawQuality, bands) {
+  if (!bands || !bands.length) return rawQuality;
+  for (const b of bands) {
+    if (rawQuality >= b.start && rawQuality <= b.end) return b.mapped;
+  }
+  return rawQuality;
+}
+
+function evalModifierCurve(quality, ranges) {
+  if (!ranges || !ranges.length) return 1;
+  // Below all ranges → clamp to first range's start
+  if (quality < ranges[0].start_quality) return ranges[0].modifier_at_start;
+  for (const r of ranges) {
+    if (quality >= r.start_quality && quality <= r.end_quality) {
+      const span = r.end_quality - r.start_quality;
+      const t = span > 0 ? (quality - r.start_quality) / span : 0;
+      return r.modifier_at_start + t * (r.modifier_at_end - r.modifier_at_start);
+    }
+  }
+  // Above all ranges → last range's end
+  return ranges[ranges.length - 1].modifier_at_end;
+}
+
+function fmtStatValue(value, unitFormat) {
+  // unitFormat from loc looks like "%.2f RPM", "%+.2f %%", "%.2f M", etc.
+  // We approximate the printf with JS — strip the leading %.Nf/%+.Nf and
+  // append the unit suffix. Fall back to plain numeric.
+  if (value == null) return "—";
+  if (!unitFormat) return Number(value).toFixed(2).replace(/\.00$/, "");
+  const m = unitFormat.match(/^%[+]?\.?(\d*)f\s*(.*)$/);
+  if (!m) return `${value} ${unitFormat}`;
+  const digits = m[1] === "" ? 2 : parseInt(m[1], 10);
+  const suffix = m[2].replace(/%%/g, "%");
+  const sign   = /\+/.test(unitFormat) && value > 0 ? "+" : "";
+  return `${sign}${Number(value).toFixed(digits)} ${suffix}`.trim();
+}
+
+function recomputeCraftStats(slots) {
+  // Read current slider values + quantize via each slot's ingredient bands.
+  const slotQuality = slots.map((slot, i) => {
+    const slider = document.getElementById(`q-slider-${i}`);
+    const raw = slider ? parseInt(slider.value, 10) : 1000;
+    const ing = (slot.ingredients || [])[0] || {};
+    const bands = ing.quantization && ing.quantization.bands;
+    const mapped = quantizeQuality(raw, bands);
+    // Update slot's per-slider display
+    const valEl    = document.getElementById(`q-val-${i}`);
+    const mappedEl = document.getElementById(`q-mapped-${i}`);
+    if (valEl)    valEl.textContent = raw;
+    if (mappedEl) mappedEl.textContent = bands ? `→ ${mapped}` : "";
+    return { raw, mapped };
+  });
+
+  // Group modifiers across slots by gameplay_prop_uuid so multi-slot effects
+  // on the same property compose correctly.
+  const byProp = new Map();
+  slots.forEach((slot, slotIdx) => {
+    (slot.modifiers || []).forEach(m => {
+      const key = m.gameplay_prop_uuid;
+      const q   = slotQuality[slotIdx].mapped;
+      const mult = evalModifierCurve(q, m.ranges);
+      if (!byProp.has(key)) byProp.set(key, { meta: m, mult: 1 });
+      byProp.get(key).mult *= mult;
+    });
+  });
+
+  // Render rows
+  const rowsEl = document.getElementById("predicted-stats-rows");
+  if (!rowsEl) return;
+  const rows = [];
+  for (const { meta, mult } of byProp.values()) {
+    const label  = meta.display_label || meta.prop_display_name || meta.gameplay_prop_name;
+    const unit   = meta.unit_format;
+    const isPct  = meta.is_percent;
+    const base   = meta.base_value;
+
+    let finalHtml, baseHtml = "";
+    if (isPct) {
+      // Percent-style — just show the signed delta
+      const pct = (mult - 1) * 100;
+      finalHtml = `<span class="predicted-stat-final is-percent">${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%</span>`;
+    } else if (base != null) {
+      const finalVal = base * mult;
+      const delta    = finalVal - base;
+      const deltaCls = delta > 0 ? "up" : (delta < 0 ? "down" : "");
+      const deltaSign = delta >= 0 ? "+" : "";
+      finalHtml = `<span class="predicted-stat-final">${fmtStatValue(finalVal, unit)}</span>
+                   <span class="predicted-stat-delta ${deltaCls}">${deltaSign}${fmtStatValue(delta, unit)}</span>`;
+      baseHtml  = `<span class="predicted-stat-base">base ${fmtStatValue(base, unit)}</span>`;
+    } else {
+      // No base value available — render as multiplier only
+      finalHtml = `<span class="predicted-stat-final">×${mult.toFixed(3)}</span>`;
+      baseHtml  = `<span class="predicted-stat-base">base unknown</span>`;
+    }
+
+    rows.push(`
+      <div class="predicted-stat-row">
+        <span class="predicted-stat-label">${label}</span>
+        ${baseHtml}
+        <span>${finalHtml}</span>
+      </div>`);
+  }
+  rowsEl.innerHTML = rows.length
+    ? rows.join("")
+    : `<div style="color:var(--text3);font-family:var(--font-mono);font-size:0.78rem;">No modifiers on this blueprint.</div>`;
+}
+
 function fmtTime(sec) {
   if (sec === null || sec === undefined) return "—";
   if (sec < 60)   return `${sec}s`;
@@ -571,10 +778,10 @@ function catIcon(name) {
   if (n.includes("power"))   return svg("ItemPowerPlant.svg");
   if (n.includes("quantum")) return svg("ItemQuantumdrive.svg");
   if (n.includes("radar"))   return svg("ItemRadar.svg");
-  if (n.includes("mining"))  return svg("mininglaser.svg");
+  if (n.includes("mining"))  return svg("ItemMining.svg");
   if (n.includes("refuel"))  return svg("refuelling.svg");
-  if (n.includes("salvage")) return svg("salvage.svg");
-  if (n.includes("tractor")) return svg("tractorbeam.svg");
+  if (n.includes("salvage")) return svg("ItemSalvage.svg");
+  if (n.includes("tractor")) return svg("ItemTractorBeam.svg");
 
   if (n.includes("medical")) return "💉";
   return "📦";
@@ -750,13 +957,33 @@ function renderBlueprintCards() {
   }
   grid.innerHTML = filteredBPs.map(bp => {
     const name   = bp.output_display || bp.output_name || bp.entity_name || "—";
-    const entity = bp.output_name || bp.entity_name || "";
     const tags = [];
     if (bp.sub_display)     tags.push(`<span class="bp-tag tag-accent">${bp.sub_display}</span>`);
     if (bp.sub_sub_display) tags.push(`<span class="bp-tag tag-gold">${bp.sub_sub_display}</span>`);
     const tagHtml = tags.join("");
-    const slotsLabel = bp.slots_required != null
-      ? `<span>${bp.slots_required}</span> slot${bp.slots_required !== 1 ? "s" : ""}` : "—";
+
+    // Mission count + lawful/unlawful indicator (right side of footer).
+    // Dot colors: green = at least one lawful contract drops it, red = at
+    // least one unlawful, both shown when mixed, gray when only orphan
+    // pools (XenoThreat / collectors / events) drop it.
+    const missionCount = bp.mission_count || 0;
+    const lawfulCount   = bp.lawful_count   || 0;
+    const unlawfulCount = bp.unlawful_count || 0;
+    let dotsHtml = "";
+    if (missionCount > 0) {
+      const dots = [];
+      if (lawfulCount   > 0) dots.push(`<span class="lawful-dot lawful"   title="${lawfulCount} lawful"></span>`);
+      if (unlawfulCount > 0) dots.push(`<span class="lawful-dot unlawful" title="${unlawfulCount} unlawful"></span>`);
+      if (dots.length === 0) dots.push(`<span class="lawful-dot unknown"  title="unknown legality (event/collector)"></span>`);
+      dotsHtml = `<span class="lawful-dots">${dots.join("")}</span>`;
+    }
+    const missionsHtml = missionCount > 0
+      ? `<span class="bp-card-missions" data-missions-link="1">
+           <span class="mission-num">${missionCount}</span>
+           <span>mission${missionCount !== 1 ? "s" : ""}</span>
+           ${dotsHtml}
+         </span>`
+      : `<span class="bp-card-missions no-missions">No mission drops</span>`;
 
     return `
       <div class="bp-card" data-uuid="${bp.uuid}" data-pv="${bp.patch_version}">
@@ -772,14 +999,23 @@ function renderBlueprintCards() {
           </div>
         </div>
         <div class="bp-card-footer">
-          <div class="bp-card-slots">${slotsLabel}</div>
-          <div class="bp-card-entity">${entity}</div>
+          ${missionsHtml}
         </div>
       </div>`;
   }).join("");
 
   grid.querySelectorAll(".bp-card").forEach(card => {
-    card.addEventListener("click", () => openModal(card.dataset.uuid, card.dataset.pv));
+    card.addEventListener("click", (e) => {
+      // Mission link inside the footer opens the popup directly without
+      // pulling the player through the full blueprint detail modal.
+      const missionLink = e.target.closest("[data-missions-link]");
+      if (missionLink) {
+        e.stopPropagation();
+        openMissionsPopup(card.dataset.uuid, card.dataset.pv);
+        return;
+      }
+      openModal(card.dataset.uuid, card.dataset.pv);
+    });
   });
   prefetchPreviews();
 }
@@ -840,7 +1076,10 @@ async function openModal(uuid, pv) {
 
   document.getElementById("modal-title").textContent =
     data.output_display || data.output_name || data.entity_name || "—";
-  document.getElementById("modal-entity").textContent = data.entity_name || "";
+  // Suppress the raw entity_name under the modal title — the display name
+  // alone is enough. (#modal-entity is still used by openMissionDetail to
+  // surface the faction, so we clear it rather than hide the element.)
+  document.getElementById("modal-entity").textContent = "";
 
   document.getElementById("modal-meta").innerHTML = `
     <div class="modal-stat">
@@ -858,15 +1097,12 @@ async function openModal(uuid, pv) {
 
   const slots = data.slots || [];
   let body = "";
-  if (slots.length > 0) {
-    const note = (data.slots_required && data.slots_required < slots.length)
-      ? `⚠ Select ${data.slots_required} of ${slots.length} aspect slots to craft this item.`
-      : `Fill all ${slots.length} slot${slots.length !== 1 ? "s" : ""} to craft this item.`;
-    const noteStyle = (data.slots_required && data.slots_required < slots.length)
-      ? "" : `style="border-color:var(--accent);background:var(--accent-dim);color:var(--accent);"`;
-    body += `<div class="slots-required-note" ${noteStyle}>${note}</div>`;
-  } else {
+  // Optional-cost note only — we drop the "Fill all N slots" line for the
+  // common case since it's just visual noise once the slot cards are visible.
+  if (slots.length === 0) {
     body += `<p style="color:var(--text3);font-family:var(--font-mono);font-size:0.82rem;">No ingredient data available.</p>`;
+  } else if (data.slots_required && data.slots_required < slots.length) {
+    body += `<div class="slots-required-note">⚠ Select ${data.slots_required} of ${slots.length} aspect slots to craft this item.</div>`;
   }
 
   slots.forEach((slot, i) => {
@@ -894,6 +1130,41 @@ async function openModal(uuid, pv) {
             </div>`;
     }).join("");
 
+    // Quality slider for this slot — quality flows ingredient → quantization
+    // band → mapped value → modifier curve. Disabled if the slot has no
+    // modifiers (changing it would have no effect on output stats).
+    const hasModifiers = (slot.modifiers || []).length > 0;
+    const ing = ings[0] || {};
+    const minQuality = ing.min_quality || 0;
+    // CraftingGlobalParams.defaultCompositionQuality = 500 — the game's
+    // baseline quality for uncrafted items, so we default sliders there.
+    // Clamp up if the ingredient requires a higher minimum.
+    const defaultQuality = Math.max(minQuality, 500);
+    const sliderHtml = `
+      <div class="slot-quality ${hasModifiers ? "" : "no-impact"}">
+        <div class="slot-quality-label">
+          <span class="quality-name-group">
+            <span>Ingredient Quality
+              ${hasModifiers ? "" : '<span class="quality-note"> (no stat impact)</span>'}
+            </span>
+            <button type="button" class="quality-reset-btn"
+                    data-reset-slot="${i}"
+                    data-reset-value="${defaultQuality}"
+                    ${hasModifiers ? "" : "disabled"}
+                    title="Reset to ${defaultQuality}">Reset</button>
+          </span>
+          <span>
+            <span class="quality-value" id="q-val-${i}">${defaultQuality}</span>
+            <span class="quality-mapped" id="q-mapped-${i}"></span>
+          </span>
+        </div>
+        <input type="range" id="q-slider-${i}"
+               min="${minQuality}" max="1000" step="1"
+               value="${defaultQuality}"
+               data-slot-index="${i}"
+               ${hasModifiers ? "" : "disabled"} />
+      </div>`;
+
     body += `
       <div class="slot-card">
         <div class="slot-header">
@@ -901,10 +1172,41 @@ async function openModal(uuid, pv) {
           <span class="slot-name">${slot.slot_display || slot.slot_debug_name || "—"}</span>
         </div>
         <div class="slot-ingredients">${ingHtml}</div>
+        ${sliderHtml}
       </div>`;
   });
 
+  // Predicted stats panel — populated by recomputeCraftStats() below.
+  // Only render the panel if there's at least one modifier across all slots.
+  const anyModifiers = slots.some(s => (s.modifiers || []).length > 0);
+  if (anyModifiers) {
+    body += `
+      <div class="predicted-stats" id="predicted-stats">
+        <div class="predicted-stats-title">Predicted Final Stats</div>
+        <div id="predicted-stats-rows"></div>
+      </div>`;
+  }
+
   document.getElementById("modal-body").innerHTML = body;
+
+  // Wire up sliders + Reset buttons + initial render. We close over
+  // `data.slots` so each recompute walks the same data the modal opened with.
+  if (anyModifiers) {
+    document.querySelectorAll("#modal-body input[type='range'][data-slot-index]").forEach(el => {
+      el.addEventListener("input", () => recomputeCraftStats(data.slots));
+    });
+    document.querySelectorAll("#modal-body .quality-reset-btn[data-reset-slot]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = btn.dataset.resetSlot;
+        const slider = document.getElementById(`q-slider-${idx}`);
+        if (slider && !slider.disabled) {
+          slider.value = btn.dataset.resetValue;
+          recomputeCraftStats(data.slots);
+        }
+      });
+    });
+    recomputeCraftStats(data.slots);
+  }
   // Clear navigation history when opening a fresh blueprint
   modalHistory = [];
   document.getElementById("modal-nav-bar").style.display = "none";
