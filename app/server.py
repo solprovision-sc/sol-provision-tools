@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import os, json, argparse, sqlite3
+import os, json, argparse, sqlite3, re
 from pathlib import Path
 from flask import Flask, jsonify, request, render_template
 
@@ -46,6 +46,21 @@ def comp_grade(grade_num):
     }
     
     return grade_map.get(grade_num, '—')
+
+def _prettify_faction(name):
+    """Turn faction org names into readable labels for the filter sidebar.
+    'CitizensForProsperity' → 'Citizens For Prosperity', 'RedWindLinehaul'
+    → 'Red Wind Linehaul'. Names that already contain spaces are left as-is.
+    """
+    if not name:
+        return name
+    if " " in name:
+        return name
+    # Split camelCase / acronym boundaries.
+    s = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", name)
+    s = re.sub(r"(?<=[A-Z])(?=[A-Z][a-z])", " ", s)
+    return s.strip()
+
 
 def clean_career(s): return (s or "").replace("@vehicle_focus_","").replace("@vehicle_class_","").replace("_"," ").title()
 
@@ -1244,6 +1259,15 @@ COALESCE(
             c.display_path,
             c.sub_display,
             c.sub_sub_display,
+            -- High-level item bucket for the new sidebar filter.
+            CASE
+                WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'armour'  THEN 'armor'
+                WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'ammo'     THEN 'ammo'
+                WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'weapons'  THEN 'fps_weapons'
+                WHEN c.top_level = 'vehiclegear' AND c.mid_level = 'weapons'  THEN 'ship_weapons'
+                WHEN c.top_level = 'vehiclegear'                             THEN 'ship_components'
+                ELSE NULL
+            END AS item_category,
             COALESCE(ms.mission_count, 0)  AS mission_count,
             COALESCE(ms.lawful_count, 0)   AS lawful_count,
             COALESCE(ms.unlawful_count, 0) AS unlawful_count
@@ -1268,8 +1292,10 @@ COALESCE(
           -- point at the same default output (e.g. all 7 bp_craftnozzle_*_template
           -- → RN-7s) rather than craftable per-item recipes. Hide them.
           AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
-    """
-    params = [patch]
+          -- Hide top levels we don't surface (mission items).
+          AND (c.top_level IS NULL OR c.top_level NOT IN ({hidden_top_levels}))
+    """.format(hidden_top_levels=",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''")
+    params = [patch, *HIDDEN_CRAFTING_TOP_LEVELS]
     if top_level:
         query += " AND c.top_level = ?"
         params.append(top_level)
@@ -1322,9 +1348,48 @@ COALESCE(
             
             if loc_result:
                 bp['output_display'] = loc_result['value']
-        
+
         results.append(bp)
-    
+
+    # ── Attach mission facets (legality / mission type / faction / difficulty) ──
+    # One aggregation query for all blueprints, folded into per-blueprint sets.
+    facet_rows = db.execute("""
+        SELECT
+            cmp.blueprint_uuid AS bp,
+            c.mission_type_display AS mission_type,
+            c.tier   AS tier,
+            c.lawful AS lawful,
+            COALESCE(o.display_name, o.name) AS faction
+        FROM crafting_mission_pools cmp
+        JOIN contract_blueprint_rewards r
+            ON r.pool_uuid = cmp.pool_uuid AND r.patch_version = cmp.patch_version
+        JOIN contracts c
+            ON c.contract_uuid = r.contract_uuid AND c.patch_version = r.patch_version
+        LEFT JOIN mission_organizations o
+            ON o.org_uuid = c.contractor_org_uuid AND o.patch_version = c.patch_version
+        WHERE cmp.patch_version = ?
+    """, (patch,)).fetchall()
+
+    facets = {}
+    for fr in facet_rows:
+        f = facets.setdefault(fr["bp"], {"mission_types": set(), "factions": set(),
+                                         "tiers": set(), "legality": set()})
+        if fr["mission_type"]:
+            f["mission_types"].add(fr["mission_type"])
+        if fr["faction"]:
+            f["factions"].add(_prettify_faction(fr["faction"]))
+        if fr["tier"]:
+            f["tiers"].add(fr["tier"])
+        f["legality"].add("Lawful" if fr["lawful"] == 1
+                          else "Unlawful" if fr["lawful"] == 0 else "Unknown")
+
+    for bp in results:
+        f = facets.get(bp["uuid"])
+        bp["mission_types"] = sorted(f["mission_types"]) if f else []
+        bp["factions"]      = sorted(f["factions"])      if f else []
+        bp["tiers"]         = sorted(f["tiers"])         if f else []
+        bp["legality"]      = sorted(f["legality"])      if f else []
+
     return jsonify(results)
     
     
