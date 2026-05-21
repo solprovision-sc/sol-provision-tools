@@ -524,6 +524,47 @@
   white-space: nowrap;
 }
 
+/* ── New checkbox filter sidebar ───────────────────────────────────── */
+#filter-tree { display: flex; flex-direction: column; gap: 4px; }
+.filter-head {
+  font-family: var(--font-title); font-size: 0.82rem; font-weight: 700;
+  color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border2);
+}
+.filter-head:first-child { margin-top: 0; }
+/* Collapsible group (sub-category) */
+.filter-group2 { display: flex; flex-direction: column; }
+.filter-group2-toggle {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 0;
+}
+.filter-group2-toggle:hover { color: var(--accent); }
+.filter-group2-toggle .caret {
+  font-size: 0.6rem; color: var(--text3); transition: transform 0.15s; width: 9px;
+}
+.filter-group2.collapsed .caret { transform: rotate(-90deg); }
+.filter-group2.collapsed .filter-group2-body { display: none; }
+.filter-group2-body { display: flex; flex-direction: column; padding: 2px 0 6px 4px; }
+/* Checkbox row */
+.filter-check {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--text2);
+  padding: 3px 4px; border-radius: 3px; transition: background 0.12s, color 0.12s;
+}
+.filter-check:hover { background: var(--bg2); color: var(--text); }
+.filter-check input { accent-color: var(--accent); cursor: pointer; margin: 0; flex-shrink: 0; }
+.filter-check .fc-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-check .fc-count { color: var(--text3); font-size: 0.7rem; flex-shrink: 0; }
+.filter-check.checked { color: var(--text); }
+#filter-clear {
+  margin-top: 12px; width: 100%; background: transparent; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px;
+  font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.06em; transition: border-color 0.15s, color 0.15s;
+}
+#filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+
 </style>
 {% endblock %}
 
@@ -531,64 +572,23 @@
 <div class="layout">
 
   <aside id="sidebar">
-    <div id="sidebar-intro">
-      <div class="sidebar-section">
-        <span class="section-label">Crafting</span>
-        <p style="font-family:var(--font-body);font-size:0.82rem;color:var(--text2);line-height:1.5;margin:0;">
-          Browse blueprints by category. Click any card to drill down further, or click a blueprint card to view its full ingredient list.
-        </p>
+    <div class="sidebar-section">
+      <span class="section-label">Search</span>
+      <div class="filter-group">
+        <input type="search" id="filter-search" class="filter-input" placeholder="Search blueprints…">
       </div>
     </div>
-
-    <div id="sidebar-blueprint" style="display:none;">
-      <div class="sidebar-section">
-        <span class="section-label">Search</span>
-        <div class="filter-group">
-          <input type="search" id="filter-search" class="filter-input" placeholder="Search blueprints…">
-        </div>
-      </div>
-      <div class="sidebar-section" id="sidebar-sub-filters" style="display:none;">
-        <span class="section-label" id="sub-filter-label">Sub-Category</span>
-        <div class="filter-chips" id="chips-sub-level"></div>
-      </div>
-      <div class="sidebar-section">
-        <span class="section-label">Craft Time</span>
-        <div class="filter-chips">
-          <span class="filter-chip active" data-time="all">All</span>
-          <span class="filter-chip" data-time="fast">&lt; 1 min</span>
-          <span class="filter-chip" data-time="med">1–10 min</span>
-          <span class="filter-chip" data-time="slow">&gt; 10 min</span>
-        </div>
-      </div>
-      <div class="sidebar-section">
-        <span class="section-label">Sort</span>
-        <div class="filter-chips">
-          <span class="filter-chip active" data-sort="name">Name</span>
-          <span class="filter-chip" data-sort="time">Craft Time</span>
-          <span class="filter-chip" data-sort="slots">Slots</span>
-        </div>
-      </div>
+    <div class="sidebar-section">
+      <span class="section-label">Filters</span>
+      <div id="filter-tree"><div class="grid-empty">Loading…</div></div>
+      <button id="filter-clear" type="button">Clear all filters</button>
     </div>
   </aside>
 
   <main>
-    <div class="crafting-breadcrumb" id="breadcrumb">
-      <span class="crumb active" data-level="0">Crafting</span>
-    </div>
-
-    <div id="top-level-view">
-      <div class="category-grid" id="top-level-grid">
-        <div class="grid-empty">Loading…</div>
-      </div>
-    </div>
-
-    <div id="mid-level-view" style="display:none;">
-      <div class="category-grid" id="mid-level-grid"></div>
-    </div>
-
-    <div id="blueprint-view" style="display:none;">
-      <div class="result-count" id="result-count"></div>
-      <div id="blueprint-grid"></div>
+    <div class="result-count" id="result-count"></div>
+    <div id="blueprint-grid">
+      <div class="grid-empty">Loading…</div>
     </div>
   </main>
 </div>
@@ -622,13 +622,46 @@
 {% endblock %}
 
 {% block page_script %}
-let nav = { level: 0, top_level: null, top_display: null, mid_level: null, mid_display: null };
 let allBlueprints = [];
 let filteredBPs   = [];
-let activeFilters = { search: "", sub_level: null, time: "all", sort: "name" };
+// Faceted filter state. Each facet is a Set of selected values; empty = no
+// constraint. OR within a facet, AND across facets.
+const activeFilters = {
+  search:       "",
+  item:         new Set(),   // armor | ammo | fps_weapons | ship_components | ship_weapons
+  component:    new Set(),   // ship-component mid_level: shield | cooler | ...
+  legality:     new Set(),   // Lawful | Unlawful | Unknown
+  mission_type: new Set(),   // Mercenary | Hauling | ...
+  faction:      new Set(),   // Red Wind Linehaul | ...
+  difficulty:   new Set(),   // Intro | VE | E | M | H | VH | S
+};
 const detailCache = {};
 const missionCache = {};  // mission_name:pv → mission detail object
 let modalHistory   = [];  // navigation stack: [{title, entity, meta, body}]
+
+// Static labels / ordering for the filter sidebar.
+const ITEM_CATEGORIES = [
+  ["armor", "Armor"], ["ammo", "Ammo"], ["fps_weapons", "FPS Weapons"],
+  ["ship_components", "Ship Components"], ["ship_weapons", "Ship Weapons"],
+];
+// Ship Components sub-categories — the old per-page component types (minus
+// ship weapons, which is its own item filter). Keyed on the blueprint's
+// mid_level. Drives the `component` facet.
+const SHIP_COMPONENT_TYPES = [
+  ["shield", "Shield"], ["cooler", "Cooler"], ["powerplant", "Power Plant"],
+  ["quantumdrive", "Quantum Drive"], ["radar", "Radar"], ["mininglaser", "Mining Laser"],
+  ["refuelling", "Refuelling"], ["salvage", "Salvage"], ["tractorbeam", "Tractor Beam"],
+];
+const LEGALITY_VALUES = ["Lawful", "Unlawful", "Unknown"];
+const DIFFICULTY_ORDER = ["Intro", "VE", "E", "M", "H", "VH", "S"];
+// Rank labels for the 6 difficulty tiers (VE→S), per the in-game progression.
+// "Intro" is the separate introductory tier. NOTE: these labels are applied
+// over CIG's internal tier codes — the game data has no single universal rank
+// ladder to pull from (real ranks are activity-specific). Edit freely.
+const DIFFICULTY_LABELS = {
+  Intro: "Trainee", VE: "Rookie", E: "Junior", M: "Member",
+  H: "Experienced", VH: "Senior", S: "Master",
+};
 
 // ── Crafting quality math ──────────────────────────────────────────────
 // The slider chooses a raw quality (0-1000). The game first runs it through
@@ -756,190 +789,144 @@ function fmtQty(ing) {
   return `×${Math.round(ing.quantity || 1)}`;
 }
 
-const ICON_PATH = "/static/img/icons/";
-
-function svg(filename) {
-  return `<img src="${ICON_PATH}${filename}" alt="" class="cat-svg-icon" />`;
-}
-
-function catIcon(name) {
-  if (!name) return "📦";
-  const n = name.toLowerCase();
-  if (n.includes("fps gear") || n === "fpsgear")          return "🪖";
-  if (n.includes("vehicle gear") || n === "vehiclegear")  return "🚀";
-  if (n.includes("mission"))                              return "📋";
-  if (n.includes("weapon"))                               return "🔫";
-  if (n.includes("armor") || n.includes("armour") || n.includes("suit")) return "🛡️";
-  if (n.includes("ammo"))    return "🔋";
-
-  // ── Vehicle gear sub-categories — use SVG icons ──
-  if (n.includes("shield"))  return svg("ItemShields.svg");
-  if (n.includes("cooler"))  return svg("ItemCooler.svg");
-  if (n.includes("power"))   return svg("ItemPowerPlant.svg");
-  if (n.includes("quantum")) return svg("ItemQuantumDrive.svg");
-  if (n.includes("radar"))   return svg("ItemRadar.svg");
-  if (n.includes("mining"))  return svg("ItemMining.svg");
-  if (n.includes("refuel"))  return svg("refuelling.svg");
-  if (n.includes("salvage")) return svg("ItemSalvage.svg");
-  if (n.includes("tractor")) return svg("ItemTractorBeam.svg");
-
-  if (n.includes("medical")) return "💉";
-  return "📦";
-}
-
-
-function renderBreadcrumb() {
-  const el = document.getElementById("breadcrumb");
-  const crumbs = [{ label: "Crafting", level: 0 }];
-  if (nav.top_display) crumbs.push({ label: nav.top_display, level: 1 });
-  if (nav.mid_display) crumbs.push({ label: nav.mid_display, level: 2 });
-
-  el.innerHTML = crumbs.map((c, i) => {
-    const isLast = i === crumbs.length - 1;
-    return (i > 0 ? '<span class="crumb-sep">/</span>' : '')
-      + `<span class="crumb ${isLast ? 'active' : ''}" data-level="${c.level}">${c.label}</span>`;
-  }).join("");
-
-  el.querySelectorAll(".crumb:not(.active)").forEach(c => {
-    c.addEventListener("click", () => navigateTo(parseInt(c.dataset.level)));
-  });
-}
-
-function showLevel(level) {
-  nav.level = level;
-  document.getElementById("top-level-view").style.display     = level === 0 ? "" : "none";
-  document.getElementById("mid-level-view").style.display     = level === 1 ? "" : "none";
-  document.getElementById("blueprint-view").style.display     = level === 2 ? "" : "none";
-  document.getElementById("sidebar-intro").style.display      = level === 2 ? "none" : "";
-  document.getElementById("sidebar-blueprint").style.display  = level === 2 ? "" : "none";
-  renderBreadcrumb();
-}
-
-function navigateTo(level) {
-  if (level === 0) {
-    nav = { level: 0, top_level: null, top_display: null, mid_level: null, mid_display: null };
-    showLevel(0); loadTopLevels();
-  } else if (level === 1) {
-    nav.mid_level = null; nav.mid_display = null;
-    showLevel(1); loadMidLevels(nav.top_level);
-  }
-}
-
-async function loadTopLevels() {
-  const data = await api("/api/crafting/top_levels");
-  const grid = document.getElementById("top-level-grid");
-  if (!data || data.length === 0) {
-    grid.innerHTML = '<div class="grid-empty">No crafting data found. Run the parser first.</div>';
-    return;
-  }
-  grid.innerHTML = data.map(t => `
-    <div class="category-card" data-top="${t.top_level}" data-top-display="${t.top_display}">
-      <div class="cat-icon">${catIcon(t.top_display)}</div>
-      <div class="cat-name">${t.top_display}</div>
-      <div class="cat-count">${t.blueprint_count} blueprint${t.blueprint_count !== 1 ? "s" : ""}</div>
-    </div>`).join("");
-  grid.querySelectorAll(".category-card").forEach(card => {
-    card.addEventListener("click", () => {
-      nav.top_level   = card.dataset.top;
-      nav.top_display = card.dataset.topDisplay;
-      showLevel(1); loadMidLevels(nav.top_level);
-    });
-  });
-}
-
-async function loadMidLevels(topLevel) {
-  const grid = document.getElementById("mid-level-grid");
-  grid.innerHTML = '<div class="grid-empty">Loading categories…</div>';
-
-  const data = await api(`/api/crafting/categories?top_level=${encodeURIComponent(topLevel)}`);
-  if (!data || data.length === 0) {
-    grid.innerHTML = '<div class="grid-empty">No sub-categories found.</div>';
-    return;
-  }
-
-  // If only one mid-level, skip to blueprint view
-  if (data.length === 1) {
-    nav.mid_level   = data[0].mid_level;
-    nav.mid_display = data[0].mid_display;
-    showLevel(2); loadBlueprints();
-    return;
-  }
-
-  grid.innerHTML = data.map(m => `
-    <div class="category-card" data-mid="${m.mid_level || ''}" data-mid-display="${m.mid_display}">
-      <div class="cat-icon">${catIcon(m.mid_display)}</div>
-      <div class="cat-name">${m.mid_display}</div>
-      <div class="cat-count">${m.blueprint_count} blueprint${m.blueprint_count !== 1 ? "s" : ""}</div>
-    </div>`).join("");
-
-  grid.querySelectorAll(".category-card").forEach(card => {
-    card.addEventListener("click", () => {
-      nav.mid_level   = card.dataset.mid || null;
-      nav.mid_display = card.dataset.midDisplay;
-      showLevel(2); loadBlueprints();
-    });
-  });
-}
-
-async function loadBlueprints() {
-  activeFilters = { search: "", sub_level: null, time: "all", sort: "name" };
-  document.getElementById("filter-search").value = "";
-  document.querySelectorAll("[data-time]").forEach(c => c.classList.toggle("active", c.dataset.time === "all"));
-  document.querySelectorAll("[data-sort]").forEach(c => c.classList.toggle("active", c.dataset.sort === "name"));
-  document.getElementById("blueprint-grid").innerHTML = '<div class="grid-empty">Loading blueprints…</div>';
-
-  let url = `/api/crafting/blueprints?top_level=${encodeURIComponent(nav.top_level)}`;
-  if (nav.mid_level) url += `&mid_level=${encodeURIComponent(nav.mid_level)}`;
-
-  const data = await api(url);
+// ── Load all blueprints once, then filter client-side ──────────────────
+async function loadAll() {
+  const data = await api("/api/crafting/blueprints");
   allBlueprints = data || [];
-  await loadSubLevelChips();
+  buildSidebar();
   applyFilters();
 }
 
-async function loadSubLevelChips() {
-  const subFilterEl = document.getElementById("sidebar-sub-filters");
-  if (!nav.mid_level) { subFilterEl.style.display = "none"; return; }
+// Count how many blueprints match a given facet value (independent of current
+// selection — a stable total shown next to each checkbox).
+function countItem(cat) {
+  return allBlueprints.filter(bp => bp.item_category === cat).length;
+}
+function countMid(mid) {
+  return allBlueprints.filter(bp => bp.mid_level === mid).length;
+}
+function countFacet(field, value) {
+  return allBlueprints.filter(bp => (bp[field] || []).includes(value)).length;
+}
 
-  const data = await api(
-    `/api/crafting/sublevels?top_level=${encodeURIComponent(nav.top_level)}&mid_level=${encodeURIComponent(nav.mid_level)}`
-  );
-  if (!data || data.length === 0) { subFilterEl.style.display = "none"; return; }
+// Build the distinct value lists for the dynamic mission facets.
+function distinctFacet(field) {
+  const s = new Set();
+  allBlueprints.forEach(bp => (bp[field] || []).forEach(v => s.add(v)));
+  return [...s];
+}
 
-  subFilterEl.style.display = "";
-  const container = document.getElementById("chips-sub-level");
-  container.innerHTML = [
-    `<span class="filter-chip active" data-sub="all">All</span>`,
-    ...data.map(s => `<span class="filter-chip" data-sub="${s.sub_level}">${s.sub_display}</span>`)
-  ].join("");
+function checkboxRow(facet, value, label, count) {
+  return `
+    <label class="filter-check" data-facet="${facet}" data-value="${escapeHtml(value)}">
+      <input type="checkbox">
+      <span class="fc-label">${escapeHtml(label)}</span>
+      <span class="fc-count">${count}</span>
+    </label>`;
+}
 
-  container.querySelectorAll(".filter-chip").forEach(chip => {
-    chip.addEventListener("click", () => {
-      container.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
-      chip.classList.add("active");
-      activeFilters.sub_level = chip.dataset.sub === "all" ? null : chip.dataset.sub;
+function collapsibleGroup(title, innerHtml, collapsed) {
+  return `
+    <div class="filter-group2 ${collapsed ? "collapsed" : ""}">
+      <div class="filter-group2-toggle"><span class="caret">▼</span>${escapeHtml(title)}</div>
+      <div class="filter-group2-body">${innerHtml}</div>
+    </div>`;
+}
+
+function buildSidebar() {
+  const tree = document.getElementById("filter-tree");
+
+  // ITEMS — flat checkboxes, except Ship Components which expands into a
+  // collapsible group of component-type sub-filters.
+  let html = `<div class="filter-head">Items</div>`;
+  ITEM_CATEGORIES.forEach(([cat, label]) => {
+    if (countItem(cat) === 0) return;
+    if (cat === "ship_components") {
+      // "All Ship Components" (item facet) + per-type sub-checkboxes (component facet)
+      const inner =
+        checkboxRow("item", cat, "All Ship Components", countItem(cat)) +
+        SHIP_COMPONENT_TYPES
+          .filter(([mid]) => countMid(mid) > 0)
+          .map(([mid, lbl]) => checkboxRow("component", mid, lbl, countMid(mid)))
+          .join("");
+      html += collapsibleGroup("Ship Components", inner, true);
+    } else {
+      html += checkboxRow("item", cat, label, countItem(cat));
+    }
+  });
+
+  // MISSIONS — collapsible sub-groups
+  html += `<div class="filter-head">Missions</div>`;
+
+  // Legality (fixed values, only those present)
+  const legalityRows = LEGALITY_VALUES
+    .filter(v => countFacet("legality", v) > 0)
+    .map(v => checkboxRow("legality", v, v, countFacet("legality", v))).join("");
+  html += collapsibleGroup("Legality", legalityRows, false);
+
+  // Mission Type (dynamic, alpha)
+  const typeRows = distinctFacet("mission_types").sort()
+    .map(v => checkboxRow("mission_type", v, v, countFacet("mission_types", v))).join("");
+  html += collapsibleGroup("Mission Type", typeRows, false);
+
+  // Faction (dynamic, alpha) — collapsed by default since the list is long
+  const factionRows = distinctFacet("factions").sort()
+    .map(v => checkboxRow("faction", v, v, countFacet("factions", v))).join("");
+  html += collapsibleGroup("Faction", factionRows, true);
+
+  // Difficulty (fixed order, only those present)
+  const diffRows = DIFFICULTY_ORDER
+    .filter(v => countFacet("tiers", v) > 0)
+    .map(v => checkboxRow("difficulty", v, DIFFICULTY_LABELS[v] || v, countFacet("tiers", v))).join("");
+  html += collapsibleGroup("Difficulty", diffRows, true);
+
+  tree.innerHTML = html;
+
+  // Collapse toggles
+  tree.querySelectorAll(".filter-group2-toggle").forEach(t => {
+    t.addEventListener("click", () => t.parentElement.classList.toggle("collapsed"));
+  });
+  // Checkbox changes → update the matching facet set + re-filter
+  tree.querySelectorAll(".filter-check").forEach(row => {
+    const input = row.querySelector("input");
+    input.addEventListener("change", () => {
+      const facet = row.dataset.facet;
+      const value = row.dataset.value;
+      const set = activeFilters[facet];
+      if (input.checked) { set.add(value); row.classList.add("checked"); }
+      else               { set.delete(value); row.classList.remove("checked"); }
       applyFilters();
     });
   });
 }
 
+// Does a blueprint pass a multi-value facet? Empty set = no constraint.
+// `values` is the blueprint's array for that facet; OR semantics within facet.
+function passesFacet(selected, values) {
+  if (selected.size === 0) return true;
+  for (const v of values) if (selected.has(v)) return true;
+  return false;
+}
+
 function applyFilters() {
   const search = activeFilters.search.toLowerCase();
   filteredBPs = allBlueprints.filter(bp => {
+    // Search
     const dn = (bp.output_display || bp.output_name || bp.entity_name || "").toLowerCase();
     if (search && !dn.includes(search) && !(bp.entity_name||"").toLowerCase().includes(search)) return false;
-    if (activeFilters.sub_level && bp.sub_level !== activeFilters.sub_level) return false;
-    if (activeFilters.time !== "all") {
-      const t = bp.craft_time_sec || 0;
-      if (activeFilters.time === "fast" && t >= 60)             return false;
-      if (activeFilters.time === "med"  && (t < 60 || t > 600)) return false;
-      if (activeFilters.time === "slow" && t <= 600)            return false;
-    }
+    // Item category (single-valued)
+    if (activeFilters.item.size > 0 && !activeFilters.item.has(bp.item_category)) return false;
+    // Ship-component sub-type (single-valued mid_level)
+    if (activeFilters.component.size > 0 && !activeFilters.component.has(bp.mid_level)) return false;
+    // Mission facets (multi-valued; empty arrays naturally exclude craft-only
+    // items whenever a mission facet is active)
+    if (!passesFacet(activeFilters.legality,     bp.legality      || [])) return false;
+    if (!passesFacet(activeFilters.mission_type, bp.mission_types  || [])) return false;
+    if (!passesFacet(activeFilters.faction,      bp.factions       || [])) return false;
+    if (!passesFacet(activeFilters.difficulty,   bp.tiers          || [])) return false;
     return true;
   });
   filteredBPs.sort((a, b) => {
-    if (activeFilters.sort === "time")  return (a.craft_time_sec||0) - (b.craft_time_sec||0);
-    if (activeFilters.sort === "slots") return (a.slots_required||0) - (b.slots_required||0);
     const na = (a.output_display||a.output_name||a.entity_name||"").toLowerCase();
     const nb = (b.output_display||b.output_name||b.entity_name||"").toLowerCase();
     return na.localeCompare(nb);
@@ -1455,14 +1442,16 @@ document.addEventListener("keydown", e => {
 document.getElementById("filter-search").addEventListener("input", e => {
   activeFilters.search = e.target.value; applyFilters();
 });
-document.querySelectorAll("[data-time]").forEach(chip => chip.addEventListener("click", () => {
-  document.querySelectorAll("[data-time]").forEach(c => c.classList.remove("active"));
-  chip.classList.add("active"); activeFilters.time = chip.dataset.time; applyFilters();
-}));
-document.querySelectorAll("[data-sort]").forEach(chip => chip.addEventListener("click", () => {
-  document.querySelectorAll("[data-sort]").forEach(c => c.classList.remove("active"));
-  chip.classList.add("active"); activeFilters.sort = chip.dataset.sort; applyFilters();
-}));
+document.getElementById("filter-clear").addEventListener("click", () => {
+  activeFilters.search = "";
+  document.getElementById("filter-search").value = "";
+  ["item","component","legality","mission_type","faction","difficulty"].forEach(f => activeFilters[f].clear());
+  document.querySelectorAll("#filter-tree input[type=checkbox]").forEach(cb => {
+    cb.checked = false;
+    cb.closest(".filter-check").classList.remove("checked");
+  });
+  applyFilters();
+});
 document.getElementById("modal-back-btn").addEventListener("click", () => {
   if (modalHistory.length === 0) return;
   const prev = modalHistory.pop();
@@ -1487,6 +1476,5 @@ document.getElementById("modal-back-btn").addEventListener("click", () => {
   });
 });
 
-loadTopLevels();
-renderBreadcrumb();
+loadAll();
 {% endblock %}
