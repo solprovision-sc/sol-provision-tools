@@ -94,6 +94,30 @@ def ensure_columns(db_path):
     conn.close()
 
 
+def ensure_indexes(db_path):
+    """Create indexes the app's hot queries depend on but the import pipeline
+    doesn't build. Idempotent — safe to run on every startup.
+
+    idx_item_components_entity: the /api/crafting/blueprints query joins
+    item_components on (entity_name, patch_version). The table's only index is
+    the (uuid, patch_version) primary key, so without this the join falls back
+    to a full scan per blueprint row — ~10s for the crafting page's initial
+    load. With it, that query drops to <100ms.
+    """
+    conn = sqlite3.connect(db_path)
+    indexes = [
+        ("idx_item_components_entity",
+         "item_components", "(entity_name, patch_version)"),
+    ]
+    for name, table, cols in indexes:
+        existing = {r[1] for r in conn.execute(f"PRAGMA index_list({table})").fetchall()}
+        if name not in existing:
+            conn.execute(f"CREATE INDEX {name} ON {table}{cols}")
+            print(f"  Created index: {name}")
+    conn.commit()
+    conn.close()
+
+
 COMP_PARAMS = {
     "Shield":       "SCItemShieldGeneratorParams",
     "Cooler":       "SCItemCoolerParams",
@@ -2028,6 +2052,7 @@ if __name__ == "__main__":
     DB_PATH = args.db; PATCH = args.patch
     if not Path(DB_PATH).exists(): print(f"ERROR: DB not found: {DB_PATH}"); exit(1)
     ensure_columns(DB_PATH)
+    ensure_indexes(DB_PATH)
     conn = sqlite3.connect(DB_PATH); conn.row_factory = sqlite3.Row
     p = PATCH or latest_patch(conn)
     n = conn.execute("SELECT COUNT(*) as n FROM ships WHERE patch_version=?", (p,)).fetchone()["n"]
