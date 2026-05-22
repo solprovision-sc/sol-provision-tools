@@ -55,9 +55,27 @@
   padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
 }
+.bp-card-name-block { flex: 1; min-width: 0; }
 .bp-card-name {
   font-family: var(--font-title); font-size: 0.97rem; font-weight: 600;
-  color: var(--text); line-height: 1.25; flex: 1; min-width: 0;
+  color: var(--text); line-height: 1.25; min-width: 0;
+}
+/* Component size + category sub-line (ship components / ship weapons only). */
+.bp-card-subdetail { display: flex; align-items: center; gap: 7px; margin-top: 5px; }
+/* Size box — copied exactly from .comp-size-h in ship_detail.html. */
+.comp-size-h {
+  font-size: 11px;
+  color: #9A8C64;
+  letter-spacing: 1px;
+  border: 1px solid #9A8C64;
+  padding: 2px;
+  border-radius: 1px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.bp-comp-cat {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+  letter-spacing: 0.04em;
 }
 .bp-card-time {
   font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
@@ -663,6 +681,22 @@ const DIFFICULTY_LABELS = {
   H: "Experienced", VH: "Senior", S: "Master",
 };
 
+// Friendly labels for the raw item_type values shown on ship component /
+// ship weapon cards. Anything not listed falls back to a CamelCase split.
+const COMP_TYPE_LABELS = {
+  Cooler: "Cooler", PowerPlant: "Power Plant", QuantumDrive: "Quantum Drive",
+  Shield: "Shield", Radar: "Radar", TractorBeam: "Tractor Beam",
+  SalvageHead: "Salvage Head", SalvageModifier: "Salvage Module",
+  DockingCollar: "Refueling Nozzle", WeaponMining: "Mining Laser",
+  WeaponGun: "Weapon", WeaponMissile: "Missile Launcher",
+  WeaponDefensive: "Countermeasure",
+};
+function compTypeLabel(itemType) {
+  if (!itemType) return "";
+  return COMP_TYPE_LABELS[itemType]
+    || itemType.replace(/([a-z])([A-Z])/g, "$1 $2");  // CamelCase → spaced fallback
+}
+
 // ── Crafting quality math ──────────────────────────────────────────────
 // The slider chooses a raw quality (0-1000). The game first runs it through
 // the ingredient's per-material quantization band, then evaluates the slot's
@@ -944,6 +978,22 @@ function renderBlueprintCards() {
   }
   grid.innerHTML = filteredBPs.map(bp => {
     const name   = bp.output_display || bp.output_name || bp.entity_name || "—";
+
+    // Size + category sub-line, ship components & ship weapons only. Size in a
+    // box matching ship_detail's .comp-size-h; category is the item_type
+    // (Cooler / QuantumDrive / PowerPlant / WeaponGun / etc).
+    const showCompDetail = bp.item_category === "ship_components" || bp.item_category === "ship_weapons";
+    let compDetailHtml = "";
+    if (showCompDetail) {
+      const sizeBox = bp.item_size != null
+        ? `<span class="comp-size-h">S${bp.item_size}</span>` : "";
+      const catLabel = bp.item_type
+        ? `<span class="bp-comp-cat">${escapeHtml(compTypeLabel(bp.item_type))}</span>` : "";
+      if (sizeBox || catLabel) {
+        compDetailHtml = `<div class="bp-card-subdetail">${sizeBox}${catLabel}</div>`;
+      }
+    }
+
     const tags = [];
     if (bp.sub_display)     tags.push(`<span class="bp-tag tag-accent">${bp.sub_display}</span>`);
     if (bp.sub_sub_display) tags.push(`<span class="bp-tag tag-gold">${bp.sub_sub_display}</span>`);
@@ -975,7 +1025,10 @@ function renderBlueprintCards() {
     return `
       <div class="bp-card" data-uuid="${bp.uuid}" data-pv="${bp.patch_version}">
         <div class="bp-card-header">
-          <div class="bp-card-name">${name}</div>
+          <div class="bp-card-name-block">
+            <div class="bp-card-name">${name}</div>
+            ${compDetailHtml}
+          </div>
           <div class="bp-card-time">${fmtTime(bp.craft_time_sec)}</div>
         </div>
         ${tagHtml ? `<div class="bp-card-tags">${tagHtml}</div>` : ""}
