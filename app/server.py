@@ -1259,6 +1259,10 @@ COALESCE(
             c.display_path,
             c.sub_display,
             c.sub_sub_display,
+            -- Component size + type, surfaced on the card for ship components/weapons.
+            -- item_components is the canonical source (same table ship_detail reads).
+            ic.size AS item_size,
+            ic.item_type AS item_type,
             -- High-level item bucket for the new sidebar filter.
             CASE
                 WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'armour'  THEN 'armor'
