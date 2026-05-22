@@ -611,7 +611,7 @@
   <main>
     <div class="result-count" id="result-count"></div>
     <div id="blueprint-grid">
-      <div class="grid-empty">Loading…</div>
+      <div class="grid-empty">Make a filter selection to view blueprints.</div>
     </div>
   </main>
 </div>
@@ -947,7 +947,34 @@ function passesFacet(selected, values) {
   return false;
 }
 
+// True if the user has narrowed the catalog at all (search text or any facet).
+// Used to defer rendering — until then we show a prompt instead of dumping the
+// whole catalog and prefetching a detail request per card.
+function anyFilterActive() {
+  return activeFilters.search.trim() !== ""
+    || activeFilters.item.size > 0
+    || activeFilters.component.size > 0
+    || activeFilters.legality.size > 0
+    || activeFilters.mission_type.size > 0
+    || activeFilters.faction.size > 0
+    || activeFilters.difficulty.size > 0;
+}
+
+function showFilterPrompt() {
+  filteredBPs = [];
+  document.getElementById("result-count").textContent = "";
+  document.getElementById("blueprint-grid").innerHTML =
+    '<div class="grid-empty">Make a filter selection to view blueprints.</div>';
+}
+
 function applyFilters() {
+  // No selection yet → keep the prompt up. The blueprint list still loads in
+  // the background to build the sidebar, but we skip rendering cards (and the
+  // expensive per-card ingredient prefetch) until the user picks a filter.
+  if (!anyFilterActive()) {
+    showFilterPrompt();
+    return;
+  }
   const search = activeFilters.search.toLowerCase();
   filteredBPs = allBlueprints.filter(bp => {
     // Search
