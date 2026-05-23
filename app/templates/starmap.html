@@ -274,19 +274,19 @@
 
 <!-- SYSTEM SELECTOR -->
 <div id="system-selector">
-  <button class="sys-btn active" onclick="switchSystem('stanton')">STANTON</button>
-  <button class="sys-btn"        onclick="switchSystem('pyro')">PYRO</button>
-  <button class="sys-btn"        onclick="switchSystem('nyx')">NYX</button>
+  <button class="sys-btn active" data-system="stanton">STANTON</button>
+  <button class="sys-btn"        data-system="pyro">PYRO</button>
+  <button class="sys-btn"        data-system="nyx">NYX</button>
 </div>
 
 <!-- FILTERS -->
 <div id="filters">
-  <div class="filter-btn active" data-type="PLANET"        onclick="toggleFilter(this)"><div class="filter-dot"></div>PLANETS</div>
-  <div class="filter-btn active" data-type="SATELLITE"     onclick="toggleFilter(this)"><div class="filter-dot"></div>MOONS</div>
-  <div class="filter-btn active" data-type="orbits"        onclick="toggleFilter(this)"><div class="filter-dot"></div>ORBIT RINGS</div>
-  <div class="filter-btn active" data-type="labels"        onclick="toggleFilter(this)"><div class="filter-dot"></div>LABELS</div>
-  <div class="filter-btn active" data-type="JUMPPOINT"     onclick="toggleFilter(this)"><div class="filter-dot"></div>JUMP POINTS</div>
-  <div class="filter-btn active" data-type="ASTEROID_BELT" onclick="toggleFilter(this)"><div class="filter-dot"></div>ASTEROID FIELDS</div>
+  <div class="filter-btn active" data-type="PLANET"       ><div class="filter-dot"></div>PLANETS</div>
+  <div class="filter-btn active" data-type="SATELLITE"    ><div class="filter-dot"></div>MOONS</div>
+  <div class="filter-btn active" data-type="orbits"       ><div class="filter-dot"></div>ORBIT RINGS</div>
+  <div class="filter-btn active" data-type="labels"       ><div class="filter-dot"></div>LABELS</div>
+  <div class="filter-btn active" data-type="JUMPPOINT"    ><div class="filter-dot"></div>JUMP POINTS</div>
+  <div class="filter-btn active" data-type="ASTEROID_BELT"><div class="filter-dot"></div>ASTEROID FIELDS</div>
 </div>
 
 <!-- CONTROLS -->
@@ -299,7 +299,7 @@
 </div>
 
 <!-- ORBIT TOGGLE -->
-<div id="orbit-toggle" onclick="toggleOrbits()">
+<div id="orbit-toggle">
   <div class="ind"></div>ORBITAL MOTION
 </div>
 
@@ -307,7 +307,7 @@
 <div id="info-panel">
   <div id="iph">
     <div><div id="ipt">—</div><div id="iptype">—</div></div>
-    <div id="ipclose" onclick="closeInfo()">[ X ]</div>
+    <div id="ipclose">[ X ]</div>
   </div>
   <div id="ipbody">
     <div class="info-row"><span class="info-label">DESIGNATION</span><span class="info-value" id="i-desig">—</span></div>
@@ -323,7 +323,14 @@
 
 <div id="tooltip"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="/static/starmap/starmap.js"></script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="/static/starmap/starmap.js"></script>
 </body>
 </html>
