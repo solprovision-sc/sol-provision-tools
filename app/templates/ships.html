@@ -768,7 +768,7 @@
       const role   = toTitleCase(cleanRole(s.role));
       const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
       const crew   = s.crew_min === s.crew_max ? `${s.crew_min}` : `${s.crew_min}–${s.crew_max}`;
-      const len    = s.length_m ? `${s.length_m}m` : '—';
+      const len    = s.length_rsi_m ? `${s.length_rsi_m}m` : '—';
 
       return `
         <a class="ship-card" href="/ships/${s.entity_name}">

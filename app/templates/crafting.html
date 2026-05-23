@@ -1183,11 +1183,16 @@ async function openModal(uuid, pv) {
           const name   = ing.display_name || ing.resource_name || ing.resource_uuid || "Unknown";
           const entity = ing.resource_name || "";
 
-          // Hide entity sub-line when it's a carryable filename for a resolved commodity —
-          // those are noise. Show it only when it adds useful info (e.g. a specific
-          // item variant that we don't have a friendlier name for).
-          const isCommodityCarryable = entity.startsWith("carryable_") && name && !name.startsWith("carryable_");
-          const showEntity = entity && entity !== name && !isCommodityCarryable;
+          // Hide entity sub-line when it's an internal commodity filename (carryable_*
+          // or harvestable_*) for an already-resolved commodity — those are noise.
+          // Show it only when it adds useful info (e.g. a specific item variant that
+          // we don't have a friendlier name for).
+          const isCommodityInternal =
+            (entity.startsWith("carryable_") || entity.startsWith("harvestable_"))
+            && name
+            && !name.startsWith("carryable_")
+            && !name.startsWith("harvestable_");
+          const showEntity = entity && entity !== name && !isCommodityInternal;
 
           return `
             <div class="ingredient-row">
