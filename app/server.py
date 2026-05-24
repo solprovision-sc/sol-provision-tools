@@ -375,13 +375,28 @@ def verify_auth():
         
         # Verify the Firebase ID token
         decoded_token = firebase_auth.verify_id_token(id_token)
-        discord_id = decoded_token.get('uid')
+        
+        # Extract Discord ID from provider data (not uid!)
+        # Firebase uid is a Firebase-generated ID, not the Discord user ID
+        firebase_data = decoded_token.get('firebase', {})
+        identities = firebase_data.get('identities', {})
+        
+        # Discord ID should be in identities['oidc.discord'][0]
+        discord_ids = identities.get('oidc.discord', [])
+        
+        if not discord_ids:
+            print(f"No Discord ID found in token. Full token: {decoded_token}")
+            return jsonify({
+                'error': 'Discord ID not found in token',
+                'message': 'Authentication token is missing Discord information.'
+            }), 401
+        
+        discord_id = discord_ids[0]
         
         # Query user database
         user_conn = get_user_db()
         cursor = user_conn.cursor()
         
-        # ✅ Changed: users → discord_members
         cursor.execute('''
             SELECT user_id, username, display_name, rank, division, roles, join_date
             FROM discord_members 
@@ -394,12 +409,12 @@ def verify_auth():
         
         if not user:
             user_conn.close()
+            print(f"Discord ID {discord_id} not found in database")
             return jsonify({
                 'error': 'Not a Sol Provision member',
                 'message': 'You must be a member of the Sol Provision Discord server.'
             }), 403
         
-        # ✅ Changed: users → discord_members
         # Update last login timestamp
         cursor.execute('''
             UPDATE discord_members 
@@ -432,6 +447,8 @@ def verify_auth():
         
     except Exception as e:
         print(f"Auth verification error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 401
 
 
