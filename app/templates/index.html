@@ -2,315 +2,191 @@
 {% block title %}Sol Provision — Data Intelligence{% endblock %}
 
 {% block extra_css %}
-<style>
-  /* ── Landing page overrides — no sidebar layout on this page ── */
-  body {
-    min-height: 100vh;
-  }
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 
-  /* scan bg */
-  body::before {
-    content: '';
+
+<style>
+  /* ── Existing landing page styles ── */
+  /* ... keep all your existing CSS ... */
+
+  /* ── Auth Modal Overlay ── */
+  #authOverlay {
     position: fixed;
     inset: 0;
-    background-image:
-      linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ── Page ── */
-  .landing-page {
-    position: relative;
-    z-index: 1;
-    min-height: calc(100vh - 52px);
+    background: rgba(13, 11, 10, 0.98);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 48px 32px;
-  }
-
-  /* ── Hero text ── */
-  .hero {
-    text-align: center;
-    margin-bottom: 56px;
-  }
-  .hero-title {
-    font-family: var(--font-ui);
-    font-weight: 900;
-    font-size: 32px;
-    letter-spacing: 6px;
-    color: #fff;
-    text-transform: uppercase;
-    margin-bottom: 10px;
-  }
-  .hero-title em {
-    color: #7E2619;
-    font-style: normal;
-  }
-  .hero-sub {
-    font-size: 11px;
-    letter-spacing: 3px;
-    color: #9A8C64;
-    text-transform: uppercase;
-  }
-  .hero-divider {
-    width: 120px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #7E2619, transparent);
-    margin: 20px auto 0;
-  }
-
-  /* ── Card grid ── */
-  .card-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    width: 100%;
-    max-width: 1200px;
-  }
-
-  /* ── Hero card ── */
-  .hero-card {
-    background: #231e1a;
-    border: 1px solid rgba(126,38,25,0.22);
-    position: relative;
-    cursor: pointer;
-    overflow: hidden;
-    transition: all 0.25s;
-    clip-path: polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px));
-    text-decoration: none;
-    display: block;
-  }
-  .hero-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: #7E2619;
-    transition: background 0.25s;
-  }
-  .hero-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 30% 0%, rgba(126,38,25,0.1) 0%, transparent 65%);
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.3s;
   }
-  .hero-card:hover {
-    border-color: rgba(126,38,25,0.6);
-    transform: translateY(-4px);
-  }
-  .hero-card:hover::before { background: #E8855C; }
-  .hero-card:hover::after { opacity: 1; }
-  .hero-card:hover .card-arrow { opacity: 1; transform: translateX(4px); }
-  .hero-card:hover .card-number { opacity: 0.15; }
-
-  /* corner accents */
-  .card-corner {
-    position: absolute;
-    top: 0; right: 0;
-    width: 20px; height: 20px;
-    border-top: 2px solid #7E2619;
-    border-right: 2px solid #7E2619;
-  }
-  .card-corner-bl {
-    position: absolute;
-    bottom: 0; left: 0;
-    width: 20px; height: 20px;
-    border-bottom: 2px solid rgba(126,38,25,0.22);
-    border-left: 2px solid rgba(126,38,25,0.22);
-  }
-
-  /* card body */
-  .card-body { padding: 32px 28px 28px; }
-  .card-eyebrow {
-    font-size: 8px;
-    letter-spacing: 2.5px;
-    color: #7E2619;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .card-eyebrow::before {
-    content: '';
-    display: inline-block;
-    width: 16px; height: 1px;
-    background: #7E2619;
-  }
-  .card-name {
-    font-family: var(--font-ui);
-    font-weight: 900;
-    font-size: 22px;
-    letter-spacing: 3px;
-    color: #fff;
-    text-transform: uppercase;
-    margin-bottom: 16px;
-    line-height: 1.2;
-  }
-  .card-desc {
-    font-size: 11px;
-    color: #9A8C64;
-    letter-spacing: 0.5px;
-    line-height: 1.8;
-  }
-
-  /* card footer */
-  .card-footer {
-    padding: 16px 28px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-top: 1px solid rgba(126,38,25,0.22);
-    margin-top: 8px;
-  }
-  .card-cta {
-    font-family: var(--font-ui);
-    font-size: 8px;
-    letter-spacing: 2px;
-    color: #E8855C;
-    text-transform: uppercase;
-  }
-  .card-arrow {
-    font-size: 14px;
-    color: #E8855C;
+  #authOverlay.hidden {
     opacity: 0;
-    transition: all 0.2s;
-  }
-
-  /* ghost number */
-  .card-number {
-    position: absolute;
-    bottom: -10px; right: 16px;
-    font-family: var(--font-ui);
-    font-weight: 900;
-    font-size: 80px;
-    color: rgba(126,38,25,0.07);
-    letter-spacing: -2px;
     pointer-events: none;
-    transition: opacity 0.3s;
-    user-select: none;
-    line-height: 1;
   }
 
-  /* bottom rule */
-  .page-rule {
-    margin-top: 56px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    max-width: 1200px;
+  /* ── Auth Panel ── */
+  .auth-panel {
+    background: var(--d2);
+    border: 1px solid var(--bdr);
+    border-top: 3px solid var(--cr);
+    padding: 40px;
+    width: 450px;
+    text-align: center;
   }
-  .rule-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(126,38,25,0.22));
-  }
-  .rule-line.right {
-    background: linear-gradient(270deg, transparent, rgba(126,38,25,0.22));
-  }
-  .rule-text {
-    font-size: 8px;
-    letter-spacing: 2px;
-    color: #7E2619;
+  .auth-panel h2 {
+    font-family: var(--fh);
+    font-weight: 900;
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: #fff;
     text-transform: uppercase;
-    white-space: nowrap;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--bdr);
+    padding-bottom: 10px;
+  }
+  .auth-status {
+    font-size: 10px;
+    color: var(--kh);
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    min-height: 15px;
+  }
+  .discord-btn {
+    background: #5865F2;
+    color: #fff;
+    border: none;
+    padding: 20px;
+    width: 100%;
+    font-family: var(--fh);
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+  }
+  .discord-btn:hover {
+    background: #4752C4;
+  }
+  .auth-footer {
+    font-size: 9px;
+    color: var(--kh);
+    opacity: 0.5;
+    margin-top: 15px;
+  }
+
+  /* ── Blur dashboard while auth in progress ── */
+  .landing-page.blurred {
+    filter: blur(4px);
+    pointer-events: none;
   }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="landing-page">
-
-  <!-- Hero -->
-  <div class="hero">
-    <div class="hero-title">SOL <em>PROVISION</em></div>
-    <div class="hero-sub">Data Intelligence Platform</div>
-    <div class="hero-divider"></div>
+<!-- Auth Modal Overlay -->
+<div id="authOverlay">
+  <div class="auth-panel">
+    <h2 style="margin-bottom:10px;">SOL PROVISION</h2>
+    <div style="font-size:9px; letter-spacing:2px; color:var(--kh); margin-bottom:30px;">
+      ACQUISITIONS DIVISION HUB
+    </div>
+    
+    <div id="authStatus" class="auth-status">AWAITING AUTHORIZATION...</div>
+    
+    <button class="discord-btn" onclick="loginWithDiscord()">
+      Login with Discord
+    </button>
+    
+    <div class="auth-footer">
+      REQUIRED: ACTIVE SOL PROVISION SERVER MEMBERSHIP
+    </div>
   </div>
-
-  <!-- Card Grid -->
-  <div class="card-grid">
-
-    <!-- Ships -->
-    <a class="hero-card" href="/ships">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">01</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Fleet Registry</div>
-        <div class="card-name">Ships</div>
-        <div class="card-desc">Complete vessel registry — specs, components, and performance data</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Browse Fleet</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Crafting -->
-    <a class="hero-card" href="/crafting">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">02</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Industry</div>
-        <div class="card-name">Crafting</div>
-        <div class="card-desc">Blueprint index — materials, slots, and crafting requirements</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">View Blueprints</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Ledger -->
-    <a class="hero-card" href="/ledger">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">03</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Operations</div>
-        <div class="card-name">Ledger</div>
-        <div class="card-desc">Mission payout tool — distribute earnings across org members</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Open Ledger</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Item Collection -->
-    <a class="hero-card" href="/item_collection">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">03</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Operations</div>
-        <div class="card-name">Item Collection</div>
-        <div class="card-desc">Item Collection Test</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Open App</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-  </div>
-
-  <!-- Bottom rule -->
-  <div class="page-rule">
-    <div class="rule-line"></div>
-    <div class="rule-text">Sol Provision · Provisions for the Soul</div>
-    <div class="rule-line right"></div>
-  </div>
-
 </div>
+
+<!-- Dashboard (existing content) -->
+<div class="landing-page" id="dashboard">
+  <!-- ... keep all your existing hero/card-grid/rule HTML ... -->
+</div>
+{% endblock %}
+
+{% block page_script %}
+<script>
+  // ── Firebase Config ──
+  const firebaseConfig = {
+    apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E",
+    authDomain: "sp-ledger.firebaseapp.com",
+    projectId: "sp-ledger",
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+
+  const overlay = document.getElementById('authOverlay');
+  const dashboard = document.getElementById('dashboard');
+  const statusText = document.getElementById('authStatus');
+
+  // ── Auth State Listener ──
+  auth.onAuthStateChanged(async function(user) {
+    if (user) {
+      try {
+        const idToken = await user.getIdToken();
+        
+        // Verify with backend
+        const response = await fetch('/api/auth/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          console.log('User verified:', data);
+          
+          // Hide modal, show dashboard
+          overlay.classList.add('hidden');
+          dashboard.classList.remove('blurred');
+          
+          // Store user globally for header
+          window.currentUser = data;
+          
+        } else {
+          throw new Error(data.message || 'Verification failed');
+        }
+      } catch (err) {
+        console.error('Auth error:', err);
+        statusText.textContent = err.message || 'VERIFICATION ERROR';
+        await auth.signOut();
+      }
+    } else {
+      // Not signed in
+      overlay.classList.remove('hidden');
+      dashboard.classList.add('blurred');
+      statusText.textContent = 'AWAITING AUTHORIZATION...';
+    }
+  });
+
+  // ── Discord Login ──
+  async function loginWithDiscord() {
+    statusText.textContent = 'CONNECTING TO DISCORD...';
+    
+    const provider = new firebase.auth.OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+
+    try {
+      await auth.signInWithPopup(provider);
+      statusText.textContent = 'VERIFYING MEMBERSHIP...';
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      statusText.textContent = 'AUTH ERROR: ' + err.message;
+    }
+  }
+</script>
 {% endblock %}
