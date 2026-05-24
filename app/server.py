@@ -632,6 +632,8 @@ def get_ship_components(conn, ship_entity, patch):
 
     # Weapons: join fire modes as nested list, plus the linked AmmoParams
     # damage block so the frontend can compute DPS/alpha.
+    # Note: join() includes the WHERE clause so we can't add a LEFT JOIN
+    # after it; instead we fetch ammo separately by UUID per weapon.
     weapons_base = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
@@ -641,25 +643,13 @@ def get_ship_components(conn, ship_entity, patch):
                t.max_ammo_load, t.max_regen_per_sec,
                t.regen_cooldown, t.regen_cost_per_bullet,
                t.power_draw, t.power_low, t.power_medium, t.power_high,
-               t.ammo_uuid,
-               a.entity_name     AS ammo_entity_name,
-               a.projectile_type AS ammo_projectile_type,
-               a.speed           AS ammo_speed,
-               a.lifetime        AS ammo_lifetime,
-               a.dmg_physical    AS ammo_dmg_physical,
-               a.dmg_energy      AS ammo_dmg_energy,
-               a.dmg_distortion  AS ammo_dmg_distortion,
-               a.dmg_thermal     AS ammo_dmg_thermal,
-               a.dmg_biochemical AS ammo_dmg_biochemical,
-               a.dmg_stun        AS ammo_dmg_stun
+               t.ammo_uuid
         {join("item_weapons")}
-        LEFT JOIN item_ammo a
-          ON a.uuid = t.ammo_uuid
-         AND a.patch_version = :patch
         ORDER BY ic.size DESC, ic.entity_name""")
 
     weapons = []
     for w in weapons_base:
+        weapon = dict(w)
         fire_modes = [dict(r) for r in conn.execute("""
             SELECT fire_mode_type, fire_rate, heat_per_shot, heat_per_second,
                    ammo_type, pellet_count, ammo_cost,
@@ -672,15 +662,24 @@ def get_ship_components(conn, ship_entity, patch):
                 WHERE entity_name = ? AND patch_version = ? LIMIT 1
             )
             ORDER BY fire_mode_type
-        """, (w["entity_name"], patch)).fetchall()]
-        # Reshape ammo_* columns into a nested object for the client. Keeps the
-        # weapon shape readable and avoids the frontend juggling flat ammo_*
-        # field names alongside the weapon's own.
-        ammo_keys = [k for k in w.keys() if k.startswith("ammo_") and k != "ammo_uuid"]
-        ammo = {k[5:]: w[k] for k in ammo_keys}  # strip "ammo_" prefix
-        weapon = {k: v for k, v in dict(w).items() if not k.startswith("ammo_")}
-        weapon["ammo"] = ammo if w["ammo_uuid"] else None
+        """, (weapon["entity_name"], patch)).fetchall()]
         weapon["fire_modes"] = fire_modes
+
+        # Attach the AmmoParams damage block (single row, by UUID lookup) so
+        # the client can compute DPS = total damage × pellet_count × fire_rate.
+        ammo = None
+        if weapon.get("ammo_uuid"):
+            ar = conn.execute("""
+                SELECT entity_name, projectile_type, speed, lifetime,
+                       dmg_physical, dmg_energy, dmg_distortion,
+                       dmg_thermal, dmg_biochemical, dmg_stun
+                FROM item_ammo
+                WHERE uuid = ? AND patch_version = ?
+            """, (weapon["ammo_uuid"], patch)).fetchone()
+            if ar:
+                ammo = dict(ar)
+        weapon["ammo"] = ammo
+
         weapons.append(weapon)
 
     # Missile racks with their missile type looked up from item_missiles
