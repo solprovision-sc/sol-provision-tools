@@ -653,10 +653,24 @@ const activeFilters = {
   search:       "",
   item:         new Set(),   // armor | ammo | fps_weapons | ship_components | ship_weapons
   component:    new Set(),   // ship-component mid_level: shield | cooler | ...
+  ship_weapon:  new Set(),   // ship-weapon sub_level or "sub_level|sub_sub_level"
+  fps_weapon:   new Set(),   // fps-weapon sub_level (LMG / Pistol / Rifle / ...)
+  armor:        new Set(),   // armor sub_level (rollup) or "sub_level|sub_sub_level"
+  ammo:         new Set(),   // ammo sub_level (Ballistic / Electron / ...)
   legality:     new Set(),   // Lawful | Unlawful | Unknown
   mission_type: new Set(),   // Mercenary | Hauling | ...
   faction:      new Set(),   // Red Wind Linehaul | ...
   difficulty:   new Set(),   // Intro | VE | E | M | H | VH | S
+};
+
+// item_category → facet name. Drives both sidebar rendering and applyFilters.
+// Each listed category gets a collapsible sub-filter group built from the same
+// (sub_level, sub_sub_level) taxonomy.
+const SUBTYPE_FACETS = {
+  armor:        "armor",
+  ammo:         "ammo",
+  fps_weapons:  "fps_weapon",
+  ship_weapons: "ship_weapon",
 };
 const detailCache = {};
 const missionCache = {};  // mission_name:pv → mission detail object
@@ -732,18 +746,39 @@ function evalModifierCurve(quality, ranges) {
   return ranges[ranges.length - 1].modifier_at_end;
 }
 
+// Format a number with space thousands separators, e.g. 168000000 -> "168 000 000".
+// Decimals (if any) are not separated.
+function fmtNumber(value, decimals) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return String(value);
+  const s = decimals !== undefined ? n.toFixed(decimals) : Math.round(n).toString();
+  return s.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 function fmtStatValue(value, unitFormat) {
   // unitFormat from loc looks like "%.2f RPM", "%+.2f %%", "%.2f M", etc.
   // We approximate the printf with JS — strip the leading %.Nf/%+.Nf and
   // append the unit suffix. Fall back to plain numeric.
   if (value == null) return "—";
-  if (!unitFormat) return Number(value).toFixed(2).replace(/\.00$/, "");
+  if (!unitFormat) {
+    const s = fmtNumber(value, 2);
+    return s.replace(/\.00$/, "");
+  }
   const m = unitFormat.match(/^%[+]?\.?(\d*)f\s*(.*)$/);
   if (!m) return `${value} ${unitFormat}`;
-  const digits = m[1] === "" ? 2 : parseInt(m[1], 10);
-  const suffix = m[2].replace(/%%/g, "%");
-  const sign   = /\+/.test(unitFormat) && value > 0 ? "+" : "";
-  return `${sign}${Number(value).toFixed(digits)} ${suffix}`.trim();
+  let digits = m[1] === "" ? 2 : parseInt(m[1], 10);
+  let suffix = m[2].replace(/%%/g, "%");
+  let val    = Number(value);
+  // CIG mislabels: the raw value is m/s but the loc unit string says "Mm/s".
+  // Convert to km/s for display. Speeds are big enough that decimal places
+  // are noise — strip them.
+  if (suffix === "Mm/s") {
+    val    = val / 1000;
+    suffix = "km/s";
+    digits = 0;
+  }
+  const sign = /\+/.test(unitFormat) && val > 0 ? "+" : "";
+  return `${sign}${fmtNumber(val, digits)} ${suffix}`.trim();
 }
 
 function recomputeCraftStats(slots) {
@@ -824,8 +859,8 @@ function fmtTime(sec) {
   return m ? `${h}h ${m}m` : `${h}h`;
 }
 function fmtQty(ing) {
-  if (ing.cost_type === "resource") return `${Math.round((ing.quantity||0) * 100)} cSCU`;
-  return `×${Math.round(ing.quantity || 1)}`;
+  if (ing.cost_type === "resource") return `${fmtNumber((ing.quantity||0) * 100)} cSCU`;
+  return `×${fmtNumber(ing.quantity || 1)}`;
 }
 
 // ── Load all blueprints once, then filter client-side ──────────────────
@@ -846,6 +881,50 @@ function countMid(mid) {
 }
 function countFacet(field, value) {
   return allBlueprints.filter(bp => (bp[field] || []).includes(value)).length;
+}
+// Count blueprints in a category matching a taxonomy key.
+//   key = "<sub_level>"             → matches all variants under that type
+//   key = "<sub_level>|<sub_sub>"   → matches only that specific variant
+function countSubtype(itemCategory, key) {
+  const pipe = key.indexOf("|");
+  if (pipe < 0) {
+    return allBlueprints.filter(bp => bp.item_category === itemCategory
+                                   && bp.sub_level === key).length;
+  }
+  const type = key.slice(0, pipe);
+  const sub  = key.slice(pipe + 1);
+  return allBlueprints.filter(bp => bp.item_category === itemCategory
+                                 && bp.sub_level === type
+                                 && bp.sub_sub_level === sub).length;
+}
+// Build a sub-filter list dynamically from the loaded catalog. Returns rows
+// like [["ballistic","Ballistic"], ["ballistic|cannon","Ballistic - Cannon"], ...]
+// in alpha order per type, each rollup row followed by its variants. For flat
+// taxonomies (no sub_sub_level — e.g. FPS weapons, ammo) only rollup rows appear.
+// Armor mixes both: "Combat" has Heavy/Medium/Light leaves, "Flightsuit" doesn't.
+function buildSubtypeTaxonomy(itemCategory) {
+  const groups = new Map();
+  allBlueprints.forEach(bp => {
+    if (bp.item_category !== itemCategory || !bp.sub_level) return;
+    let g = groups.get(bp.sub_level);
+    if (!g) {
+      g = { display: bp.sub_display || bp.sub_level, subs: new Map() };
+      groups.set(bp.sub_level, g);
+    }
+    if (bp.sub_sub_level && !g.subs.has(bp.sub_sub_level)) {
+      g.subs.set(bp.sub_sub_level, bp.sub_sub_display || bp.sub_sub_level);
+    }
+  });
+  const rows = [];
+  [...groups.entries()].sort((a, b) => a[1].display.localeCompare(b[1].display))
+    .forEach(([subLevel, g]) => {
+      rows.push([subLevel, g.display]);
+      [...g.subs.entries()].sort((a, b) => a[1].localeCompare(b[1]))
+        .forEach(([subSub, subSubDisp]) => {
+          rows.push([`${subLevel}|${subSub}`, `${g.display} - ${subSubDisp}`]);
+        });
+    });
+  return rows;
 }
 
 // Build the distinct value lists for the dynamic mission facets.
@@ -889,6 +968,17 @@ function buildSidebar() {
           .map(([mid, lbl]) => checkboxRow("component", mid, lbl, countMid(mid)))
           .join("");
       html += collapsibleGroup("Ship Components", inner, true);
+    } else if (SUBTYPE_FACETS[cat]) {
+      // "All <X>" (item facet) + per-type (and per-variant when present)
+      // sub-checkboxes. Each category gets a separate facet so selections
+      // don't bleed across categories with overlapping type names.
+      const facet = SUBTYPE_FACETS[cat];
+      const inner =
+        checkboxRow("item", cat, `All ${label}`, countItem(cat)) +
+        buildSubtypeTaxonomy(cat)
+          .map(([key, lbl]) => checkboxRow(facet, key, lbl, countSubtype(cat, key)))
+          .join("");
+      html += collapsibleGroup(label, inner, true);
     } else {
       html += checkboxRow("item", cat, label, countItem(cat));
     }
@@ -954,6 +1044,10 @@ function anyFilterActive() {
   return activeFilters.search.trim() !== ""
     || activeFilters.item.size > 0
     || activeFilters.component.size > 0
+    || activeFilters.ship_weapon.size > 0
+    || activeFilters.fps_weapon.size > 0
+    || activeFilters.armor.size > 0
+    || activeFilters.ammo.size > 0
     || activeFilters.legality.size > 0
     || activeFilters.mission_type.size > 0
     || activeFilters.faction.size > 0
@@ -984,6 +1078,19 @@ function applyFilters() {
     if (activeFilters.item.size > 0 && !activeFilters.item.has(bp.item_category)) return false;
     // Ship-component sub-type (single-valued mid_level)
     if (activeFilters.component.size > 0 && !activeFilters.component.has(bp.mid_level)) return false;
+    // Category sub-types — value is either "<sub_level>" (rollup) or
+    // "<sub_level>|<sub_sub_level>" (specific variant). A BP passes if its
+    // (sub_level, sub_sub_level) matches any selected key under either form.
+    // Each item category has its own facet (so selections don't bleed across).
+    for (const [cat, facet] of Object.entries(SUBTYPE_FACETS)) {
+      const set = activeFilters[facet];
+      if (set.size === 0) continue;
+      if (bp.item_category !== cat || !bp.sub_level) return false;
+      const matchesRollup = set.has(bp.sub_level);
+      const matchesLeaf   = bp.sub_sub_level
+        && set.has(`${bp.sub_level}|${bp.sub_sub_level}`);
+      if (!matchesRollup && !matchesLeaf) return false;
+    }
     // Mission facets (multi-valued; empty arrays naturally exclude craft-only
     // items whenever a mission facet is active)
     if (!passesFacet(activeFilters.legality,     bp.legality      || [])) return false;
@@ -1133,8 +1240,8 @@ function populatePreview(uuid, detail) {
     <div class="bp-ingredient-chip">
       ${v.display_name}
       <span class="chip-qty">${v.cost_type === "resource"
-        ? `${Math.round(v.total_qty * 100)} cSCU`
-        : `×${Math.round(v.total_qty)}`}</span>
+        ? `${fmtNumber(v.total_qty * 100)} cSCU`
+        : `×${fmtNumber(v.total_qty)}`}</span>
     </div>`).join("");
 }
 
@@ -1551,7 +1658,7 @@ document.getElementById("filter-search").addEventListener("input", e => {
 document.getElementById("filter-clear").addEventListener("click", () => {
   activeFilters.search = "";
   document.getElementById("filter-search").value = "";
-  ["item","component","legality","mission_type","faction","difficulty"].forEach(f => activeFilters[f].clear());
+  ["item","component","ship_weapon","fps_weapon","armor","ammo","legality","mission_type","faction","difficulty"].forEach(f => activeFilters[f].clear());
   document.querySelectorAll("#filter-tree input[type=checkbox]").forEach(cb => {
     cb.checked = false;
     cb.closest(".filter-check").classList.remove("checked");
