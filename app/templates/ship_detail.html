@@ -91,14 +91,128 @@
 }
 
 .sb-lbl-header {
-  font-size: 8px; 
-  letter-spacing: 2px; 
-  color: #9A8C64; 
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #9A8C64;
   text-transform: uppercase;
-  margin-bottom: 6px; 
-  padding-bottom: 4px; 
+  margin-bottom: 6px;
+  padding-bottom: 4px;
   border-bottom: 1px solid rgba(126,38,25,0.22);
 }
+
+/* ── Power Management grid ─────────────────────────────────────────── */
+.pm-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.pm-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+.pm-segments {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  height: 64px;
+  width: 100%;
+  justify-content: flex-end;
+  align-items: stretch;
+  padding-bottom: 4px;
+}
+.pm-seg {
+  flex: 1 1 0;
+  background: rgba(126,38,25,0.18);
+  border-radius: 1px;
+  transition: background 0.12s;
+}
+.pm-seg.on   { background: #E8855C; }    /* high */
+.pm-seg.dim  { background: rgba(232,133,92,0.55); }  /* medium */
+.pm-seg.low  { background: rgba(232,133,92,0.28); }  /* low */
+.pm-col.off .pm-seg { background: rgba(70,40,30,0.30); }
+
+.pm-icon {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  background: currentColor;
+  -webkit-mask: var(--icon) no-repeat center / contain;
+          mask: var(--icon) no-repeat center / contain;
+  color: #E8855C;
+  transition: color 0.12s, opacity 0.12s;
+}
+.pm-col.off .pm-icon { color: #6a4d3c; opacity: 0.55; }
+.pm-col:hover .pm-icon { color: #ffb892; }
+
+.pm-level {
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #9A8C64;
+  text-transform: uppercase;
+  margin-top: 2px;
+  line-height: 1;
+}
+.pm-col.off .pm-level { color: #5a4f3d; }
+.pm-col.disabled-cat { opacity: 0.35; cursor: default; }
+.pm-col.disabled-cat:hover .pm-icon { color: #6a4d3c; }
+
+/* ── Meta stats panel ──────────────────────────────────────────────── */
+.ms-panel { display: flex; flex-direction: column; gap: 2px; }
+.ms-row {
+  display: flex;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(126,38,25,0.10);
+}
+.ms-row:last-child { border-bottom: none; }
+.ms-row-pair { gap: 8px; }
+.ms-cell {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.ms-cell.ms-right  { justify-content: flex-end; }
+.ms-cell.ms-full   { width: 100%; flex: 1 1 100%; }
+.ms-num {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  white-space: nowrap;
+}
+.ms-num.gap { color: #6a4d3c; font-weight: 400; }
+.ms-unit {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #9A8C64;
+  text-transform: uppercase;
+}
+.ms-sub {
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: #9A8C64;
+  text-transform: uppercase;
+  margin-right: 4px;
+}
+.ms-icon-w, .ms-icon-m, .ms-icon-s, .ms-icon-p, .ms-icon-c, .ms-icon-q {
+  width: 12px; height: 12px;
+  background: #E8855C;
+  -webkit-mask-position: center; mask-position: center;
+  -webkit-mask-size: contain;    mask-size: contain;
+  -webkit-mask-repeat: no-repeat;mask-repeat: no-repeat;
+  flex-shrink: 0;
+}
+.ms-icon-w { -webkit-mask-image: url(/static/img/icons/ItemWeapons.svg); mask-image: url(/static/img/icons/ItemWeapons.svg); }
+.ms-icon-m { -webkit-mask-image: url(/static/img/icons/ItemMissile.svg); mask-image: url(/static/img/icons/ItemMissile.svg); }
+.ms-icon-s { -webkit-mask-image: url(/static/img/icons/ItemShields.svg); mask-image: url(/static/img/icons/ItemShields.svg); }
+.ms-icon-p { -webkit-mask-image: url(/static/img/icons/ItemPowerPlant.svg); mask-image: url(/static/img/icons/ItemPowerPlant.svg); }
+.ms-icon-c { -webkit-mask-image: url(/static/img/icons/ItemCooler.svg); mask-image: url(/static/img/icons/ItemCooler.svg); }
+.ms-icon-q { -webkit-mask-image: url(/static/img/icons/ItemQuantumDrive.svg); mask-image: url(/static/img/icons/ItemQuantumDrive.svg); }
 
 .sb-row {
   display: flex; 
@@ -1433,26 +1547,66 @@ body::before {
     </div>
 
     <div class="sb-stats">
-      <div class="sb-lbl-header">At a Glance</div>
-	  <div class="sb-row"><span class="sb-lbl">Cargo</span><span class="sb-val hi" id="sb-cargo">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">Crew</span><span class="sb-val" id="sb-crew">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">SCM Speed</span><span class="sb-val" id="sb-scm">—</span></div>
-      <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Fwd</span><span class="sb-val" id="sb-scm-fwd-boost">—</span></div>
-	  <div class="sb-row"><span class="sb-lbl">SCM Speed Boost Aft</span><span class="sb-val" id="sb-scm-aft-boost">—</span></div>
-	  <div class="sb-row"><span class="sb-lbl">NAV Speed</span><span class="sb-val" id="sb-nav">—</span></div>
-	  <div class="sb-row">
-	    <div class="sb-lbl">Pitch/Roll/Yaw</div>
-	    <div class="sb-val" id="sb-mnv">—</div>
-	  </div>
-	  <div class="sb-row">
-	    <div class="sb-lbl">Boost Rates</div>
-	    <div class="sb-val" id="sb-boost-mnv">—</div>
-	  </div>
-	  <div class="sb-row">
-		<span class="sb-lbl">Total Hull HP</span>
-		<span class="sb-val" id="sb-hull-hp">—</span>
-	  </div>
-	  <br>
+      <!-- ── Power Management Grid ──────────────────────────────────────── -->
+      <div class="sb-lbl-header">Power Distribution</div>
+      <div class="pm-grid" id="pm-grid"><!-- 8 category columns rendered by JS --></div>
+
+      <!-- ── Meta Stats Panel ───────────────────────────────────────────── -->
+      <div class="sb-lbl-header" style="margin-top:14px;">Performance</div>
+      <div class="ms-panel">
+        <!-- Weapons -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-icon-w"></span><span class="ms-num" id="ms-weap-dps">—</span><span class="ms-unit">DPS</span></div>
+          <div class="ms-cell ms-right"><span class="ms-num" id="ms-weap-alpha">—</span><span class="ms-unit">Alpha</span></div>
+        </div>
+        <!-- Missiles -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-icon-m"></span><span class="ms-num" id="ms-miss-count">—</span><span class="ms-unit">Missiles</span></div>
+          <div class="ms-cell ms-right"><span class="ms-num" id="ms-miss-alpha">—</span><span class="ms-unit">Alpha</span></div>
+        </div>
+        <!-- Shield -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-icon-s"></span><span class="ms-num" id="ms-shield-hp">—</span><span class="ms-unit">Shield HP</span></div>
+          <div class="ms-cell ms-right"><span class="ms-num" id="ms-shield-regen">—</span><span class="ms-unit">hp/s</span></div>
+        </div>
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-sub">Regen</span><span class="ms-num" id="ms-shield-regen-time">—</span><span class="ms-unit">s</span></div>
+          <div class="ms-cell ms-right"><span class="ms-sub">Down</span><span class="ms-num" id="ms-shield-down-delay">—</span><span class="ms-unit">s</span></div>
+        </div>
+        <!-- Power / Cooling -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-icon-p"></span><span class="ms-num" id="ms-power-out">—</span><span class="ms-unit">Power</span></div>
+          <div class="ms-cell ms-right"><span class="ms-icon-c"></span><span class="ms-num" id="ms-cool-out">—</span><span class="ms-unit">Cool</span></div>
+        </div>
+        <!-- Quantum -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-icon-q"></span><span class="ms-num" id="ms-qd-speed">—</span><span class="ms-unit">km/s</span></div>
+          <div class="ms-cell ms-right"><span class="ms-sub">Fuel/Gm</span><span class="ms-num" id="ms-qd-fuel">—</span></div>
+        </div>
+        <!-- Flight -->
+        <div class="ms-row">
+          <div class="ms-cell ms-full"><span class="ms-sub">SCM / NAV</span><span class="ms-num" id="ms-scm-nav">— / —</span><span class="ms-unit">m/s</span></div>
+        </div>
+        <div class="ms-row">
+          <div class="ms-cell ms-full"><span class="ms-sub">P / R / Y</span><span class="ms-num" id="ms-mnv">— / — / —</span><span class="ms-unit">°/s</span></div>
+        </div>
+        <!-- Hull / Mass -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-sub">Hull HP</span><span class="ms-num" id="ms-hull-hp">—</span></div>
+          <div class="ms-cell ms-right"><span class="ms-sub">Mass</span><span class="ms-num" id="ms-mass">—</span><span class="ms-unit">kg</span></div>
+        </div>
+        <!-- Signatures -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-sub">IR</span><span class="ms-num" id="ms-sig-ir">—</span></div>
+          <div class="ms-cell ms-right"><span class="ms-sub">EM</span><span class="ms-num" id="ms-sig-em">—</span></div>
+        </div>
+        <!-- Crew / Cargo -->
+        <div class="ms-row ms-row-pair">
+          <div class="ms-cell"><span class="ms-sub">Crew</span><span class="ms-num" id="ms-crew">—</span></div>
+          <div class="ms-cell ms-right"><span class="ms-sub">Cargo</span><span class="ms-num" id="ms-cargo">—</span><span class="ms-unit">SCU</span></div>
+        </div>
+      </div>
+      <br>
       <div class="sb-stats">
         <div class="sb-lbl">Ship Dimensions</div>
         
@@ -2171,7 +2325,13 @@ body::before {
     
     // Re-render the component card
     updateComponentCard(compType, hardpointIndex, newComponent);
-    
+
+    // Refresh the sidebar's meta stats — they're derived from shipLoadout.current
+    // and need to reflect the new component immediately.
+    if (typeof recomputeSidebarStats === 'function') {
+      recomputeSidebarStats(window.__currentShip);
+    }
+
     // Close modal
     closeSwapModal();
   }
@@ -2728,53 +2888,259 @@ body::before {
     }
   }
 
+  // ── Sidebar: Power Management Grid ───────────────────────────────────────────
+  // 8 columns mirroring SP Viewer. Each column has an enabled flag and a power
+  // level (low/medium/high). The state seeds at medium-on for everything; user
+  // clicks the icon to toggle on/off, clicks the segment bars to cycle level.
+  const POWER_LEVELS = ['low', 'medium', 'high'];
+  const POWER_CATEGORIES = [
+    { key: 'weapons',     label: 'Weapons',     icon: 'ItemWeapons.svg',         compKey: 'weapons',            powerKey: 'weapons' },
+    { key: 'engines',     label: 'Engines',     icon: 'ItemThrusters.svg',       compKey: 'flight_controllers', powerKey: 'engines' },
+    { key: 'shields',     label: 'Shields',     icon: 'ItemShields.svg',         compKey: 'shields',            powerKey: 'shields' },
+    { key: 'cooler',      label: 'Cooler',      icon: 'ItemCooler.svg',          compKey: 'coolers',            powerKey: 'cooler' },
+    { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',           compKey: 'radars',             powerKey: 'radar' },
+    { key: 'power',       label: 'Power',       icon: 'ItemPowerPlant.svg',      compKey: 'powerplants',        powerKey: 'power' },
+    { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',    compKey: 'quantum_drives',     powerKey: 'quantum' },
+    { key: 'lifesupport', label: 'Life Supp.',  icon: 'ItemLifeSupport.svg',     compKey: null,                 powerKey: null },
+  ];
+  // Multiplier each level applies when a component has no per-component
+  // powerRanges in the data — fallback only. Real values come from the
+  // component's own power_low/medium/high columns when present.
+  const POWER_LEVEL_FALLBACK = { low: 0.7, medium: 0.85, high: 1.0 };
+
+  const POWER_STATE = Object.fromEntries(
+    POWER_CATEGORIES.map(c => [c.key, { enabled: true, levelIdx: 2 }]) // start at "high"
+  );
+
+  let powerGridRendered = false;
+
+  function renderPowerGrid() {
+    if (powerGridRendered) return;  // built once; state mutations re-render in place
+    const root = document.getElementById('pm-grid');
+    if (!root) return;
+    root.innerHTML = POWER_CATEGORIES.map(c => `
+      <div class="pm-col" data-cat="${c.key}">
+        <div class="pm-segments">
+          <div class="pm-seg"></div>
+          <div class="pm-seg"></div>
+          <div class="pm-seg"></div>
+        </div>
+        <div class="pm-icon" style="--icon: url(/static/img/icons/${c.icon}); -webkit-mask-image: url(/static/img/icons/${c.icon}); mask-image: url(/static/img/icons/${c.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;"></div>
+        <div class="pm-level">High</div>
+      </div>
+    `).join('');
+    // Click icon → toggle on/off; click segments → cycle level low → medium → high
+    root.querySelectorAll('.pm-col').forEach(col => {
+      const key = col.dataset.cat;
+      const isPlaceholder = !POWER_CATEGORIES.find(c => c.key === key).compKey;
+      if (isPlaceholder) col.classList.add('disabled-cat');
+
+      col.querySelector('.pm-icon').addEventListener('click', e => {
+        if (isPlaceholder) return;
+        e.stopPropagation();
+        POWER_STATE[key].enabled = !POWER_STATE[key].enabled;
+        repaintPowerCol(key);
+        recomputeSidebarStats(window.__currentShip);
+      });
+      col.querySelector('.pm-segments').addEventListener('click', e => {
+        if (isPlaceholder) return;
+        e.stopPropagation();
+        if (!POWER_STATE[key].enabled) return;
+        POWER_STATE[key].levelIdx = (POWER_STATE[key].levelIdx + 1) % POWER_LEVELS.length;
+        repaintPowerCol(key);
+        recomputeSidebarStats(window.__currentShip);
+      });
+      repaintPowerCol(key);
+    });
+    powerGridRendered = true;
+  }
+
+  function repaintPowerCol(key) {
+    const col = document.querySelector(`.pm-col[data-cat="${key}"]`);
+    if (!col) return;
+    const st = POWER_STATE[key];
+    col.classList.toggle('off', !st.enabled);
+    const segs = col.querySelectorAll('.pm-seg');
+    // segments are stacked bottom-up (column-reverse); paint up to the level
+    segs.forEach((s, i) => {
+      s.classList.remove('on', 'dim', 'low');
+      if (!st.enabled) return;
+      if (i <= st.levelIdx) {
+        s.classList.add(POWER_LEVELS[st.levelIdx] === 'high' ? 'on'
+                       : POWER_LEVELS[st.levelIdx] === 'medium' ? 'dim' : 'low');
+      }
+    });
+    col.querySelector('.pm-level').textContent =
+      st.enabled ? POWER_LEVELS[st.levelIdx].charAt(0).toUpperCase() + POWER_LEVELS[st.levelIdx].slice(1)
+                 : 'Off';
+  }
+
+  // Pull the modifier for a component at the current power level. Falls back
+  // to the global low/med/high constants if the component carries no curve.
+  function powerModifier(catKey, comp) {
+    const st = POWER_STATE[catKey];
+    if (!st || !st.enabled) return 0;
+    const level = POWER_LEVELS[st.levelIdx];
+    const col = `power_${level}`;
+    if (comp && typeof comp[col] === 'number') return comp[col];
+    return POWER_LEVEL_FALLBACK[level];
+  }
+
+  // ── Sidebar: Meta Stats ──────────────────────────────────────────────────────
+  // Re-runs whenever loadout changes or power-grid state changes. Pulls from
+  // shipLoadout.current (the swap-modal mutable copy) when available, falling
+  // back to the original ship payload for ships we haven't built loadout state
+  // for yet (e.g. on first render).
+  function sidebarLoadout() {
+    // Layer the swap-modal's mutable state (5 swappable categories) over the
+    // raw ship.components payload (everything else: weapons, missiles, flight
+    // controllers, thrusters). That way swaps reflect immediately and the
+    // non-swappable categories still pull from the canonical payload.
+    const base = (window.__currentShip && window.__currentShip.components) || {};
+    if (typeof shipLoadout !== 'undefined' && shipLoadout && shipLoadout.current) {
+      return { ...base, ...shipLoadout.current };
+    }
+    return base;
+  }
+
+  function sumBy(list, key, mult = 1) {
+    if (!list) return 0;
+    return list.reduce((acc, item) => acc + ((item && item[key]) || 0) * mult, 0);
+  }
+
+  function setNum(id, value, decimals, opts) {
+    opts = opts || {};
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (value === null || value === undefined || (opts.zeroIsGap && value === 0) || Number.isNaN(value)) {
+      el.textContent = opts.gapText || '—';
+      el.classList.add('gap');
+      return;
+    }
+    el.classList.remove('gap');
+    el.textContent = fmt(value, decimals);
+  }
+
+  function recomputeSidebarStats(ship) {
+    if (!ship) return;
+    const ld = sidebarLoadout();
+
+    // ── Weapons: DPS + Alpha from ammo damage × fire rate × pellet count.
+    // Primary fire mode is the first one returned (server orders by type).
+    const weapons = ld.weapons || [];
+    let totalDps = 0, totalAlpha = 0, anyAmmo = false;
+    weapons.forEach(w => {
+      if (!w.ammo) return;
+      const a = w.ammo;
+      const shot = (a.dmg_physical||0) + (a.dmg_energy||0) + (a.dmg_distortion||0)
+                 + (a.dmg_thermal||0) + (a.dmg_biochemical||0) + (a.dmg_stun||0);
+      if (shot === 0) return;
+      anyAmmo = true;
+      const fm = (w.fire_modes && w.fire_modes[0]) || {};
+      const pellets = fm.pellet_count || 1;
+      const rate    = fm.fire_rate    || 0;  // rounds per minute
+      const dps     = shot * pellets * (rate / 60);
+      totalAlpha   += shot * pellets;
+      totalDps     += dps * powerModifier('weapons', w);
+    });
+    if (anyAmmo) {
+      setNum('ms-weap-dps',   totalDps,   0);
+      setNum('ms-weap-alpha', totalAlpha, 0);
+    } else {
+      // ammo data not yet available for this weapon type — show data gap
+      setNum('ms-weap-dps',   null);
+      setNum('ms-weap-alpha', null);
+    }
+
+    // ── Missiles: count + total alpha.
+    const missiles = ld.missiles || [];
+    const missCount = missiles.length;
+    const missAlpha = missiles.reduce((acc, m) => {
+      return acc + (m.dmg_physical||0) + (m.dmg_energy||0) + (m.dmg_distortion||0)
+                 + (m.dmg_thermal||0) + (m.dmg_biochemical||0) + (m.dmg_stun||0);
+    }, 0);
+    setNum('ms-miss-count', missCount,        0, { zeroIsGap: true });
+    setNum('ms-miss-alpha', missAlpha || null, 0);
+
+    // ── Shields: HP and regen scale with per-shield power modifier.
+    const shields = ld.shields || [];
+    let shieldHp = 0, shieldRegen = 0;
+    shields.forEach(s => {
+      const m = powerModifier('shields', s);
+      shieldHp    += (s.max_shield_health || 0) * m;
+      shieldRegen += (s.max_shield_regen  || 0) * m;
+    });
+    setNum('ms-shield-hp',    shieldHp || null,    0);
+    setNum('ms-shield-regen', shieldRegen || null, 0);
+    setNum('ms-shield-regen-time',
+           (shieldHp && shieldRegen) ? shieldHp / shieldRegen : null, 1);
+    setNum('ms-shield-down-delay',
+           shields[0] ? shields[0].damaged_regen_delay : null, 1);
+
+    // ── Power / Cooling: sum scaled by category-level modifier.
+    const ppOut = (ld.powerplants || []).reduce(
+      (acc, p) => acc + (p.power_output || 0) * powerModifier('power', p), 0);
+    const cOut  = (ld.coolers || []).reduce(
+      (acc, c) => acc + (c.cooling_output || 0) * powerModifier('cooler', c), 0);
+    setNum('ms-power-out', ppOut || null, 0);
+    setNum('ms-cool-out',  cOut  || null, 0);
+
+    // ── Quantum.
+    const qd = (ld.quantum_drives || [])[0];
+    const qdMult = powerModifier('quantum', qd);
+    setNum('ms-qd-speed', qd ? qd.drive_speed * qdMult : null, 0);
+    setNum('ms-qd-fuel',  qd ? qd.fuel_per_gm_mscu        : null, 0);
+
+    // ── Flight: SCM, NAV, pitch/roll/yaw scaled by engines power.
+    const fc = (ld.flight_controllers || [])[0];
+    const eMult = powerModifier('engines', fc);
+    const scm = fc ? fc.scm_speed * eMult : null;
+    const nav = fc ? fc.max_speed * eMult : null;
+    document.getElementById('ms-scm-nav').textContent =
+      (scm !== null && nav !== null) ? `${fmt(scm, 0)} / ${fmt(nav, 0)}` : '— / —';
+    if (fc) {
+      const p = (fc.max_pitch_speed || 0) * eMult;
+      const r = (fc.max_roll_speed  || 0) * eMult;
+      const y = (fc.max_yaw_speed   || 0) * eMult;
+      document.getElementById('ms-mnv').textContent =
+        `${fmt(p, 0)} / ${fmt(r, 0)} / ${fmt(y, 0)}`;
+    } else {
+      document.getElementById('ms-mnv').textContent = '— / — / —';
+    }
+
+    // ── Hull / mass / sigs / crew / cargo (ship-level, not loadout-dependent).
+    setNum('ms-hull-hp', ship.hull_hp || null, 0);
+    setNum('ms-mass',    ship.mass_kg || null, 0);
+
+    // EM & IR signature = sum across all installed components that carry one.
+    const sigSources = []
+      .concat(ld.shields || [], ld.coolers || [], ld.powerplants || [],
+              ld.radars || [], ld.quantum_drives || [], ld.weapons || []);
+    const emSig = sigSources.reduce((acc, c) => acc + (c.em_signature || 0), 0);
+    const irSig = sigSources.reduce((acc, c) => acc + (c.ir_signature || 0), 0);
+    setNum('ms-sig-em', emSig || null, 0);
+    setNum('ms-sig-ir', irSig || null, 0);
+
+    setNum('ms-crew',  ship.crew_size || null, 0);
+    setNum('ms-cargo', ship.cargo_scu || null, 0);
+  }
+
   // ── Sidebar ──────────────────────────────────────────────────────────────────
   function populateSidebar(ship) {
     document.getElementById('sb-mfr').textContent  = ship.manufacturer || '—';
     document.getElementById('sb-name').textContent = (ship.display_name && ship.display_name.includes(' '))
       ? ship.display_name.split(' ').slice(1).join(' ')
       : ship.display_name || ENTITY_NAME;
-    
+
     document.getElementById('sb-career').innerHTML = `<span class="tag tag-c">${ship.career}</span>`;
     document.getElementById('sb-role').innerHTML   = `<span class="tag tag-c">${ship.role}</span>`;
-  
-    document.getElementById('sb-size').textContent  = ship.size > 0 ? `S${ship.size}` : '—';
-    document.getElementById('sb-cargo').textContent  = ship.cargo_scu > 0 ? `${fmt(ship.cargo_scu, 0, 'SCU')}` : '—';
-    document.getElementById('sb-crew').textContent   = ship.crew_size ? `${ship.crew_size}` : '—';
-  
-    document.getElementById('sb-hull-hp').textContent   = ship.hull_hp ? `${fmt(ship.hull_hp, 0, 'HP')}` : '—';
-  
-    const fc = ship.components.flight_controllers[0];
-    // Base rates
-    const ratePitch = fc && fc.max_pitch_speed ? fmt(fc.max_pitch_speed, 0) : null;
-    const rateRoll = fc && fc.max_roll_speed ? fmt(fc.max_roll_speed, 0) : null;
-    const rateYaw = fc && fc.max_yaw_speed ? fmt(fc.max_yaw_speed, 0) : null;
-  
-    // Boost rates
-    const boostPitch = (fc && fc.ab_ang_mult_pitch && fc.max_pitch_speed)
-      ? fmt(fc.ab_ang_mult_pitch * fc.max_pitch_speed, 0)
-      : null;
-    const boostRoll = (fc && fc.ab_ang_mult_roll && fc.max_roll_speed)
-      ? fmt(fc.ab_ang_mult_roll * fc.max_roll_speed, 0)
-      : null;
-    const boostYaw = (fc && fc.ab_ang_mult_yaw && fc.max_yaw_speed)
-      ? fmt(fc.ab_ang_mult_yaw * fc.max_yaw_speed, 0)
-      : null;
-  
-    // Combined strings
-    const ins_mnv = (ratePitch && rateRoll && rateYaw)
-      ? `${ratePitch} / ${rateRoll} / ${rateYaw} deg/s`
-      : '—';
-    const ins_boost_mnv = (boostPitch && boostRoll && boostYaw)
-      ? `${boostPitch} / ${boostRoll} / ${boostYaw} deg/s`
-      : '—';
-    
-    document.getElementById('sb-scm').textContent = fc ? `${fmt(fc.scm_speed, 0, 'm/s')}` : 'data gap';
-    document.getElementById('sb-scm-fwd-boost').textContent = fc ? `${fmt(fc.boost_speed_forward, 0, 'm/s')}` : 'data gap';
-    document.getElementById('sb-scm-aft-boost').textContent = fc ? `${fmt(fc.boost_speed_backward, 0, 'm/s')}` : 'data gap';
-    document.getElementById('sb-nav').textContent = fc ? `${fmt(fc.max_speed, 0, 'm/s')}` : 'data gap';
-    document.getElementById('sb-mnv').textContent = ins_mnv;
-    document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
+    document.getElementById('sb-size').textContent = ship.size > 0 ? `S${ship.size}` : '—';
+
+    // Render the power management grid once (state lives in POWER_STATE; the
+    // grid is built lazily on first call). Then compute all the meta stats
+    // from the current loadout — these update on every component swap too.
+    renderPowerGrid();
+    recomputeSidebarStats(ship);
   
     function updateShipDimensions(ship) {
       const length = ship.length_rsi_m || 0;
@@ -3692,6 +4058,10 @@ body::before {
 	  
 	  // Initialize loadout state for component swapping
       initLoadoutState(ship);
+
+      // Stash the current ship so the power-grid click handlers can recompute
+      // without needing to re-fetch /api/ship.
+      window.__currentShip = ship;
 
       populateSidebar(ship);
       populateOverview(ship);
