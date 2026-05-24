@@ -21,24 +21,39 @@ app = Flask(__name__, template_folder="templates", static_folder="static")
 DB_PATH = os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db")
 PATCH = None
 
-# Detect environment
-is_dev = os.path.exists('/var/www/sol-provision-tools-dev')
+# Detect environment. Three cases:
+#   - Linux + /var/www/sol-provision-tools-dev exists → 'dev'
+#   - Linux otherwise                                  → 'prod'
+#   - Windows (local dev)                              → 'local' (uses dev Firebase project)
+is_local = os.name == 'nt'
+is_dev   = (not is_local) and os.path.exists('/var/www/sol-provision-tools-dev')
 
 # ✅ SESSION CONFIG - GOES HERE (before any routes)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-prod')
-app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
+# SESSION_COOKIE_SECURE requires HTTPS — locally we serve http://localhost,
+# so disable secure-only there or the session cookie is never set and the
+# login flow silently fails with a 401 on every authed request.
+app.config['SESSION_COOKIE_SECURE'] = not is_local
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
-# Initialize Firebase Admin SDK (for token verification)
-# Download service account key from Firebase Console → Project Settings → Service Accounts
-if is_dev:
-    cred = credentials.Certificate('/var/www/sol-provision-tools-dev/app/firebase-service-account.json')
-    db_url = 'https://sp-ledger-dev-default-rtdb.firebaseio.com'
+# Initialize Firebase Admin SDK (for token verification).
+# FIREBASE_SERVICE_ACCOUNT / FIREBASE_DB_URL env vars override the resolved
+# defaults so ops can swap credentials without code changes.
+if is_local:
+    # Windows: service-account JSON sits next to server.py in app/.
+    default_cred_path = str(Path(__file__).resolve().parent / 'firebase-service-account.json')
+    default_db_url    = 'https://sp-ledger-dev-default-rtdb.firebaseio.com'
+elif is_dev:
+    default_cred_path = '/var/www/sol-provision-tools-dev/app/firebase-service-account.json'
+    default_db_url    = 'https://sp-ledger-dev-default-rtdb.firebaseio.com'
 else:
-    cred = credentials.Certificate('/var/www/sol-provision-tools/app/firebase-service-account.json')
-    db_url = 'https://sp-ledger-default-rtdb.firebaseio.com'
+    default_cred_path = '/var/www/sol-provision-tools/app/firebase-service-account.json'
+    default_db_url    = 'https://sp-ledger-default-rtdb.firebaseio.com'
+
+cred   = credentials.Certificate(os.environ.get('FIREBASE_SERVICE_ACCOUNT', default_cred_path))
+db_url = os.environ.get('FIREBASE_DB_URL', default_db_url)
 
 firebase_admin.initialize_app(cred, {
     'databaseURL': db_url
@@ -55,8 +70,19 @@ def get_db():
     return conn
     
 def get_user_db():
-    """Connect to Sol Provision user database (Discord members from SPARQy)"""
-    conn = sqlite3.connect('/var/www/sparqy/data/mee6_snapshots.db')
+    """Connect to Sol Provision user database (Discord members from SPARQy).
+
+    Local Windows dev keeps a copy at the repo root; on Linux deploys (dev/prod)
+    the canonical copy lives under /var/www/sparqy/data/. MEE6_DB env var wins
+    if set so ops can override without code changes.
+    """
+    path = os.environ.get('MEE6_DB')
+    if not path:
+        if os.name == 'nt':
+            path = str(Path(__file__).resolve().parent.parent / 'mee6_snapshots.db')
+        else:
+            path = '/var/www/sparqy/data/mee6_snapshots.db'
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -338,6 +364,14 @@ def ship_detail(entity_name):
 def crafting():
     return render_template("crafting.html", active_page="/crafting")
 
+@app.route("/mission-rep")
+def mission_rep():
+    return render_template("mission_rep.html", active_page="/mission-rep")
+
+@app.route("/mining-signatures")
+def mining_signatures_page():
+    return render_template("mining_signatures.html", active_page="/mining-signatures")
+
 #@app.route("/cargo-planner")
 #def cargo_planner_page():
 #    from flask import send_from_directory
@@ -361,6 +395,16 @@ def starmap_page(system=None, body=None):
 # AUTH API ROUTES
 # ══════════════════════════════════════════════════════════════════════
 
+# Mock auth for local development
+@app.before_request
+def mock_auth():
+    if 'user' not in session and request.host.startswith('localhost'):
+        session['user'] = {
+            'discord_id': '123456789',
+            'username': 'TestUser',
+            'discriminator': '0001'
+        }
+            
 @app.route('/api/auth/verify', methods=['POST'])
 def verify_auth():
     """
@@ -622,6 +666,38 @@ def api_counts():
         "blueprints":   conn.execute("SELECT COUNT(*) FROM crafting_blueprints WHERE patch_version = ?", (p,)).fetchone()[0],
     }
     conn.close(); return jsonify(result)
+
+
+# ── Mining signatures ────────────────────────────────────────────────────────
+@app.route("/api/mining-signatures")
+def api_mining_signatures():
+    """Mineable-rock radar signatures for the latest patch.
+
+    Returns one row per (resource, source_type) — collapses asteroid+surface
+    duplicates from the underlying entity table since they share a signature.
+    """
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+    rows = conn.execute("""
+        SELECT
+            resource_key,
+            MIN(resource_name) AS resource_name,
+            source_type,
+            MIN(rarity)        AS rarity,
+            MIN(rock_type)     AS rock_type,
+            MIN(signature)     AS signature,
+            COUNT(*)           AS variant_count
+        FROM mining_signatures
+        WHERE patch_version = ?
+        GROUP BY resource_key, source_type, rarity, rock_type
+        ORDER BY signature ASC, resource_name ASC
+    """, (p,)).fetchall()
+    conn.close()
+    return jsonify({
+        "patch_version": p,
+        "signatures":    [dict(r) for r in rows],
+    })
+
 
 # ── Ships ─────────────────────────────────────────────────────────────────────
 @app.route("/api/careers")
@@ -2077,7 +2153,237 @@ def api_crafting_mission_detail(mission_name):
         "blueprints":   [dict(b) for b in blueprints],
     })
 
- 
+# ─────────────────────────────────────────────────────────────────────────────
+# BLUEPRINT OWNERSHIP
+# ─────────────────────────────────────────────────────────────────────────────
+# Schema (dataforge.db):
+#   blueprint_ownership(id, discord_id, blueprint_uuid, blueprint_name,
+#                       patch_version, claimed_at, env, notes)
+#   UNIQUE(discord_id, blueprint_uuid, patch_version)
+# Multi-owner: many users can each claim the same blueprint. The unique
+# constraint only blocks the same user re-claiming the same patch.
+#
+# Display names: we resolve them at read time against mee6_snapshots so they
+# stay in sync with the Discord-side display_name (which changes), instead of
+# freezing whatever name the user had at claim time.
+
+def _current_env():
+    """Map the request host to a 'prod' / 'dev' label stored on each claim."""
+    return 'prod' if 'tools.solprovision.com' in request.host else 'dev'
+
+
+def _resolve_discord_display_names(discord_ids):
+    """Return {user_id: latest display_name} for a list of Discord IDs.
+
+    Uses the most-recent snapshot row per user (mee6_snapshots stores one row
+    per snapshot_date). Falls back to {} if the mee6 DB is unreachable so the
+    ownership endpoints stay usable even when the user DB is missing locally.
+    """
+    if not discord_ids:
+        return {}
+    try:
+        udb = get_user_db()
+    except sqlite3.Error:
+        return {}
+    placeholders = ','.join('?' * len(discord_ids))
+    rows = udb.execute(f'''
+        SELECT user_id, display_name
+        FROM discord_members
+        WHERE user_id IN ({placeholders})
+          AND snapshot_date = (
+              SELECT MAX(snapshot_date) FROM discord_members dm2
+              WHERE dm2.user_id = discord_members.user_id
+          )
+    ''', discord_ids).fetchall()
+    udb.close()
+    return {r['user_id']: r['display_name'] for r in rows}
+
+
+# ── API: Claim a blueprint ───────────────────────────────────────────────────
+# POST /api/crafting/blueprint/<uuid>/claim
+# Adds the current user as an owner of this blueprint in the current env.
+
+@app.route('/api/crafting/blueprint/<uuid>/claim', methods=['POST'])
+def api_crafting_blueprint_claim(uuid):
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    env = _current_env()
+    conn = get_db()
+
+    # Pull the blueprint's name + patch from the catalog so the ownership row
+    # carries enough context to be queryable without re-joining (and so the
+    # NOT NULL columns are satisfied). We always claim against the latest
+    # patch — claims are per-recipe, not per-patch from the user's POV.
+    patch = latest_patch(conn)
+    bp = conn.execute('''
+        SELECT entity_name, output_display, output_name
+        FROM crafting_blueprints
+        WHERE uuid = ? AND patch_version = ?
+    ''', (uuid, patch)).fetchone()
+    if not bp:
+        conn.close()
+        return jsonify({'error': 'Blueprint not found'}), 404
+
+    blueprint_name = bp['output_display'] or bp['output_name'] or bp['entity_name']
+
+    try:
+        conn.execute('''
+            INSERT INTO blueprint_ownership
+                (discord_id, blueprint_uuid, blueprint_name, patch_version, env)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (discord_id, uuid, blueprint_name, patch, env))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({'error': 'Already claimed by you'}), 409
+    finally:
+        # `conn` may already be closed in the IntegrityError branch; that's fine.
+        try: conn.close()
+        except Exception: pass
+
+    return jsonify({
+        'success': True,
+        'blueprint_uuid': uuid,
+        'env': env,
+        'discord_id': discord_id,
+        'display_name': session.get('callsign'),
+    })
+
+
+# ── API: Unclaim a blueprint ─────────────────────────────────────────────────
+# DELETE /api/crafting/blueprint/<uuid>/claim
+# Removes only the current user's claim. Other owners are untouched.
+
+@app.route('/api/crafting/blueprint/<uuid>/claim', methods=['DELETE'])
+def api_crafting_blueprint_unclaim(uuid):
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    env = _current_env()
+    conn = get_db()
+    cur = conn.execute('''
+        DELETE FROM blueprint_ownership
+        WHERE blueprint_uuid = ? AND discord_id = ? AND env = ?
+    ''', (uuid, discord_id, env))
+    conn.commit()
+    removed = cur.rowcount
+    conn.close()
+
+    if removed == 0:
+        return jsonify({'error': 'Not claimed by you'}), 404
+    return jsonify({'success': True, 'blueprint_uuid': uuid, 'env': env})
+
+
+# ── API: Ownership summary for many blueprints ───────────────────────────────
+# GET /api/crafting/blueprints/ownership?uuids=uuid1,uuid2,...
+# Returns one entry per claim (multi-owner), so a UUID can appear multiple
+# times. The frontend buckets these by blueprint_uuid to render dots/links.
+# Also includes the current user's claim flag for button state.
+
+@app.route('/api/crafting/blueprints/ownership')
+def api_crafting_blueprints_ownership():
+    uuids_param = request.args.get('uuids', '').strip()
+    if not uuids_param:
+        return jsonify([])
+    uuids = [u.strip() for u in uuids_param.split(',') if u.strip()]
+    if not uuids:
+        return jsonify([])
+
+    env = _current_env()
+    conn = get_db()
+    placeholders = ','.join('?' * len(uuids))
+    rows = conn.execute(f'''
+        SELECT blueprint_uuid, discord_id, claimed_at
+        FROM blueprint_ownership
+        WHERE blueprint_uuid IN ({placeholders}) AND env = ?
+    ''', (*uuids, env)).fetchall()
+    conn.close()
+
+    return jsonify([{
+        'blueprint_uuid': r['blueprint_uuid'],
+        'discord_id':     r['discord_id'],
+        'claimed_at':     r['claimed_at'],
+    } for r in rows])
+
+
+# ── API: Owner list for a single blueprint (with Discord names) ──────────────
+# GET /api/crafting/blueprint/<uuid>/owners
+# Powers the "Current Owners" popup — Discord display names + claim times.
+
+@app.route('/api/crafting/blueprint/<uuid>/owners')
+def api_crafting_blueprint_owners(uuid):
+    env = _current_env()
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT discord_id, claimed_at
+        FROM blueprint_ownership
+        WHERE blueprint_uuid = ? AND env = ?
+        ORDER BY claimed_at ASC
+    ''', (uuid, env)).fetchall()
+    conn.close()
+
+    discord_ids = [r['discord_id'] for r in rows]
+    name_map = _resolve_discord_display_names(discord_ids)
+    return jsonify({
+        'blueprint_uuid': uuid,
+        'env':            env,
+        'owners': [{
+            'discord_id':   r['discord_id'],
+            'display_name': name_map.get(r['discord_id']) or r['discord_id'],
+            'claimed_at':   r['claimed_at'],
+        } for r in rows],
+    })
+
+
+# ── API: All claims by the current user ──────────────────────────────────────
+# GET /api/crafting/blueprints/my-claims
+# Reserved for a future "My Claims" page — not used by the card UI today,
+# but kept since it's cheap and the auth bug needed fixing anyway.
+
+@app.route('/api/crafting/blueprints/my-claims')
+def api_crafting_blueprints_my_claims():
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    env = _current_env()
+    conn = get_db()
+    rows = conn.execute('''
+        SELECT
+            bo.blueprint_uuid,
+            bo.blueprint_name,
+            bo.claimed_at,
+            cb.output_name,
+            COALESCE(
+                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+                NULLIF(e.display_name, ''),
+                NULLIF(cb.output_display, ''),
+                cb.output_name,
+                bo.blueprint_name
+            ) AS output_display,
+            cc.display_path
+        FROM blueprint_ownership bo
+        LEFT JOIN crafting_blueprints cb
+            ON cb.uuid = bo.blueprint_uuid
+            AND cb.patch_version = bo.patch_version
+        LEFT JOIN crafting_categories cc
+            ON cc.id = cb.category_id
+        LEFT JOIN entities e
+            ON e.uuid = cb.output_uuid
+            AND e.patch_version = cb.patch_version
+        LEFT JOIN item_components ic
+            ON ic.entity_name = cb.output_name
+            AND ic.patch_version = cb.patch_version
+        WHERE bo.discord_id = ? AND bo.env = ?
+        ORDER BY bo.claimed_at DESC
+    ''', (discord_id, env)).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # SHOPS — Add these routes to server.py
 # ─────────────────────────────────────────────────────────────────────────────

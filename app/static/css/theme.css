@@ -546,8 +546,8 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
 }
 
 .user-callsign {
-  font-family: var(--font-ui);
-  font-size: 13px;
+  font-family: var(--font-title);
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 1px;
   color: #E8855C;
@@ -556,7 +556,7 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
 
 .user-rank {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 1.5px;
   color: #9A8C64;
   text-transform: uppercase;

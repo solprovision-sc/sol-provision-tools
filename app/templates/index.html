@@ -336,7 +336,76 @@
     <div class="hero-divider"></div>
   </div>
 
+
   <!-- Card Grid -->
+  <div class="card-grid">
+
+    <!-- Ledger -->
+    <a class="hero-card" href="/ledger">
+      <div class="card-corner"></div>
+      <div class="card-corner-bl"></div>
+      <div class="card-number">01</div>
+      <div class="card-body">
+        <div class="card-eyebrow">Operations</div>
+        <div class="card-name">Ledger</div>
+        <div class="card-desc">Mission payout tool - distribute earnings across org members</div>
+      </div>
+      <div class="card-footer">
+        <div class="card-cta">Open Ledger</div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Item Collection -->
+    <a class="hero-card" href="/item_collection">
+      <div class="card-corner"></div>
+      <div class="card-corner-bl"></div>
+      <div class="card-number">02</div>
+      <div class="card-body">
+        <div class="card-eyebrow">Operations</div>
+        <div class="card-name">Item Collection</div>
+        <div class="card-desc">Item Collection Test</div>
+      </div>
+      <div class="card-footer">
+        <div class="card-cta">Open App</div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+	
+	<!-- Mission Rep -->
+    <a class="hero-card" href="/mission-rep">
+      <div class="card-corner"></div>
+      <div class="card-corner-bl"></div>
+      <div class="card-number">03</div>
+      <div class="card-body">
+        <div class="card-eyebrow">Operations</div>
+        <div class="card-name">Mission Rep</div>
+        <div class="card-desc">Mission rep and payout details</div>
+      </div>
+      <div class="card-footer">
+        <div class="card-cta">Open App</div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+	
+	<!-- Mission Rep -->
+    <a class="hero-card" href="/mining-signatures">
+      <div class="card-corner"></div>
+      <div class="card-corner-bl"></div>
+      <div class="card-number">04</div>
+      <div class="card-body">
+        <div class="card-eyebrow">Operations</div>
+        <div class="card-name">Mining Signatures</div>
+        <div class="card-desc">Rock signatures for scanned asteroids and rocks</div>
+      </div>
+      <div class="card-footer">
+        <div class="card-cta">Open App</div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+  </div>
+  
   <div class="card-grid">
 
     <!-- Ships -->
@@ -371,38 +440,6 @@
       </div>
     </a>
 
-    <!-- Ledger -->
-    <a class="hero-card" href="/ledger">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">03</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Operations</div>
-        <div class="card-name">Ledger</div>
-        <div class="card-desc">Mission payout tool - distribute earnings across org members</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Open Ledger</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Item Collection -->
-    <a class="hero-card" href="/item_collection">
-      <div class="card-corner"></div>
-      <div class="card-corner-bl"></div>
-      <div class="card-number">04</div>
-      <div class="card-body">
-        <div class="card-eyebrow">Operations</div>
-        <div class="card-name">Item Collection</div>
-        <div class="card-desc">Item Collection Test</div>
-      </div>
-      <div class="card-footer">
-        <div class="card-cta">Open App</div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
   </div>
 
   <!-- Bottom rule -->
@@ -422,54 +459,66 @@
     authDomain: "sp-ledger.firebaseapp.com",
     projectId: "sp-ledger",
   };
-
-  firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-
+  
   const overlay = document.getElementById('authOverlay');
   const dashboard = document.getElementById('dashboard');
   const statusText = document.getElementById('authStatus');
-
-  // Auth State Listener
-  auth.onAuthStateChanged(async function(user) {
-    if (user) {
-      try {
-        const idToken = await user.getIdToken();
-        
-        // Verify with backend
-        const response = await fetch('/api/auth/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          console.log('User verified:', data);
+  
+  // Check if running on localhost
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    // Skip auth on localhost
+    console.log('Localhost detected - skipping Discord auth');
+    overlay.classList.add('hidden');
+    dashboard.classList.remove('blurred');
+    window.currentUser = { 
+      discord_id: '123456789', 
+      username: 'TestUser',
+      display_name: 'Test User'
+    };
+  } else {
+    // Production/Dev: Normal Firebase auth flow
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+  
+    // Auth State Listener
+    auth.onAuthStateChanged(async function(user) {
+      if (user) {
+        try {
+          const idToken = await user.getIdToken();
           
-          // Hide modal, show dashboard
-          overlay.classList.add('hidden');
-          dashboard.classList.remove('blurred');
-          
-          // Store user globally for header
-          window.currentUser = data;
-          
-        } else {
-          throw new Error(data.message || 'Verification failed');
+          // Verify with backend
+          const response = await fetch('/api/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken })
+          });
+          const data = await response.json();
+          if (response.ok) {
+            console.log('User verified:', data);
+            
+            // Hide modal, show dashboard
+            overlay.classList.add('hidden');
+            dashboard.classList.remove('blurred');
+            
+            // Store user globally for header
+            window.currentUser = data;
+            
+          } else {
+            throw new Error(data.message || 'Verification failed');
+          }
+        } catch (err) {
+          console.error('Auth error:', err);
+          statusText.textContent = err.message || 'VERIFICATION ERROR';
+          await auth.signOut();
         }
-      } catch (err) {
-        console.error('Auth error:', err);
-        statusText.textContent = err.message || 'VERIFICATION ERROR';
-        await auth.signOut();
+      } else {
+        // Not signed in
+        overlay.classList.remove('hidden');
+        dashboard.classList.add('blurred');
+        statusText.textContent = 'AWAITING AUTHORIZATION...';
       }
-    } else {
-      // Not signed in
-      overlay.classList.remove('hidden');
-      dashboard.classList.add('blurred');
-      statusText.textContent = 'AWAITING AUTHORIZATION...';
-    }
-  });
+    });
+  }
 
   // Discord Login
   async function loginWithDiscord() {

@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}Mining Signatures — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Page chrome */
+.ms-wrap { max-width: 1100px; margin: 0 auto; }
+.ms-page-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border2);
+}
+.ms-page-title {
+  font-family: var(--font-title); font-size: 24px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--text);
+  line-height: 1;
+}
+.ms-page-subtitle {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  margin-top: 6px; letter-spacing: 0.05em;
+}
+.ms-page-subtitle .ms-patch {
+  color: var(--gold); font-weight: 600;
+}
+
+/* Filter pills row */
+.ms-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.ms-tab {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.15em; text-transform: uppercase;
+  padding: 7px 14px;
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ms-tab:hover { color: var(--gold); border-color: var(--accent2); }
+.ms-tab.active {
+  color: var(--gold); border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Sections — one per source_type */
+.ms-section { margin-bottom: 28px; }
+.ms-section.hidden { display: none; }
+.ms-section-header {
+  display: flex; align-items: baseline; gap: 12px;
+  margin-bottom: 10px;
+}
+.ms-section-title {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--gold);
+}
+.ms-section-note {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text3);
+}
+
+/* Signature table */
+.ms-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); }
+.ms-table th {
+  font-family: var(--font-ui); font-size: 9px;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--text3);
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border2);
+  background: var(--bg2);
+}
+.ms-table th.num { text-align: right; }
+.ms-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+}
+.ms-table tr:last-child td { border-bottom: none; }
+.ms-table tr:hover td { background: #100c0a; }
+.ms-table td.num {
+  text-align: right;
+  color: var(--gold);
+  font-weight: 600;
+  font-size: 14px;
+}
+.ms-table td.resource {
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.ms-table td.muted { color: var(--text3); }
+
+/* Rarity pill */
+.ms-rarity {
+  display: inline-block;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid;
+}
+.ms-rarity.legendary { color: #c8724a; border-color: #c8724a; background: rgba(200,114,74,0.08); }
+.ms-rarity.epic      { color: #9977cc; border-color: #9977cc; background: rgba(153,119,204,0.08); }
+.ms-rarity.rare      { color: var(--gold); border-color: var(--gold); background: var(--gold-dim); }
+.ms-rarity.uncommon  { color: var(--green); border-color: var(--green); background: var(--green-dim); }
+.ms-rarity.common    { color: var(--text2); border-color: var(--border2); background: var(--bg2); }
+
+.ms-loading { padding: 40px; text-align: center; color: var(--text3); font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; }
+.ms-empty   { padding: 24px; text-align: center; color: var(--text3); font-family: var(--font-mono); font-size: 12px; }
+.ms-error   { padding: 24px; color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+
+/* Lead paragraph */
+.ms-lead {
+  font-family: var(--font-body); font-size: 13px; line-height: 1.6;
+  color: var(--text2); max-width: 760px; margin-bottom: 24px;
+}
+.ms-lead code {
+  font-family: var(--font-mono); color: var(--gold);
+  background: var(--bg2); padding: 1px 6px; border: 1px solid var(--border);
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<main>
+  <div class="ms-wrap">
+    <div class="ms-page-header">
+      <div>
+        <div class="ms-page-title">Mining Signatures</div>
+        <div class="ms-page-subtitle">
+          Pulled from patch <span class="ms-patch" id="ms-patch-version">—</span>
+          · pinging an asteroid returns its signature number based on what's inside
+        </div>
+      </div>
+      <div class="ms-tabs" id="ms-tabs"></div>
+    </div>
+
+    <p class="ms-lead">
+      Each mineable rock in the game broadcasts a fixed <em>radar signature</em>
+      based on what's inside it. Ping a rock with your scanner and the number it
+      returns identifies the resource. RS-ship mineables vary by rarity tier;
+      FPS hand-mineables all return <code>3000</code> and ground-vehicle deposits
+      return <code>4000</code>.
+    </p>
+
+    <div id="ms-content">
+      <div class="ms-loading">Loading signatures…</div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block page_script %}
+const SOURCE_SECTIONS = [
+  { key: "rs_ship",        title: "RS-Ship Mineables",      note: "Asteroid + surface ROC-grade rocks, sorted by signature" },
+  { key: "fps",            title: "FPS Hand Mineables",     note: "All return 3000 — use a pickaxe / multi-tool" },
+  { key: "ground_vehicle", title: "Ground-Vehicle Deposits", note: "All return 4000 — mined with ROCs and other ground vehicles" },
+  { key: "legacy",         title: "Legacy Asteroid Types",  note: "Older asteroid-type rocks still referenced by the game" },
+  { key: "other",          title: "Other",                  note: "Generic / template rocks without a clean classification" },
+];
+
+const RARITY_ORDER = { legendary: 0, epic: 1, rare: 2, uncommon: 3, common: 4 };
+
+let currentFilter = "all";   // "all" | one of SOURCE_SECTIONS keys
+let signaturesData = null;
+
+async function loadSignatures() {
+  const wrap = document.getElementById("ms-content");
+  try {
+    const data = await api("/api/mining-signatures");
+    signaturesData = data;
+    document.getElementById("ms-patch-version").textContent = data.patch_version || "unknown";
+    buildTabs();
+    render();
+  } catch (e) {
+    wrap.innerHTML = `<div class="ms-error">Failed to load mining signatures: ${e.message}</div>`;
+  }
+}
+
+function buildTabs() {
+  const tabsEl = document.getElementById("ms-tabs");
+  const counts = countsBySource();
+  const tabs = [
+    { key: "all", label: `All (${signaturesData.signatures.length})` },
+    ...SOURCE_SECTIONS
+      .filter(s => (counts[s.key] || 0) > 0)
+      .map(s => ({ key: s.key, label: `${s.title.replace(/^Legacy Asteroid Types$/, "Legacy")} (${counts[s.key]})` })),
+  ];
+  tabsEl.innerHTML = tabs.map(t =>
+    `<button class="ms-tab ${t.key === currentFilter ? 'active' : ''}" data-filter="${t.key}">${t.label}</button>`
+  ).join("");
+  tabsEl.querySelectorAll(".ms-tab").forEach(b => {
+    b.addEventListener("click", () => {
+      currentFilter = b.dataset.filter;
+      tabsEl.querySelectorAll(".ms-tab").forEach(x => x.classList.toggle("active", x === b));
+      render();
+    });
+  });
+}
+
+function countsBySource() {
+  const out = {};
+  for (const row of signaturesData.signatures) {
+    out[row.source_type] = (out[row.source_type] || 0) + 1;
+  }
+  return out;
+}
+
+function render() {
+  const wrap = document.getElementById("ms-content");
+  const rows = signaturesData.signatures;
+  if (!rows.length) {
+    wrap.innerHTML = `<div class="ms-empty">No signatures found for the current patch.</div>`;
+    return;
+  }
+
+  const sections = SOURCE_SECTIONS
+    .filter(s => currentFilter === "all" || currentFilter === s.key)
+    .map(s => renderSection(s, rows.filter(r => r.source_type === s.key)))
+    .filter(Boolean)
+    .join("");
+
+  wrap.innerHTML = sections || `<div class="ms-empty">No rows for this filter.</div>`;
+}
+
+function renderSection(section, rows) {
+  if (!rows.length) return "";
+
+  // Sort: for rs_ship, sort by rarity tier then signature. Others by signature.
+  const sorted = [...rows].sort((a, b) => {
+    if (section.key === "rs_ship") {
+      const ar = RARITY_ORDER[a.rarity] ?? 99;
+      const br = RARITY_ORDER[b.rarity] ?? 99;
+      if (ar !== br) return ar - br;
+    }
+    if (a.signature !== b.signature) return a.signature - b.signature;
+    return (a.resource_name || "").localeCompare(b.resource_name || "");
+  });
+
+  // Column layout differs by source type — keep it information-dense
+  const extraColHeader = ({
+    rs_ship:        '<th>Rarity</th><th>Source</th>',
+    fps:            '',
+    ground_vehicle: '<th>Rock Type</th>',
+    legacy:         '<th>Asteroid Type</th>',
+    other:          '<th>Entity</th>',
+  })[section.key] || '';
+
+  const body = sorted.map(r => {
+    const resName = r.resource_name || '<span class="muted">—</span>';
+    const extraCol = ({
+      rs_ship: `
+        <td>${r.rarity ? `<span class="ms-rarity ${r.rarity}">${r.rarity}</span>` : '<span class="muted">—</span>'}</td>
+        <td class="muted">${r.variant_count > 1 ? `${r.variant_count} variants` : "1 variant"}</td>`,
+      fps: '',
+      ground_vehicle: `<td class="muted">${r.rock_type || '—'}</td>`,
+      legacy:         `<td class="muted">${r.rock_type || '—'}</td>`,
+      other:          `<td class="muted" style="font-size:11px;">${escapeHtml(r.resource_key || '—')}</td>`,
+    })[section.key] || '';
+    return `
+      <tr>
+        <td class="resource">${escapeHtml(resName)}</td>
+        ${extraCol}
+        <td class="num">${r.signature}</td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <section class="ms-section">
+      <div class="ms-section-header">
+        <div class="ms-section-title">${section.title}</div>
+        <div class="ms-section-note">${section.note}</div>
+      </div>
+      <table class="ms-table">
+        <thead>
+          <tr>
+            <th>Resource</th>
+            ${extraColHeader}
+            <th class="num">Signature</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </section>`;
+}
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[c]);
+}
+
+loadSignatures();
+{% endblock %}
