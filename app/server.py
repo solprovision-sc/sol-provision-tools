@@ -34,10 +34,10 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 # Initialize Firebase Admin SDK (for token verification)
 # Download service account key from Firebase Console → Project Settings → Service Accounts
 if is_dev:
-    cred = credentials.Certificate('/var/www/sol-provision-tools-dev/firebase-service-account.json')
+    cred = credentials.Certificate('/var/www/sol-provision-tools-dev/app/firebase-service-account.json')
     db_url = 'https://sp-ledger-dev-default-rtdb.firebaseio.com'
 else:
-    cred = credentials.Certificate('/var/www/sol-provision-tools/firebase-service-account.json')
+    cred = credentials.Certificate('/var/www/sol-provision-tools/app/firebase-service-account.json')
     db_url = 'https://sp-ledger-default-rtdb.firebaseio.com'
 
 firebase_admin.initialize_app(cred, {
