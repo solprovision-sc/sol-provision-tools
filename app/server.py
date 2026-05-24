@@ -1800,7 +1800,7 @@ COALESCE(
         for ing_row in ingredients_raw:
             ing = dict(ing_row)
             
-            print(f"[DEBUG] Ingredient: display_name={ing.get('display_name')}, resource_name={ing.get('resource_name')}")
+        #    print(f"[DEBUG] Ingredient: display_name={ing.get('display_name')}, resource_name={ing.get('resource_name')}")
             
             # If display_name is still the resource_name, try localization
             if ing['display_name'] == ing['resource_name'] and ing['resource_name']:
