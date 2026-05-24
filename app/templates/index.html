@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Sol Provision — Data Intelligence{% endblock %}
+{% block title %}Sol Provision - Data Intelligence{% endblock %}
 
 {% block extra_css %}
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
 <style>
-  /* ── scan bg ── */
+  /* scan bg */
   body::before {
     content: '';
     position: fixed; inset: 0;
@@ -14,7 +18,7 @@
     pointer-events: none; z-index: 0;
   }
 
-  /* ── Page ── */
+  /* Page */
   .landing-page {
     position: relative; z-index: 1;
     min-height: calc(100vh - 52px);
@@ -25,7 +29,7 @@
     padding: 48px 32px;
   }
 
-  /* ── Hero ── */
+  /* Hero */
   .hero {
     text-align: center;
     margin-bottom: 52px;
@@ -52,14 +56,14 @@
     margin: 20px auto 0;
   }
 
-  /* ── Section group ── */
+  /* Section group */
   .card-section {
     width: 100%;
     max-width: 1100px;
     margin-bottom: 64px;
   }
 
-  /* ── Section header ── */
+  /* Section header */
   .section-hdr {
     display: flex;
     align-items: center;
@@ -87,14 +91,14 @@
     background: rgba(126,38,25,0.22);
   }
 
-  /* ── Card row ── */
+  /* Card row */
   .card-row {
     display: flex;
     justify-content: center;
     gap: 16px;
   }
 
-  /* ── Base hero card ── */
+  /* Base hero card */
   .hero-card {
     width: 280px;
     flex-shrink: 0;
@@ -170,14 +174,14 @@
     opacity: 0; transition: all 0.2s;
   }
 
-  /* ── Coming soon card variant ── */
+  /* Coming soon card variant */
   .hero-card.wip {
     opacity: 0.45;
     cursor: default;
     pointer-events: none;
   }
 
-  /* ── Diagonal ribbon ── */
+  /* Diagonal ribbon */
   .wip-ribbon {
     position: absolute;
     top: 30px;
@@ -198,7 +202,7 @@
     opacity: 1;
   }
 
-  /* ── Bottom rule ── */
+  /* Bottom rule */
   .page-rule {
     margin-top: 16px;
     display: flex; align-items: center; gap: 16px;
@@ -215,11 +219,107 @@
     font-size: 8px; letter-spacing: 2px;
     color: #7E2619; text-transform: uppercase; white-space: nowrap;
   }
+
+  /* Auth Modal Overlay */
+  #authOverlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(13, 11, 10, 0.98);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+    transition: opacity 0.3s;
+  }
+  #authOverlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Auth Panel */
+  .auth-panel {
+    background: #1a1512;
+    border: 1px solid rgba(126,38,25,0.22);
+    border-top: 3px solid #7E2619;
+    padding: 40px;
+    width: 450px;
+    text-align: center;
+  }
+  .auth-panel h2 {
+    font-family: var(--font-ui);
+    font-weight: 900;
+    font-size: 18px;
+    letter-spacing: 4px;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(126,38,25,0.22);
+    padding-bottom: 10px;
+  }
+  .auth-status {
+    font-size: 10px;
+    color: #9A8C64;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    min-height: 15px;
+  }
+  .discord-btn {
+    background: #5865F2;
+    color: #fff;
+    border: none;
+    padding: 20px;
+    width: 100%;
+    font-family: var(--font-ui);
+    font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    transition: background 0.2s;
+  }
+  .discord-btn:hover {
+    background: #4752C4;
+  }
+  .auth-footer {
+    font-size: 9px;
+    color: #9A8C64;
+    opacity: 0.5;
+    margin-top: 15px;
+  }
+
+  /* Blur dashboard while auth in progress */
+  .landing-page.blurred {
+    filter: blur(4px);
+    pointer-events: none;
+  }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="landing-page">
+<!-- Auth Modal Overlay -->
+<div id="authOverlay">
+  <div class="auth-panel">
+    <h2 style="margin-bottom:10px;">SOL PROVISION</h2>
+    <div style="font-size:9px; letter-spacing:2px; color:#9A8C64; margin-bottom:30px;">
+      DATA INTELLIGENCE PLATFORM
+    </div>
+    
+    <div id="authStatus" class="auth-status">AWAITING AUTHORIZATION...</div>
+    
+    <button class="discord-btn" id="discordLoginBtn">
+      Login with Discord
+    </button>
+    
+    <div class="auth-footer">
+      REQUIRED: ACTIVE SOL PROVISION SERVER MEMBERSHIP
+    </div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div class="landing-page" id="dashboard">
 
   <!-- Hero -->
   <div class="hero">
@@ -228,7 +328,7 @@
     <div class="hero-divider"></div>
   </div>
 
-  <!-- ── TOOLS section ── -->
+  <!-- TOOLS section -->
   <div class="card-section">
     <div class="section-hdr">
       <div class="section-hdr-bar"></div>
@@ -242,7 +342,7 @@
         <div class="card-body">
           <div class="card-eyebrow">Operations</div>
           <div class="card-name">Ledger</div>
-          <div class="card-desc">Mission payout tool — distribute earnings across org members</div>
+          <div class="card-desc">Mission payout tool - distribute earnings across org members</div>
         </div>
         <div class="card-footer">
           <div class="card-cta">Open Ledger</div>
@@ -253,7 +353,7 @@
     </div>
   </div>
 
-  <!-- ── INTELLIGENCE section ── -->
+  <!-- INTELLIGENCE section -->
   <div class="card-section">
     <div class="section-hdr">
       <div class="section-hdr-bar"></div>
@@ -268,7 +368,7 @@
         <div class="card-body">
           <div class="card-eyebrow">Fleet Registry</div>
           <div class="card-name">Ships</div>
-          <div class="card-desc">Complete vessel registry — specs, components, and performance data</div>
+          <div class="card-desc">Complete vessel registry - specs, components, and performance data</div>
         </div>
         <div class="card-footer">
           <div class="card-cta">Browse Fleet</div>
@@ -282,7 +382,7 @@
         <div class="card-body">
           <div class="card-eyebrow">Industry</div>
           <div class="card-name">Crafting</div>
-          <div class="card-desc">Blueprint index — materials, slots, and crafting requirements</div>
+          <div class="card-desc">Blueprint index - materials, slots, and crafting requirements</div>
         </div>
         <div class="card-footer">
           <div class="card-cta">View Blueprints</div>
@@ -296,9 +396,87 @@
   <!-- Bottom rule -->
   <div class="page-rule">
     <div class="rule-line"></div>
-    <div class="rule-text">Sol Provision · Provisions for the Soul</div>
+    <div class="rule-text">Sol Provision - Provisions for the Soul</div>
     <div class="rule-line right"></div>
   </div>
 
 </div>
+{% endblock %}
+
+{% block page_script %}
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E",
+  authDomain: "sp-ledger.firebaseapp.com",
+  projectId: "sp-ledger",
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+const overlay = document.getElementById('authOverlay');
+const dashboard = document.getElementById('dashboard');
+const statusText = document.getElementById('authStatus');
+
+// Auth State Listener
+auth.onAuthStateChanged(async function(user) {
+  if (user) {
+    try {
+      const idToken = await user.getIdToken();
+      
+      // Verify with backend
+      const response = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log('User verified:', data);
+        
+        // Hide modal, show dashboard
+        overlay.classList.add('hidden');
+        dashboard.classList.remove('blurred');
+        
+        // Store user globally for header and other pages
+        window.currentUser = data;
+        
+      } else {
+        throw new Error(data.message || 'Verification failed');
+      }
+    } catch (err) {
+      console.error('Auth error:', err);
+      statusText.textContent = err.message || 'VERIFICATION ERROR';
+      await auth.signOut();
+    }
+  } else {
+    // Not signed in
+    overlay.classList.remove('hidden');
+    dashboard.classList.add('blurred');
+    statusText.textContent = 'AWAITING AUTHORIZATION...';
+  }
+});
+
+// Discord Login
+async function loginWithDiscord() {
+  statusText.textContent = 'CONNECTING TO DISCORD...';
+  
+  const provider = new firebase.auth.OAuthProvider('oidc.discord');
+  provider.addScope('identify');
+
+  try {
+    await auth.signInWithPopup(provider);
+    statusText.textContent = 'VERIFYING MEMBERSHIP...';
+    
+  } catch (err) {
+    console.error('Login error:', err);
+    statusText.textContent = 'AUTH ERROR: ' + err.message;
+  }
+}
+
+// Attach event listener when DOM is ready
+document.getElementById('discordLoginBtn').addEventListener('click', loginWithDiscord);
+
 {% endblock %}
