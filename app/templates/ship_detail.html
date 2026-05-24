@@ -2777,9 +2777,9 @@ body::before {
     document.getElementById('sb-boost-mnv').textContent = ins_boost_mnv;
   
     function updateShipDimensions(ship) {
-      const length = ship.length_m || 0;
-      const width = ship.beam_m || 0;
-      const height = ship.height_m || 0;
+      const length = ship.length_rsi_m || 0;
+      const width = ship.beam_rsi_m || 0;
+      const height = ship.height_rsi_m || 0;
       const mass = ship.mass_kg || 0;
       
       // Update text values
@@ -2944,7 +2944,7 @@ body::before {
 
   // ── Hull & Survivability ─────────────────────────────────────────────────────
   function populateHull(ship) {
-    const dims = [ship.length_m, ship.beam_m, ship.height_m];
+    const dims = [ship.length_rsi_m, ship.beam_rsi_m, ship.height_rsi_m];
     document.getElementById('hull-dims').textContent =
       dims.every(d => d) ? dims.map(d => `${d}m`).join(' × ') : 'data gap';
 	document.getElementById('hull-mass').textContent = ship.mass_kg  ? `${ship.mass_kg} kg` : '-';
