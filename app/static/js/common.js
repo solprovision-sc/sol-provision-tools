@@ -95,6 +95,8 @@ function navHTML(active) {
 	// { href: '/armor',         label: 'Armor' },
 	// { href: '/shops',         label: 'Shops' },
 	{ href: '/crafting', 	  label: 'Crafting'},
+	{ href: '/mission-rep',   label: 'Mission Rep' },
+	{ href: '/mining-signatures', label: 'Mining Sigs' },
 	// { href: '/cargo-planner', label: 'Cargo Planner' },
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	{ href: '/ledger', label: 'Ledger' },
@@ -123,13 +125,36 @@ async function renderHeader(activePage) {
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
     
     // Right side: show user info or patch info
-    document.getElementById('header-meta').innerHTML = userInfo
-      ? `<div class="user-info">
-           <div class="user-callsign">${userInfo.callsign}</div>
-           <div class="user-rank">${userInfo.division || 'Unassigned'} · Rank ${userInfo.rank}</div>
-         </div>`
-      : `<div>Patch <span>${meta.patch_version}</span></div>
-         <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+    if (userInfo) {
+      let rankDisplay = '';
+      
+      // Check for CEO (Sulyce)
+      if (userInfo.callsign === 'Sulyce') {
+        rankDisplay = 'CEO';
+      } 
+      // Check for Officer (Rank 5)
+      else if (userInfo.rank === 5) {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Officer`;
+      }
+      // Check for Wing Commander (Rank 4)
+      else if (userInfo.rank === 4) {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Wing Commander`;
+      }
+      // Default: show division and rank number
+      else {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Rank ${userInfo.rank}`;
+      }
+      
+      document.getElementById('header-meta').innerHTML = `
+        <div class="user-info">
+          <div class="user-callsign">${userInfo.callsign}</div>
+          <div class="user-rank">${rankDisplay}</div>
+        </div>`;
+    } else {
+      document.getElementById('header-meta').innerHTML = `
+        <div>Patch <span>${meta.patch_version}</span></div>
+        <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+    }
     
   } catch(e) {
     document.getElementById('header-logo').innerHTML = logoHTML();
