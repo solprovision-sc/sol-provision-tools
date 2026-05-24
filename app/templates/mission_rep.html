@@ -1,0 +1,689 @@
+{% extends "base.html" %}
+{% block title %}Mission Reputation — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Mission cards ───────────────────────────────────────────────────── */
+#mission-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
+}
+.m-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; transition: border-color 0.15s, transform 0.15s, background 0.15s;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.m-card:hover { border-color: var(--accent); transform: translateY(-2px); background: var(--bg3); }
+.m-card-header {
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.m-card-title {
+  font-family: var(--font-title); font-size: 0.95rem; font-weight: 600;
+  color: var(--text); line-height: 1.3;
+}
+.m-card-sub {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.m-card-sub .m-giver { color: var(--text2); }
+.m-card-meta {
+  padding: 8px 16px 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+/* Career / faction / difficulty chips reuse bp-tag visual language */
+.m-chip {
+  display: inline-block; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 3px; font-family: var(--font-mono); font-size: 0.68rem;
+  color: var(--text2); padding: 1px 6px; white-space: nowrap;
+}
+.m-chip.chip-career { border-color: var(--accent); color: var(--accent); }
+.m-chip.chip-rank   { border-color: var(--gold);   color: var(--gold); }
+.m-chip.chip-diff   { border-color: var(--terra);  color: var(--terra); }
+.m-card-stats {
+  padding: 10px 16px 12px; flex: 1;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px;
+}
+.m-stat { display: flex; flex-direction: column; gap: 2px; }
+.m-stat-label {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.m-stat-value {
+  font-family: var(--font-mono); font-size: 0.92rem; font-weight: 600; color: var(--text);
+}
+.m-stat-value.pos { color: #4ea35b; }
+.m-stat-value.neg { color: #c44545; }
+.m-stat-value.gold { color: var(--gold); }
+.m-card-footer {
+  padding: 7px 16px; border-top: 1px solid var(--border); background: var(--bg2);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+}
+.m-card-footer .lawful-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 5px;
+}
+.m-card-footer .lawful-dot.lawful   { background: #4ea35b; box-shadow: 0 0 4px rgba(78,163,91,0.5); }
+.m-card-footer .lawful-dot.unlawful { background: #c44545; box-shadow: 0 0 4px rgba(196,69,69,0.5); }
+
+/* Renders runtime template tokens like ~mission(Location) in titles */
+.mission-var { color: #E8855C; font-weight: 600; }
+
+/* Empty state */
+.grid-empty {
+  grid-column: 1 / -1; text-align: center; padding: 48px 24px;
+  font-family: var(--font-mono); font-size: 0.82rem; color: var(--text3);
+}
+
+/* ── Result toolbar (sort + count) ───────────────────────────────────── */
+.result-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.result-count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--text3); }
+.sort-wrap {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+}
+.sort-wrap select {
+  width: auto; padding: 5px 8px; font-size: 12px;
+  border-radius: 4px;
+}
+
+/* ── Sidebar (copied from crafting.html — keep consistent) ───────────── */
+.filter-group { margin-bottom: 20px; }
+.filter-input {
+  width: 100%; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); font-family: var(--font-mono); font-size: 0.82rem;
+  padding: 7px 10px; box-sizing: border-box; outline: none; transition: border-color 0.15s;
+}
+.filter-input:focus { border-color: var(--accent); }
+
+#filter-tree { display: flex; flex-direction: column; gap: 4px; }
+.filter-head {
+  font-family: var(--font-title); font-size: 0.82rem; font-weight: 700;
+  color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border2);
+}
+.filter-head:first-child { margin-top: 0; }
+.filter-group2 { display: flex; flex-direction: column; }
+.filter-group2-toggle {
+  display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+  font-family: var(--font-mono); font-size: 0.75rem; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 0;
+}
+.filter-group2-toggle:hover { color: var(--accent); }
+.filter-group2-toggle .caret {
+  font-size: 0.6rem; color: var(--text3); transition: transform 0.15s; width: 9px;
+}
+.filter-group2.collapsed .caret { transform: rotate(-90deg); }
+.filter-group2.collapsed .filter-group2-body { display: none; }
+.filter-group2-body { display: flex; flex-direction: column; padding: 2px 0 6px 4px; }
+.filter-check {
+  display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--text2);
+  padding: 3px 4px; border-radius: 3px; transition: background 0.12s, color 0.12s;
+}
+.filter-check:hover { background: var(--bg2); color: var(--text); }
+.filter-check input { accent-color: var(--accent); cursor: pointer; margin: 0; flex-shrink: 0; }
+.filter-check .fc-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.filter-check .fc-count { color: var(--text3); font-size: 0.7rem; flex-shrink: 0; }
+.filter-check.checked { color: var(--text); }
+#filter-clear {
+  margin-top: 12px; width: 100%; background: transparent; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px;
+  font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer;
+  text-transform: uppercase; letter-spacing: 0.06em; transition: border-color 0.15s, color 0.15s;
+}
+#filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Tier ladder reference (top of main area) ────────────────────────── */
+.tier-ladder {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 12px 16px; margin-bottom: 16px;
+}
+.tier-ladder-title {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 10px;
+}
+.tier-ladder-title .tl-career-select {
+  width: auto; padding: 3px 6px; font-size: 11px;
+}
+.tier-rungs {
+  display: flex; gap: 0; overflow-x: auto; padding-bottom: 2px;
+}
+.tier-rung {
+  flex: 1; min-width: 78px; padding: 6px 8px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.tier-rung:last-child { border-right: none; }
+.tier-rung-name {
+  font-family: var(--font-title); font-size: 0.78rem; font-weight: 700;
+  color: var(--text); letter-spacing: 0.04em; text-transform: uppercase;
+}
+.tier-rung-rep {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--gold);
+}
+.tier-rung.locked .tier-rung-name { color: var(--text3); }
+.tier-rung.locked .tier-rung-rep  { color: var(--text3); }
+
+/* ── Modal ───────────────────────────────────────────────────────────── */
+#m-modal-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(4,8,14,0.85);
+  z-index: 200; align-items: center; justify-content: center; padding: 24px;
+}
+#m-modal-overlay.open { display: flex; }
+#m-modal {
+  background: var(--panel); border: 1px solid var(--border2); border-radius: 8px;
+  width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7); display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 18px 22px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.modal-title-block { flex: 1; min-width: 0; }
+.modal-title {
+  font-family: var(--font-title); font-size: 1.1rem; font-weight: 700;
+  color: var(--text); margin: 0 0 4px; line-height: 1.3;
+}
+.modal-entity { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3); }
+.modal-close {
+  background: none; border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text2); font-size: 1.1rem; width: 30px; height: 30px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+.modal-close:hover { border-color: var(--red); color: var(--red); }
+.modal-body { padding: 14px 22px 20px; }
+.modal-section {
+  margin-bottom: 16px;
+}
+.modal-section-label {
+  font-family: var(--font-mono); font-size: 0.66rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+}
+.modal-row {
+  display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: baseline;
+  padding: 5px 0; border-bottom: 1px dotted var(--border);
+}
+.modal-row:last-child { border-bottom: none; }
+.modal-row-label { font-family: var(--font-ui); font-size: 0.88rem; color: var(--text); }
+.modal-row-value {
+  font-family: var(--font-mono); font-size: 0.88rem; color: var(--accent); font-weight: 600;
+  text-align: right; white-space: nowrap;
+}
+.modal-row-value.pos { color: #4ea35b; }
+.modal-row-value.neg { color: #c44545; }
+.modal-row-value.gold { color: var(--gold); }
+.modal-row-sub {
+  font-family: var(--font-mono); font-size: 0.66rem; color: var(--text3); margin-top: 1px;
+}
+.modal-file {
+  font-family: var(--font-mono); font-size: 0.65rem; color: var(--text3);
+  word-break: break-all;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="layout">
+  <aside id="sidebar">
+    <div class="sidebar-section">
+      <span class="section-label">Search</span>
+      <div class="filter-group">
+        <input type="search" id="filter-search" class="filter-input" placeholder="Search by title or giver…">
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <span class="section-label">Filters</span>
+      <div id="filter-tree"><div class="grid-empty">Loading…</div></div>
+      <button id="filter-clear" type="button">Clear all filters</button>
+    </div>
+  </aside>
+
+  <main>
+    <div id="tier-ladder" class="tier-ladder" style="display:none;"></div>
+    <div class="result-toolbar">
+      <div class="result-count" id="result-count"></div>
+      <div class="sort-wrap">
+        <label for="sort-select">Sort by</label>
+        <select id="sort-select">
+          <option value="rep_desc">Success Rep (high → low)</option>
+          <option value="ratio_desc">Rep per 1k UEC</option>
+          <option value="uec_desc">UEC Reward (high → low)</option>
+          <option value="rank_asc">Min Rank Required (low → high)</option>
+          <option value="title_asc">Mission Title (A → Z)</option>
+        </select>
+      </div>
+    </div>
+    <div id="mission-grid">
+      <div class="grid-empty">Loading missions…</div>
+    </div>
+  </main>
+</div>
+
+<div id="m-modal-overlay">
+  <div id="m-modal">
+    <div class="modal-header">
+      <div class="modal-title-block">
+        <div class="modal-title" id="modal-title">—</div>
+        <div class="modal-entity" id="modal-entity"></div>
+      </div>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block page_script %}
+// ── State ──────────────────────────────────────────────────────────────
+let allMissions = [];
+let filtered    = [];
+
+// CAREER → ordered rank ladder (name, minRep). Drawn from the mission-rep
+// extraction: each career has a different threshold curve.
+const TIER_LADDERS = {
+  "Hauling": [
+    ["Trainee", 0], ["Rookie", 50], ["Junior", 250], ["Member", 5250],
+    ["Experienced", 27750], ["Senior", 77750], ["Master", 237750],
+  ],
+  "Bounty Hunting": [
+    ["Applicant", 0], ["Probationary", 1], ["Junior", 3000], ["Member", 10000],
+    ["Senior", 40000], ["Veteran", 200000], ["Legendary", 480000],
+  ],
+  "Mercenary": [
+    ["Under Review", 0], ["Foot Soldier", 1], ["Low Level", 5000],
+    ["Enforcer", 30000], ["Experienced", 120000], ["Trusted", 480000],
+    ["Lethal", 1600000],
+  ],
+  "Security": [
+    ["Applicant", 0], ["Trainee", 1], ["Jr. Contractor", 5000],
+    ["Contractor", 30000], ["Sr. Contractor", 120000], ["Lead", 480000],
+    ["Elite", 1600000],
+  ],
+  "Emergency Services": [
+    ["Applicant", 0], ["Trainee", 5000], ["Responder", 20000], ["Veteran", 80000],
+  ],
+  "Salvage": [
+    ["Applicant", 0], ["Apprentice", 1], ["Associate", 100],
+    ["Salvager", 500], ["Senior", 1500], ["Master", 5000],
+  ],
+};
+
+// Difficulty code → friendly tier label (matches DIFFICULTY_LABELS in crafting.html)
+const DIFFICULTY_LABELS = {
+  Intro: "Trainee", VE: "Rookie", E: "Junior", M: "Member",
+  H: "Experienced", VH: "Senior", S: "Master",
+};
+const DIFFICULTY_ORDER = ["Intro", "VE", "E", "M", "H", "VH", "S"];
+
+const activeFilters = {
+  search:    "",
+  career:    new Set(),
+  faction:   new Set(),
+  legality:  new Set(),    // "Lawful" | "Unlawful"
+  min_rank:  new Set(),    // friendly rank name
+  difficulty: new Set(),   // raw code (Intro/VE/...)
+};
+let currentSort = "rep_desc";
+
+// ── Helpers ────────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+function formatMissionTokens(s) {
+  if (s == null) return "";
+  const str = String(s);
+  const rx = /~mission\(([^)]+)\)/g;
+  let out = "", lastIdx = 0, m;
+  while ((m = rx.exec(str)) !== null) {
+    if (m.index > lastIdx) out += escapeHtml(str.slice(lastIdx, m.index));
+    out += `<span class="mission-var">[${escapeHtml(m[1])}]</span>`;
+    lastIdx = m.index + m[0].length;
+  }
+  if (lastIdx < str.length) out += escapeHtml(str.slice(lastIdx));
+  return out;
+}
+function fmtNum(n) {
+  if (n == null) return "—";
+  return Number(n).toLocaleString();
+}
+function fmtSignedRep(n) {
+  if (n == null) return "—";
+  return (n >= 0 ? "+" : "") + fmtNum(n);
+}
+
+// ── Load data ──────────────────────────────────────────────────────────
+async function load() {
+  let payload;
+  try {
+    payload = await api("/static/data/mission_rep.json");
+  } catch (e) {
+    document.getElementById("mission-grid").innerHTML =
+      `<div class="grid-empty">Failed to load mission data.</div>`;
+    return;
+  }
+  allMissions = payload.missions || [];
+  buildSidebar();
+  applyFilters();
+}
+
+// ── Sidebar build ──────────────────────────────────────────────────────
+function distinct(field) {
+  const s = new Set();
+  allMissions.forEach(m => { if (m[field]) s.add(m[field]); });
+  return [...s];
+}
+function countBy(field, value) {
+  return allMissions.filter(m => m[field] === value).length;
+}
+function checkboxRow(facet, value, label, count) {
+  return `
+    <label class="filter-check" data-facet="${facet}" data-value="${escapeHtml(value)}">
+      <input type="checkbox">
+      <span class="fc-label">${escapeHtml(label)}</span>
+      <span class="fc-count">${count}</span>
+    </label>`;
+}
+function collapsibleGroup(title, innerHtml, collapsed) {
+  return `
+    <div class="filter-group2 ${collapsed ? "collapsed" : ""}">
+      <div class="filter-group2-toggle"><span class="caret">▼</span>${escapeHtml(title)}</div>
+      <div class="filter-group2-body">${innerHtml}</div>
+    </div>`;
+}
+
+function buildSidebar() {
+  const tree = document.getElementById("filter-tree");
+  let html = "";
+
+  // CAREER
+  html += `<div class="filter-head">Career</div>`;
+  const careers = distinct("career").sort();
+  careers.forEach(c => {
+    html += checkboxRow("career", c, c, countBy("career", c));
+  });
+
+  // LEGALITY
+  html += `<div class="filter-head">Legality</div>`;
+  [["Lawful", 1], ["Unlawful", 0]].forEach(([label, lawVal]) => {
+    const n = allMissions.filter(m => m.law === lawVal).length;
+    if (n === 0) return;
+    html += `
+      <label class="filter-check" data-facet="legality" data-value="${label}">
+        <input type="checkbox">
+        <span class="fc-label">${label}</span>
+        <span class="fc-count">${n}</span>
+      </label>`;
+  });
+
+  // MIN RANK REQUIRED
+  html += `<div class="filter-head">Min Rank Required</div>`;
+  const ranks = distinct("min_rank").sort();
+  ranks.forEach(r => {
+    html += checkboxRow("min_rank", r, r, countBy("min_rank", r));
+  });
+  const noRankN = allMissions.filter(m => !m.min_rank).length;
+  if (noRankN > 0) {
+    html += `
+      <label class="filter-check" data-facet="min_rank" data-value="__none__">
+        <input type="checkbox">
+        <span class="fc-label">(No requirement)</span>
+        <span class="fc-count">${noRankN}</span>
+      </label>`;
+  }
+
+  // DIFFICULTY
+  html += `<div class="filter-head">Difficulty</div>`;
+  DIFFICULTY_ORDER.forEach(code => {
+    const n = countBy("diff", code);
+    if (n === 0) return;
+    html += checkboxRow("difficulty", code, `${DIFFICULTY_LABELS[code]} (${code})`, n);
+  });
+
+  // FACTION (collapsed — long list)
+  const factionRows = distinct("fac").sort()
+    .map(f => checkboxRow("faction", f, f, countBy("fac", f))).join("");
+  html += `<div class="filter-head">Faction</div>`;
+  html += collapsibleGroup("All Factions", factionRows, true);
+
+  tree.innerHTML = html;
+
+  tree.querySelectorAll(".filter-group2-toggle").forEach(t => {
+    t.addEventListener("click", () => t.parentElement.classList.toggle("collapsed"));
+  });
+  tree.querySelectorAll(".filter-check").forEach(row => {
+    const input = row.querySelector("input");
+    input.addEventListener("change", () => {
+      const facet = row.dataset.facet;
+      const value = row.dataset.value;
+      const set = activeFilters[facet];
+      if (input.checked) { set.add(value); row.classList.add("checked"); }
+      else               { set.delete(value); row.classList.remove("checked"); }
+      applyFilters();
+    });
+  });
+}
+
+// ── Filter / sort / render ─────────────────────────────────────────────
+function passesFilters(m) {
+  const search = activeFilters.search.toLowerCase();
+  if (search) {
+    const hay = `${m.t} ${m.g}`.toLowerCase();
+    if (!hay.includes(search)) return false;
+  }
+  if (activeFilters.career.size && !activeFilters.career.has(m.career)) return false;
+  if (activeFilters.faction.size && !activeFilters.faction.has(m.fac)) return false;
+  if (activeFilters.legality.size) {
+    const want = (m.law === 1) ? "Lawful" : "Unlawful";
+    if (!activeFilters.legality.has(want)) return false;
+  }
+  if (activeFilters.min_rank.size) {
+    const key = m.min_rank || "__none__";
+    if (!activeFilters.min_rank.has(key)) return false;
+  }
+  if (activeFilters.difficulty.size) {
+    if (!m.diff || !activeFilters.difficulty.has(m.diff)) return false;
+  }
+  return true;
+}
+
+function applyFilters() {
+  filtered = allMissions.filter(passesFilters);
+  sortFiltered();
+  renderTierLadder();
+  renderCards();
+}
+
+function sortFiltered() {
+  const s = currentSort;
+  filtered.sort((a, b) => {
+    if (s === "rep_desc")   return (b.rep_s || 0) - (a.rep_s || 0);
+    if (s === "uec_desc")   return (b.uec   || 0) - (a.uec   || 0);
+    if (s === "ratio_desc") {
+      const ra = (a.uec > 0) ? (a.rep_s || 0) * 1000 / a.uec : 0;
+      const rb = (b.uec > 0) ? (b.rep_s || 0) * 1000 / b.uec : 0;
+      return rb - ra;
+    }
+    if (s === "rank_asc")   return (a.min_rep ?? 0) - (b.min_rep ?? 0);
+    if (s === "title_asc")  return (a.t || "").localeCompare(b.t || "");
+    return 0;
+  });
+}
+
+// Show the tier-ladder strip when exactly one career is selected
+function renderTierLadder() {
+  const el = document.getElementById("tier-ladder");
+  const careers = [...activeFilters.career];
+  if (careers.length !== 1 || !TIER_LADDERS[careers[0]]) {
+    el.style.display = "none";
+    return;
+  }
+  const career = careers[0];
+  const ladder = TIER_LADDERS[career];
+  const rungs = ladder.map(([name, rep]) => `
+    <div class="tier-rung">
+      <div class="tier-rung-name">${escapeHtml(name)}</div>
+      <div class="tier-rung-rep">${rep === 0 ? "Start" : fmtNum(rep) + " rep"}</div>
+    </div>`).join("");
+  el.innerHTML = `
+    <div class="tier-ladder-title">${escapeHtml(career)} progression ladder</div>
+    <div class="tier-rungs">${rungs}</div>`;
+  el.style.display = "";
+}
+
+function renderCards() {
+  const grid = document.getElementById("mission-grid");
+  document.getElementById("result-count").textContent =
+    `${filtered.length.toLocaleString()} mission${filtered.length !== 1 ? "s" : ""}`;
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="grid-empty">No missions match your filters.</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.slice(0, 500).map((m, idx) => {
+    const lawDot = m.law
+      ? `<span class="lawful-dot lawful" title="Lawful"></span>Lawful`
+      : `<span class="lawful-dot unlawful" title="Unlawful"></span>Unlawful`;
+    const ratio = (m.uec > 0) ? ((m.rep_s || 0) * 1000 / m.uec) : null;
+    const chips = [
+      `<span class="m-chip chip-career">${escapeHtml(m.career)}</span>`,
+      m.diff   ? `<span class="m-chip chip-diff">${escapeHtml(DIFFICULTY_LABELS[m.diff] || m.diff)}</span>` : "",
+      m.min_rank ? `<span class="m-chip chip-rank">Min: ${escapeHtml(m.min_rank)}</span>` : "",
+    ].filter(Boolean).join(" ");
+    return `
+      <div class="m-card" data-idx="${idx}">
+        <div class="m-card-header">
+          <div class="m-card-title">${formatMissionTokens(m.t)}</div>
+          <div class="m-card-sub">
+            <span class="m-giver">${escapeHtml(m.g || "—")}</span>
+            <span>·</span><span>${escapeHtml(m.fac || "")}</span>
+          </div>
+        </div>
+        <div class="m-card-meta">${chips}</div>
+        <div class="m-card-stats">
+          <div class="m-stat">
+            <span class="m-stat-label">Success Rep</span>
+            <span class="m-stat-value pos">${fmtSignedRep(m.rep_s)}</span>
+          </div>
+          <div class="m-stat">
+            <span class="m-stat-label">Failure Rep</span>
+            <span class="m-stat-value ${m.rep_f != null && m.rep_f < 0 ? "neg" : ""}">${m.rep_f == null ? "—" : fmtSignedRep(m.rep_f)}</span>
+          </div>
+          <div class="m-stat">
+            <span class="m-stat-label">UEC Reward</span>
+            <span class="m-stat-value gold">${m.uec ? fmtNum(m.uec) : "—"}</span>
+          </div>
+          <div class="m-stat">
+            <span class="m-stat-label">Rep / 1k UEC</span>
+            <span class="m-stat-value">${ratio == null ? "—" : ratio.toFixed(1)}</span>
+          </div>
+        </div>
+        <div class="m-card-footer">
+          <span>${lawDot}</span>
+          ${m.extras && m.extras.length ? `<span>+${m.extras.length} secondary rep</span>` : `<span>&nbsp;</span>`}
+        </div>
+      </div>`;
+  }).join("") + (filtered.length > 500
+    ? `<div class="grid-empty">Showing the first 500 of ${filtered.length}. Narrow filters to see more.</div>`
+    : "");
+
+  grid.querySelectorAll(".m-card").forEach(card => {
+    card.addEventListener("click", () => openModal(parseInt(card.dataset.idx, 10)));
+  });
+}
+
+// ── Modal ──────────────────────────────────────────────────────────────
+function openModal(idx) {
+  const m = filtered[idx];
+  if (!m) return;
+  document.getElementById("modal-title").innerHTML = formatMissionTokens(m.t);
+  document.getElementById("modal-entity").textContent = m.fac || "";
+
+  const lawText = m.law ? "Lawful" : "Unlawful";
+  const ratio = (m.uec > 0) ? ((m.rep_s || 0) * 1000 / m.uec) : null;
+
+  let html = "";
+
+  html += `<div class="modal-section">
+    <div class="modal-section-label">Mission Summary</div>
+    <div class="modal-row"><span class="modal-row-label">Giver</span><span class="modal-row-value">${escapeHtml(m.g || "—")}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Career</span><span class="modal-row-value">${escapeHtml(m.career)}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Faction</span><span class="modal-row-value">${escapeHtml(m.fac || "—")}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Legality</span><span class="modal-row-value">${lawText}</span></div>
+    ${m.diff ? `<div class="modal-row"><span class="modal-row-label">Difficulty</span><span class="modal-row-value">${escapeHtml(DIFFICULTY_LABELS[m.diff] || m.diff)} (${escapeHtml(m.diff)})</span></div>` : ""}
+    ${m.min_rank ? `<div class="modal-row"><span class="modal-row-label">Min Rank Required</span><span class="modal-row-value">${escapeHtml(m.min_rank)} (${fmtNum(m.min_rep)} rep)</span></div>` : ""}
+  </div>`;
+
+  html += `<div class="modal-section">
+    <div class="modal-section-label">Primary Reward (${escapeHtml(m.career)})</div>
+    <div class="modal-row"><span class="modal-row-label">Success Rep</span><span class="modal-row-value pos">${fmtSignedRep(m.rep_s)}</span></div>
+    <div class="modal-row"><span class="modal-row-label">Failure Rep</span><span class="modal-row-value ${m.rep_f != null && m.rep_f < 0 ? "neg" : ""}">${m.rep_f == null ? "—" : fmtSignedRep(m.rep_f)}</span></div>
+    <div class="modal-row"><span class="modal-row-label">UEC Payout</span><span class="modal-row-value gold">${m.uec ? fmtNum(m.uec) : "—"}</span></div>
+    ${ratio != null ? `<div class="modal-row"><span class="modal-row-label">Rep / 1k UEC</span><span class="modal-row-value">${ratio.toFixed(2)}</span></div>` : ""}
+  </div>`;
+
+  if (m.extras && m.extras.length) {
+    const extraRows = m.extras.map(e => `
+      <div class="modal-row">
+        <div>
+          <div class="modal-row-label">${escapeHtml(e.scope)}</div>
+          <div class="modal-row-sub">${escapeHtml(e.fac || "")}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="modal-row-value pos">${fmtSignedRep(e.rep_s)}</div>
+          ${e.rep_f != null ? `<div class="modal-row-sub">on fail: ${fmtSignedRep(e.rep_f)}</div>` : ""}
+        </div>
+      </div>`).join("");
+    html += `<div class="modal-section">
+      <div class="modal-section-label">Secondary Reputation Impact</div>
+      ${extraRows}
+    </div>`;
+  }
+
+  html += `<div class="modal-section">
+    <div class="modal-section-label">Source File</div>
+    <div class="modal-file">${escapeHtml(m.f)}</div>
+  </div>`;
+
+  document.getElementById("modal-body").innerHTML = html;
+  document.getElementById("m-modal-overlay").classList.add("open");
+}
+function closeModal() {
+  document.getElementById("m-modal-overlay").classList.remove("open");
+}
+
+// ── Wire up ────────────────────────────────────────────────────────────
+document.getElementById("modal-close").addEventListener("click", closeModal);
+document.getElementById("m-modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "m-modal-overlay") closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeModal();
+});
+document.getElementById("filter-search").addEventListener("input", (e) => {
+  activeFilters.search = e.target.value || "";
+  applyFilters();
+});
+document.getElementById("sort-select").addEventListener("change", (e) => {
+  currentSort = e.target.value;
+  sortFiltered();
+  renderCards();
+});
+document.getElementById("filter-clear").addEventListener("click", () => {
+  Object.keys(activeFilters).forEach(k => {
+    if (k === "search") activeFilters.search = "";
+    else                activeFilters[k].clear();
+  });
+  document.getElementById("filter-search").value = "";
+  document.querySelectorAll(".filter-check input[type=checkbox]").forEach(cb => {
+    cb.checked = false; cb.closest(".filter-check").classList.remove("checked");
+  });
+  applyFilters();
+});
+
+load();
+{% endblock %}
