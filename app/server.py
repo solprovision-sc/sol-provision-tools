@@ -53,6 +53,12 @@ def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+    
+def get_user_db():
+    """Connect to Sol Provision user database (Discord members from SPARQy)"""
+    conn = sqlite3.connect('/var/www/sparqy/data/mee6_snapshots.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
@@ -354,10 +360,11 @@ def starmap_page(system=None, body=None):
 # ══════════════════════════════════════════════════════════════════════
 # AUTH API ROUTES
 # ══════════════════════════════════════════════════════════════════════
+
 @app.route('/api/auth/verify', methods=['POST'])
 def verify_auth():
     """
-    Verify Firebase ID token and sync user to SQLite
+    Verify Firebase ID token and check user database for membership
     """
     try:
         data = request.get_json()
@@ -368,55 +375,58 @@ def verify_auth():
         
         # Verify the Firebase ID token
         decoded_token = firebase_auth.verify_id_token(id_token)
+        discord_id = decoded_token.get('uid')
         
-        # Extract user data from token
-        discord_id = decoded_token.get('uid')  # Firebase UID (which is Discord ID)
+        # Query user database
+        user_conn = get_user_db()
+        cursor = user_conn.cursor()
         
-        # Get additional user info from Firebase token claims
-        # (Jenner's setup should include callsign in custom claims or we fetch from Firebase DB)
-        callsign = decoded_token.get('callsign')  # If Jenner adds custom claim
-        
-        # ✅ STEP 7 OPTION B: Fetch callsign from Firebase Realtime DB if not in token
-        if not callsign:
-            try:
-                from firebase_admin import db as firebase_db
-                
-                # Fetch user data from Firebase Realtime DB
-                ref = firebase_db.reference(f'users/{discord_id}')
-                user_data = ref.get()
-                
-                if user_data and 'callsign' in user_data:
-                    callsign = user_data.get('callsign')
-                else:
-                    # User hasn't registered callsign yet
-                    callsign = 'Unknown'
-                    
-            except Exception as db_error:
-                print(f"Firebase DB fetch error: {db_error}")
-                # Fallback if Firebase DB access fails
-                callsign = decoded_token.get('name', 'Unknown')
-        
-        # Upsert user in SQLite
-        conn = get_db()
-        cursor = conn.cursor()
-        
+        # ✅ Changed: users → discord_members
         cursor.execute('''
-            INSERT INTO users (discord_id, callsign, last_login)
-            VALUES (?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(discord_id) DO UPDATE SET
-                callsign = ?,
-                last_login = CURRENT_TIMESTAMP
-        ''', (discord_id, callsign, callsign))
+            SELECT user_id, username, display_name, rank, division, roles, join_date
+            FROM discord_members 
+            WHERE user_id = ?
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+        ''', (discord_id,))
         
-        conn.commit()
+        user = cursor.fetchone()
         
-        # Set session cookie
+        if not user:
+            user_conn.close()
+            return jsonify({
+                'error': 'Not a Sol Provision member',
+                'message': 'You must be a member of the Sol Provision Discord server.'
+            }), 403
+        
+        # ✅ Changed: users → discord_members
+        # Update last login timestamp
+        cursor.execute('''
+            UPDATE discord_members 
+            SET last_login = CURRENT_TIMESTAMP 
+            WHERE user_id = ?
+        ''', (discord_id,))
+        user_conn.commit()
+        user_conn.close()
+        
+        # Use display_name as callsign
+        callsign = user['display_name']
+        
+        # Set session with rich user data
         session['discord_id'] = discord_id
+        session['username'] = user['username']
         session['callsign'] = callsign
+        session['rank'] = user['rank']
+        session['division'] = user['division']
+        session.permanent = True
         
         return jsonify({
             'discord_id': discord_id,
+            'username': user['username'],
             'callsign': callsign,
+            'rank': user['rank'],
+            'division': user['division'],
+            'join_date': user['join_date'],
             'verified': True
         })
         
@@ -424,23 +434,27 @@ def verify_auth():
         print(f"Auth verification error: {e}")
         return jsonify({'error': str(e)}), 401
 
+
 @app.route('/api/auth/logout', methods=['POST'])
 def logout():
+    """Logout current user"""
     session.clear()
     return jsonify({'success': True})
 
+
 @app.route('/api/auth/me', methods=['GET'])
 def get_current_user():
-    """
-    Get current logged-in user info
-    """
+    """Get current logged-in user info"""
     discord_id = session.get('discord_id')
     if not discord_id:
         return jsonify({'error': 'Not authenticated'}), 401
     
     return jsonify({
         'discord_id': discord_id,
-        'callsign': session.get('callsign')
+        'username': session.get('username'),
+        'callsign': session.get('callsign'),
+        'rank': session.get('rank'),
+        'division': session.get('division')
     })
 
 
