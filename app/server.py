@@ -1,12 +1,54 @@
-#!/usr/bin/env python3
+# ══════════════════════════════════════════════════════════════════════
+# IMPORTS
+# ══════════════════════════════════════════════════════════════════════
 import os, json, argparse, sqlite3, re
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session
+import requests
+import time
+from datetime import timedelta
 
+
+# ══════════════════════════════════════════════════════════════════════
+# APP SETUP
+# ══════════════════════════════════════════════════════════════════════
+# Install: pip install firebase-admin --break-system-packages
+import firebase_admin
+from firebase_admin import credentials, auth as firebase_auth
+
+# Create flask app
 app = Flask(__name__, template_folder="templates", static_folder="static")
 DB_PATH = os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db")
 PATCH = None
 
+# Detect environment
+is_dev = os.path.exists('/var/www/sol-provision-tools-dev')
+
+# ✅ SESSION CONFIG - GOES HERE (before any routes)
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-prod')
+app.config['SESSION_COOKIE_SECURE'] = True  # HTTPS only
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+# Initialize Firebase Admin SDK (for token verification)
+# Download service account key from Firebase Console → Project Settings → Service Accounts
+if is_dev:
+    cred = credentials.Certificate('/var/www/sol-provision-tools-dev/firebase-service-account.json')
+    db_url = 'https://sp-ledger-dev-default-rtdb.firebaseio.com'
+else:
+    cred = credentials.Certificate('/var/www/sol-provision-tools/firebase-service-account.json')
+    db_url = 'https://sp-ledger-default-rtdb.firebaseio.com'
+
+firebase_admin.initialize_app(cred, {
+    'databaseURL': db_url
+})
+
+
+
+# ══════════════════════════════════════════════════════════════════════
+# DATABASE HELPERS
+# ══════════════════════════════════════════════════════════════════════
 def get_db():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -258,7 +300,10 @@ def resolve_gpp_base_value(db, patch, gpp_entity_name, output_entity_name):
             return row["v"], table
     return None, None
 
-# ── Page routes ───────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════
+# PAGE ROUTES
+# ══════════════════════════════════════════════════════════════════════
 
 @app.route("/")
 def index(): return render_template("index.html", active_page="/")
@@ -305,7 +350,103 @@ def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
     return render_template("starmap.html", active_page="/starmap")
 
-# ── Meta / counts ─────────────────────────────────────────────────────────────
+
+# ══════════════════════════════════════════════════════════════════════
+# AUTH API ROUTES
+# ══════════════════════════════════════════════════════════════════════
+@app.route('/api/auth/verify', methods=['POST'])
+def verify_auth():
+    """
+    Verify Firebase ID token and sync user to SQLite
+    """
+    try:
+        data = request.get_json()
+        id_token = data.get('idToken')
+        
+        if not id_token:
+            return jsonify({'error': 'No token provided'}), 401
+        
+        # Verify the Firebase ID token
+        decoded_token = firebase_auth.verify_id_token(id_token)
+        
+        # Extract user data from token
+        discord_id = decoded_token.get('uid')  # Firebase UID (which is Discord ID)
+        
+        # Get additional user info from Firebase token claims
+        # (Jenner's setup should include callsign in custom claims or we fetch from Firebase DB)
+        callsign = decoded_token.get('callsign')  # If Jenner adds custom claim
+        
+        # ✅ STEP 7 OPTION B: Fetch callsign from Firebase Realtime DB if not in token
+        if not callsign:
+            try:
+                from firebase_admin import db as firebase_db
+                
+                # Fetch user data from Firebase Realtime DB
+                ref = firebase_db.reference(f'users/{discord_id}')
+                user_data = ref.get()
+                
+                if user_data and 'callsign' in user_data:
+                    callsign = user_data.get('callsign')
+                else:
+                    # User hasn't registered callsign yet
+                    callsign = 'Unknown'
+                    
+            except Exception as db_error:
+                print(f"Firebase DB fetch error: {db_error}")
+                # Fallback if Firebase DB access fails
+                callsign = decoded_token.get('name', 'Unknown')
+        
+        # Upsert user in SQLite
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO users (discord_id, callsign, last_login)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(discord_id) DO UPDATE SET
+                callsign = ?,
+                last_login = CURRENT_TIMESTAMP
+        ''', (discord_id, callsign, callsign))
+        
+        conn.commit()
+        
+        # Set session cookie
+        session['discord_id'] = discord_id
+        session['callsign'] = callsign
+        
+        return jsonify({
+            'discord_id': discord_id,
+            'callsign': callsign,
+            'verified': True
+        })
+        
+    except Exception as e:
+        print(f"Auth verification error: {e}")
+        return jsonify({'error': str(e)}), 401
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': True})
+
+@app.route('/api/auth/me', methods=['GET'])
+def get_current_user():
+    """
+    Get current logged-in user info
+    """
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    return jsonify({
+        'discord_id': discord_id,
+        'callsign': session.get('callsign')
+    })
+
+
+# ══════════════════════════════════════════════════════════════════════
+# DATA API ROUTES
+# ══════════════════════════════════════════════════════════════════════
 @app.route("/api/meta")
 def api_meta():
     conn = get_db(); p = PATCH or latest_patch(conn)
@@ -2089,7 +2230,9 @@ def api_shops_browse():
  
     return jsonify({'items': [dict(r) for r in rows]})
 
-# ── Entry point ───────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", default=os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db"))
