@@ -539,3 +539,18 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
   background: linear-gradient(90deg, var(--accent) 0%, var(--border) 40%, transparent 100%);
   margin: 4px 0;
 }
+
+/* ── User callsign display (header right) ── */
+.user-callsign {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--kh);
+  text-transform: uppercase;
+  text-align: right;
+}
+.user-callsign strong {
+  color: var(--bn);
+  margin-left: 4px;
+  font-weight: 700;
+}
