@@ -75,7 +75,7 @@ function logoHTML() {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
-        <img src="/static/img/SPlogo_round_1080_transparent-02_white.png" alt="Sol Provision" />
+        <img src="/static/img/Circular_Badge_Logo_White_1080x1080.png" alt="Sol Provision" />
       </div>
       <div>
         <div class="logo-text">Sol Provision</div>
@@ -110,11 +110,27 @@ function navHTML(active) {
 async function renderHeader(activePage) {
   try {
     const meta = await api('/api/meta');
+    
+    // Check if user is logged in
+    let userInfo = null;
+    try {
+      userInfo = await api('/api/auth/me');
+    } catch (e) {
+      // Not logged in
+    }
+    
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
-    document.getElementById('header-meta').innerHTML =
-      `<div>Patch <span>${meta.patch_version}</span></div>
-       <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+    
+    // Right side: show user info or patch info
+    document.getElementById('header-meta').innerHTML = userInfo
+      ? `<div class="user-info">
+           <div class="user-callsign">${userInfo.callsign}</div>
+           <div class="user-rank">${userInfo.division || 'Unassigned'} · Rank ${userInfo.rank}</div>
+         </div>`
+      : `<div>Patch <span>${meta.patch_version}</span></div>
+         <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+    
   } catch(e) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
