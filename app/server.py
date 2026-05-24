@@ -564,30 +564,34 @@ def get_ship_components(conn, ship_entity, patch):
                t.resist_physical_min, t.resist_physical_max,
                t.resist_energy_min,   t.resist_energy_max,
                t.resist_distort_min,  t.resist_distort_max,
-               t.power_draw, t.em_signature, t.health
+               t.power_draw, t.em_signature, t.health,
+               t.power_low, t.power_medium, t.power_high
         {join("item_shields")}""")
 
     coolers = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.power_draw, t.cooling_output,
-               t.em_signature, t.ir_signature, t.health
+               t.em_signature, t.ir_signature, t.health,
+               t.power_low, t.power_medium, t.power_high
         {join("item_coolers")}""")
 
     powerplants = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
-               t.power_output, t.em_signature, t.health
+               t.power_output, t.em_signature, t.health,
+               t.power_low, t.power_medium, t.power_high
         {join("item_powerplants")}""")
 
     quantum_drives = q(f"""
-        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade, 
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.drive_speed / 1000 as drive_speed, t.stage_one_accel_mps2 as accel1,
                t.stage_two_accel_mps2 as accel2,t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
-               t.fuel_per_gm_mscu, t.power_draw, 
-               t.em_signature, t.health
+               t.fuel_per_gm_mscu, t.power_draw,
+               t.em_signature, t.health,
+               t.power_low, t.power_medium, t.power_high
         {join("item_quantum_drives")}""")
 
     fuel_tanks = q(f"""
@@ -607,7 +611,8 @@ def get_ship_components(conn, ship_entity, patch):
                t.max_pitch_speed, t.max_roll_speed, t.max_yaw_speed,
                t.afterburner_ramp_up, t.afterburner_ramp_down,
                t.ab_ang_mult_pitch, t.ab_ang_mult_roll, t.ab_ang_mult_yaw,
-               t.ab_accel_mult_fwd, t.spool_up_time, t.power_draw
+               t.ab_accel_mult_fwd, t.spool_up_time, t.power_draw,
+               t.power_low, t.power_medium, t.power_high
         {join("item_flight_controllers")}
         AND ic.entity_name NOT LIKE '%_blade_spd'
         AND ic.entity_name NOT LIKE '%_blade_hnd'""")
@@ -625,7 +630,8 @@ def get_ship_components(conn, ship_entity, patch):
         ttype = t.get("thruster_type") or "Unknown"
         thrusters.setdefault(ttype, []).append(t)
 
-    # Weapons: join fire modes as nested list
+    # Weapons: join fire modes as nested list, plus the linked AmmoParams
+    # damage block so the frontend can compute DPS/alpha.
     weapons_base = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
@@ -633,8 +639,23 @@ def get_ship_components(conn, ship_entity, patch):
                t.overheat_temperature, t.cooling_per_second,
                t.time_till_cooling_starts, t.overheat_fix_time,
                t.max_ammo_load, t.max_regen_per_sec,
-               t.regen_cooldown, t.regen_cost_per_bullet
+               t.regen_cooldown, t.regen_cost_per_bullet,
+               t.power_draw, t.power_low, t.power_medium, t.power_high,
+               t.ammo_uuid,
+               a.entity_name     AS ammo_entity_name,
+               a.projectile_type AS ammo_projectile_type,
+               a.speed           AS ammo_speed,
+               a.lifetime        AS ammo_lifetime,
+               a.dmg_physical    AS ammo_dmg_physical,
+               a.dmg_energy      AS ammo_dmg_energy,
+               a.dmg_distortion  AS ammo_dmg_distortion,
+               a.dmg_thermal     AS ammo_dmg_thermal,
+               a.dmg_biochemical AS ammo_dmg_biochemical,
+               a.dmg_stun        AS ammo_dmg_stun
         {join("item_weapons")}
+        LEFT JOIN item_ammo a
+          ON a.uuid = t.ammo_uuid
+         AND a.patch_version = :patch
         ORDER BY ic.size DESC, ic.entity_name""")
 
     weapons = []
@@ -652,7 +673,15 @@ def get_ship_components(conn, ship_entity, patch):
             )
             ORDER BY fire_mode_type
         """, (w["entity_name"], patch)).fetchall()]
-        weapons.append({**w, "fire_modes": fire_modes})
+        # Reshape ammo_* columns into a nested object for the client. Keeps the
+        # weapon shape readable and avoids the frontend juggling flat ammo_*
+        # field names alongside the weapon's own.
+        ammo_keys = [k for k in w.keys() if k.startswith("ammo_") and k != "ammo_uuid"]
+        ammo = {k[5:]: w[k] for k in ammo_keys}  # strip "ammo_" prefix
+        weapon = {k: v for k, v in dict(w).items() if not k.startswith("ammo_")}
+        weapon["ammo"] = ammo if w["ammo_uuid"] else None
+        weapon["fire_modes"] = fire_modes
+        weapons.append(weapon)
 
     # Missile racks with their missile type looked up from item_missiles
     missile_racks = q(f"""
@@ -680,7 +709,8 @@ def get_ship_components(conn, ship_entity, patch):
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                t.power_draw, t.em_signature, t.health, t.aim_assist_min_m,
                t.aim_assist_max_m, t.shutdown_dmg, t.decay_delay_sec, t.decay_rate,
-               t.shutdown_time_sec, t.ir_sensitivity, t.em_sensitivity, t.cs_sensitivity, t.db_sensitivity, t.rs_sensitivity
+               t.shutdown_time_sec, t.ir_sensitivity, t.em_sensitivity, t.cs_sensitivity, t.db_sensitivity, t.rs_sensitivity,
+               t.power_low, t.power_medium, t.power_high
         {join("item_radars")}""")
         
     external_fuel_tanks = q(f"""
