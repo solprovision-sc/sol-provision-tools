@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Sol Provision — Data Intelligence{% endblock %}
+{% block title %}Sol Provision - Data Intelligence{% endblock %}
 
 {% block extra_css %}
 <style>
-  /* ── Landing page overrides — no sidebar layout on this page ── */
+  /* Landing page overrides - no sidebar layout on this page */
   body {
     min-height: 100vh;
   }
@@ -21,7 +21,7 @@
     z-index: 0;
   }
 
-  /* ── Page ── */
+  /* Page */
   .landing-page {
     position: relative;
     z-index: 1;
@@ -33,7 +33,7 @@
     padding: 48px 32px;
   }
 
-  /* ── Hero text ── */
+  /* Hero text */
   .hero {
     text-align: center;
     margin-bottom: 56px;
@@ -64,7 +64,7 @@
     margin: 20px auto 0;
   }
 
-  /* ── Card grid ── */
+  /* Card grid */
   .card-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -73,7 +73,7 @@
     max-width: 1200px;
   }
 
-  /* ── Hero card ── */
+  /* Hero card */
   .hero-card {
     background: #231e1a;
     border: 1px solid rgba(126,38,25,0.22);
@@ -224,7 +224,7 @@
     white-space: nowrap;
   }
 
-  /* ── Auth Modal Overlay ── */
+  /* Auth Modal Overlay */
   #authOverlay {
     position: fixed;
     inset: 0;
@@ -242,7 +242,7 @@
     pointer-events: none;
   }
 
-  /* ── Auth Panel ── */
+  /* Auth Panel */
   .auth-panel {
     background: #1a1512;
     border: 1px solid rgba(126,38,25,0.22);
@@ -293,14 +293,14 @@
     margin-top: 15px;
   }
 
-  /* ── Blur dashboard while auth in progress ── */
+  /* Blur dashboard while auth in progress */
   .landing-page.blurred {
     filter: blur(4px);
     pointer-events: none;
   }
 </style>
 
-<!-- Firebase SDK - MOVED OUTSIDE OF STYLE BLOCK -->
+<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 {% endblock %}
@@ -347,7 +347,7 @@
       <div class="card-body">
         <div class="card-eyebrow">Fleet Registry</div>
         <div class="card-name">Ships</div>
-        <div class="card-desc">Complete vessel registry — specs, components, and performance data</div>
+        <div class="card-desc">Complete vessel registry - specs, components, and performance data</div>
       </div>
       <div class="card-footer">
         <div class="card-cta">Browse Fleet</div>
@@ -363,7 +363,7 @@
       <div class="card-body">
         <div class="card-eyebrow">Industry</div>
         <div class="card-name">Crafting</div>
-        <div class="card-desc">Blueprint index — materials, slots, and crafting requirements</div>
+        <div class="card-desc">Blueprint index - materials, slots, and crafting requirements</div>
       </div>
       <div class="card-footer">
         <div class="card-cta">View Blueprints</div>
@@ -379,7 +379,7 @@
       <div class="card-body">
         <div class="card-eyebrow">Operations</div>
         <div class="card-name">Ledger</div>
-        <div class="card-desc">Mission payout tool — distribute earnings across org members</div>
+        <div class="card-desc">Mission payout tool - distribute earnings across org members</div>
       </div>
       <div class="card-footer">
         <div class="card-cta">Open Ledger</div>
@@ -408,7 +408,7 @@
   <!-- Bottom rule -->
   <div class="page-rule">
     <div class="rule-line"></div>
-    <div class="rule-text">Sol Provision · Provisions for the Soul</div>
+    <div class="rule-text">Sol Provision - Provisions for the Soul</div>
     <div class="rule-line right"></div>
   </div>
 
@@ -417,7 +417,7 @@
 
 {% block page_script %}
 <script>
-  // ── Firebase Config ──
+  // Firebase Config
   const firebaseConfig = {
     apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E",
     authDomain: "sp-ledger.firebaseapp.com",
@@ -431,7 +431,7 @@
   const dashboard = document.getElementById('dashboard');
   const statusText = document.getElementById('authStatus');
 
-  // ── Auth State Listener ──
+  // Auth State Listener
   auth.onAuthStateChanged(async function(user) {
     if (user) {
       try {
@@ -472,7 +472,7 @@
     }
   });
 
-  // ── Discord Login ──
+  // Discord Login
   async function loginWithDiscord() {
     statusText.textContent = 'CONNECTING TO DISCORD...';
     
