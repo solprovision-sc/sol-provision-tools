@@ -99,7 +99,7 @@
     
     <div id="authStatus" class="auth-status">AWAITING AUTHORIZATION...</div>
     
-    <button class="discord-btn" onclick="loginWithDiscord()">
+    <button class="discord-btn" id="discordLoginBtn">
       Login with Discord
     </button>
     
@@ -188,5 +188,9 @@
       statusText.textContent = 'AUTH ERROR: ' + err.message;
     }
   }
+
+  // Attach event listener when DOM is ready
+  document.getElementById('discordLoginBtn').addEventListener('click', loginWithDiscord);
+  
 </script>
 {% endblock %}
