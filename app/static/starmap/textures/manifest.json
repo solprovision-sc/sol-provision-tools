@@ -1,0 +1,451 @@
+{
+  "schema_version": 1,
+  "p4k_source": "D:\\StarCitizen\\StarCitizen\\LIVE\\Data.p4k",
+  "generated_at": "2026-05-23T17:21:39",
+  "bodies": {
+    "1693": {
+      "system": "stanton",
+      "slug": "stanton1",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton1_global_starmap_diff.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 122924
+        },
+        "clouds_global": {
+          "filename": "stanton1_clouds_global.webp",
+          "width": 2048,
+          "height": 2048,
+          "bytes": 48568
+        }
+      }
+    },
+    "1695": {
+      "system": "stanton",
+      "slug": "stanton2",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton2_global_starmap_diff.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 346870
+        }
+      }
+    },
+    "1694": {
+      "system": "stanton",
+      "slug": "stanton3",
+      "textures": {
+        "starmap_diff": {
+          "filename": "stanton3_starmap_diff.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 304750
+        },
+        "clouds_global": {
+          "filename": "stanton3_clouds_global.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 11658
+        }
+      }
+    },
+    "1692": {
+      "system": "stanton",
+      "slug": "stanton4",
+      "textures": {
+        "starmap_diff": {
+          "filename": "stanton4_starmap_diff.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 348904
+        },
+        "clouds_global": {
+          "filename": "stanton4_clouds_global.webp",
+          "width": 2048,
+          "height": 2048,
+          "bytes": 1996672
+        }
+      }
+    },
+    "2746": {
+      "system": "stanton",
+      "slug": "stanton1a",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton1a_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 122726
+        }
+      }
+    },
+    "2747": {
+      "system": "stanton",
+      "slug": "stanton1b",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton1b_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 74972
+        },
+        "cloud_global_property": {
+          "filename": "stanton1b_cloud_global_property.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 89652
+        }
+      }
+    },
+    "2748": {
+      "system": "stanton",
+      "slug": "stanton1c",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton1c_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 76004
+        }
+      }
+    },
+    "2749": {
+      "system": "stanton",
+      "slug": "stanton1d",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton1d_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 71518
+        }
+      }
+    },
+    "2737": {
+      "system": "stanton",
+      "slug": "stanton2a",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton2a_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 96172
+        }
+      }
+    },
+    "2738": {
+      "system": "stanton",
+      "slug": "stanton2b",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton2b_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 91864
+        }
+      }
+    },
+    "2739": {
+      "system": "stanton",
+      "slug": "stanton2c",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton2c_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 83950
+        }
+      }
+    },
+    "2750": {
+      "system": "stanton",
+      "slug": "stanton3a",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton3a_global_starmap_diff.webp",
+          "width": 256,
+          "height": 256,
+          "bytes": 32098
+        }
+      }
+    },
+    "2751": {
+      "system": "stanton",
+      "slug": "stanton3b",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton3b_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 102994
+        }
+      }
+    },
+    "2752": {
+      "system": "stanton",
+      "slug": "stanton4a",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton4a_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 129774
+        }
+      }
+    },
+    "2753": {
+      "system": "stanton",
+      "slug": "stanton4b",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton4b_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 70612
+        }
+      }
+    },
+    "2754": {
+      "system": "stanton",
+      "slug": "stanton4c",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "stanton4c_global_starmap_diff.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 93774
+        }
+      }
+    },
+    "1745": {
+      "system": "pyro",
+      "slug": "pyro1",
+      "textures": {
+        "clim": {
+          "filename": "pyro1_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 34668
+        },
+        "clouds_global": {
+          "filename": "pyro1_clouds_global.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 320530
+        }
+      }
+    },
+    "1746": {
+      "system": "pyro",
+      "slug": "pyro2",
+      "textures": {
+        "clim": {
+          "filename": "pyro2_clim.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 74250
+        },
+        "ddn": {
+          "filename": "pyro2_ddn.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 35130
+        },
+        "cloud_global": {
+          "filename": "pyro2_cloud_global.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 287744
+        }
+      }
+    },
+    "1747": {
+      "system": "pyro",
+      "slug": "pyro3",
+      "textures": {
+        "clim": {
+          "filename": "pyro3_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 49410
+        },
+        "ddn": {
+          "filename": "pyro3_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 4362
+        },
+        "clouds_global": {
+          "filename": "pyro3_clouds_global.webp",
+          "width": 2048,
+          "height": 2048,
+          "bytes": 746412
+        }
+      }
+    },
+    "1749": {
+      "system": "pyro",
+      "slug": "pyro4",
+      "textures": {
+        "clim": {
+          "filename": "pyro4_clim.webp",
+          "width": 256,
+          "height": 256,
+          "bytes": 11218
+        },
+        "cloud_global_property": {
+          "filename": "pyro4_cloud_global_property.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 700588
+        }
+      }
+    },
+    "1750": {
+      "system": "pyro",
+      "slug": "pyro6",
+      "textures": {
+        "clim": {
+          "filename": "pyro6_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 26986
+        },
+        "ddn": {
+          "filename": "pyro6_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 3068
+        },
+        "clouds_global": {
+          "filename": "pyro6_clouds_global.webp",
+          "width": 1024,
+          "height": 1024,
+          "bytes": 37746
+        }
+      }
+    },
+    "2783": {
+      "system": "pyro",
+      "slug": "pyro5a",
+      "textures": {
+        "clim": {
+          "filename": "pyro5a_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 28202
+        },
+        "ddn": {
+          "filename": "pyro5a_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 13284
+        }
+      }
+    },
+    "2784": {
+      "system": "pyro",
+      "slug": "pyro5b",
+      "textures": {
+        "clim": {
+          "filename": "pyro5b_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 39080
+        },
+        "ddn": {
+          "filename": "pyro5b_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 1924
+        }
+      }
+    },
+    "2785": {
+      "system": "pyro",
+      "slug": "pyro5c",
+      "textures": {
+        "clim": {
+          "filename": "pyro5c_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 17088
+        },
+        "ddn": {
+          "filename": "pyro5c_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 20632
+        }
+      }
+    },
+    "2786": {
+      "system": "pyro",
+      "slug": "pyro5d",
+      "textures": {
+        "clim": {
+          "filename": "pyro5d_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 24756
+        },
+        "ddn": {
+          "filename": "pyro5d_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 9874
+        }
+      }
+    },
+    "2787": {
+      "system": "pyro",
+      "slug": "pyro5e",
+      "textures": {
+        "clim": {
+          "filename": "pyro5e_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 31744
+        },
+        "ddn": {
+          "filename": "pyro5e_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 3454
+        }
+      }
+    },
+    "2788": {
+      "system": "pyro",
+      "slug": "pyro5f",
+      "textures": {
+        "clim": {
+          "filename": "pyro5f_clim.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 21108
+        },
+        "ddn": {
+          "filename": "pyro5f_ddn.webp",
+          "width": 512,
+          "height": 512,
+          "bytes": 8486
+        }
+      }
+    },
+    "2626": {
+      "system": "nyx",
+      "slug": "delamar",
+      "textures": {
+        "global_starmap_diff": {
+          "filename": "delamar_global_starmap_diff.webp",
+          "width": 128,
+          "height": 128,
+          "bytes": 4030
+        }
+      }
+    }
+  }
+}

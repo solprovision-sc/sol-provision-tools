@@ -298,6 +298,13 @@ def ledger(): return render_template("ledger.html", active_page="ledger")
 @app.route("/item_collection")
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
+@app.route("/starmap")
+@app.route("/starmap/<system>")
+@app.route("/starmap/<system>/<body>")
+def starmap_page(system=None, body=None):
+    # JS reads the path off window.location and applies system + body focus.
+    return render_template("starmap.html", active_page="/starmap")
+
 # ── Meta / counts ─────────────────────────────────────────────────────────────
 @app.route("/api/meta")
 def api_meta():
@@ -463,13 +470,15 @@ def api_ships():
     max_crew = request.args.get("max_crew", type=int)
     sort_by  = request.args.get("sort","entity_name")
     limit    = request.args.get("limit", 500, type=int)
-    if sort_by not in {"entity_name","cargo_scu","crew_size","length_m","career","display_name"}:
+    if sort_by not in {"entity_name","cargo_scu","crew_size","length_m","length_rsi_m","career","display_name"}:
         sort_by = "entity_name"
     sort_by = f"s.{sort_by}"
 
-    sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name, 
-                 s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu, 
-                 s.length_m, s.beam_m, s.height_m
+    sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
+                 s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
+                 s.length_m, s.beam_m, s.height_m,
+                 s.length_rsi_m, s.beam_rsi_m, s.height_rsi_m,
+                 s.rsi_name, s.rsi_url
           FROM ships s
           JOIN ships_index si ON si.entity_name = s.entity_name
           LEFT JOIN vehicle_roles vr ON vr.role_key = s.role
@@ -500,6 +509,11 @@ def api_ships():
             "length_m":     r["length_m"],
             "beam_m":       r["beam_m"],
             "height_m":     r["height_m"],
+            "length_rsi_m": r["length_rsi_m"],
+            "beam_rsi_m":   r["beam_rsi_m"],
+            "height_rsi_m": r["height_rsi_m"],
+            "rsi_name":     r["rsi_name"],
+            "rsi_url":      r["rsi_url"],
         })
     return jsonify(result)
 
@@ -770,6 +784,11 @@ def api_ship_detail(entity_name):
         "length_m":               ship["length_m"],
         "beam_m":                 ship["beam_m"],
         "height_m":               ship["height_m"],
+        "length_rsi_m":           ship["length_rsi_m"] if "length_rsi_m" in ship.keys() else None,
+        "beam_rsi_m":             ship["beam_rsi_m"]   if "beam_rsi_m"   in ship.keys() else None,
+        "height_rsi_m":           ship["height_rsi_m"] if "height_rsi_m" in ship.keys() else None,
+        "rsi_name":               ship["rsi_name"]     if "rsi_name"     in ship.keys() else None,
+        "rsi_url":                ship["rsi_url"]      if "rsi_url"      in ship.keys() else None,
         "mass_kg":                ship["mass_kg"] if "mass_kg" in ship.keys() else None,
         "size":                   ship["size_class"] if "size_class" in ship.keys() else None,
         "cargo_grids":            [dict(g) for g in grids],
