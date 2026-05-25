@@ -146,10 +146,24 @@
     width: 14px; height: 1px; background: #7E2619;
   }
   .card-name {
-    font-family: var(--font-ui); font-weight: 900;
-    font-size: 20px; letter-spacing: 3px;
-    color: #fff; text-transform: uppercase;
-    margin-bottom: 10px; line-height: 1.2;
+    font-family: var(--font-ui); 
+    font-weight: 900;
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+  
+  .card-name-prefix {
+    font-size: 10px;  /* Half of 20px */
+    letter-spacing: 1.5px;  /* Proportionally smaller letter-spacing */
+    color: var(--text2);  /* Slightly dimmer color */
+    margin-bottom: 2px;
+  }
+  
+  .card-name-main {
+    font-size: 20px;
+    letter-spacing: 3px;
+    color: #fff;
   }
   .card-desc {
     font-size: 11px; color: #9A8C64;
@@ -341,7 +355,8 @@
         <div class="card-corner"></div>
         <div class="card-body">
           <div class="card-eyebrow">Operations</div>
-          <div class="card-name">Ledger</div>
+		  <div class="card-name-prefix">The</div>
+          <div class="card-name-main">Ledger</div>
           <div class="card-desc">Mission payout tool - distribute earnings across org members</div>
         </div>
         <div class="card-footer">
@@ -354,6 +369,7 @@
         <div class="card-corner"></div>
         <div class="card-body">
           <div class="card-eyebrow">Operations</div>
+		  <div class="card-name-prefix">The</div>
           <div class="card-name">Manifest</div>
           <div class="card-desc"> Track commodities and cargo acquired during group operations/</div>
         </div>
@@ -374,8 +390,24 @@
       <div class="section-hdr-line"></div>
     </div>
     <div class="card-row">
-
-      <div class="hero-card wip">
+	  
+	  <!--
+      <a class="hero-card" href="/crafting">
+        <div class="card-corner"></div>
+        <div class="card-body">
+          <div class="card-eyebrow">Industry</div>
+		  <div class="card-name-prefix">The</div>
+          <div class="card-name-main">Vault</div>
+          <div class="card-desc">Blueprint hub - materials, slots, crafting requirements, and org ownership</div>
+        </div>
+        <div class="card-footer">
+          <div class="card-cta">Open Valult</div>
+          <div class="mode-arrow">→</div>
+        </div>
+      </a>
+	  -->
+	  
+	  <div class="hero-card wip">
         <div class="card-corner"></div>
         <div class="wip-ribbon">In Development</div>
         <div class="card-body">
@@ -385,20 +417,6 @@
         </div>
         <div class="card-footer">
           <div class="card-cta">Browse Fleet</div>
-          <div class="mode-arrow">→</div>
-        </div>
-      </div>
-
-      <div class="hero-card wip">
-        <div class="card-corner"></div>
-        <div class="wip-ribbon">In Development</div>
-        <div class="card-body">
-          <div class="card-eyebrow">Industry</div>
-          <div class="card-name">Crafting</div>
-          <div class="card-desc">Blueprint index - materials, slots, and crafting requirements</div>
-        </div>
-        <div class="card-footer">
-          <div class="card-cta">View Blueprints</div>
           <div class="mode-arrow">→</div>
         </div>
       </div>
