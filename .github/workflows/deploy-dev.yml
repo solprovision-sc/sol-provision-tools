@@ -18,6 +18,7 @@ jobs:
           script: |
             cd /var/www/sol-provision-tools-dev
             git config --global --add safe.directory /var/www/sol-provision-tools-dev
-            git pull origin dev
+            git fetch origin dev
+            git reset --hard origin/dev
             /var/www/sol-provision-tools-dev/venv/bin/pip install -r requirements.txt --quiet
             sudo systemctl restart solprovision-dev
