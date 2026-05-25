@@ -64,28 +64,26 @@ def require_org_member(f):
     """Decorator to verify user is still an org member before accessing endpoint"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user' not in session:
+        # Check for discord_id in session
+        discord_id = session.get('discord_id')
+        if not discord_id:
             return jsonify({'error': 'Not authenticated'}), 401
         
         # Check if still in org using the most recent snapshot
         user_db = get_user_db()
+        cursor = user_db.cursor()
         
-        # First, get the most recent snapshot date
-        latest_snapshot = user_db.execute(
-            'SELECT MAX(snapshot_date) as max_date FROM discord_members'
-        ).fetchone()
+        # Query latest snapshot for this user (matches auth verification pattern)
+        cursor.execute('''
+            SELECT user_id 
+            FROM discord_members 
+            WHERE user_id = ?
+            ORDER BY snapshot_date DESC
+            LIMIT 1
+        ''', (discord_id,))
         
-        if not latest_snapshot or not latest_snapshot['max_date']:
-            # No snapshot data at all - deny access for safety
-            session.clear()
-            return jsonify({'error': 'Membership data unavailable'}), 503
-        
-        # Check if user exists in the most recent snapshot
-        member = user_db.execute(
-            '''SELECT discord_id FROM discord_members 
-               WHERE discord_id = ? AND snapshot_date = ?''',
-            (session['user']['discord_id'], latest_snapshot['max_date'])
-        ).fetchone()
+        member = cursor.fetchone()
+        user_db.close()
         
         if not member:
             # No longer in org (or never was) - clear session
