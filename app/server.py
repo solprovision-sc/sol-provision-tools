@@ -7,6 +7,7 @@ from flask import Flask, jsonify, request, render_template, session
 import requests
 import time
 from datetime import timedelta
+from functools import wraps
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -58,6 +59,41 @@ db_url = os.environ.get('FIREBASE_DB_URL', default_db_url)
 firebase_admin.initialize_app(cred, {
     'databaseURL': db_url
 })
+
+def require_org_member(f):
+    """Decorator to verify user is still an org member before accessing endpoint"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        # Check if still in org using the most recent snapshot
+        user_db = get_user_db()
+        
+        # First, get the most recent snapshot date
+        latest_snapshot = user_db.execute(
+            'SELECT MAX(snapshot_date) as max_date FROM discord_members'
+        ).fetchone()
+        
+        if not latest_snapshot or not latest_snapshot['max_date']:
+            # No snapshot data at all - deny access for safety
+            session.clear()
+            return jsonify({'error': 'Membership data unavailable'}), 503
+        
+        # Check if user exists in the most recent snapshot
+        member = user_db.execute(
+            '''SELECT discord_id FROM discord_members 
+               WHERE discord_id = ? AND snapshot_date = ?''',
+            (session['user']['discord_id'], latest_snapshot['max_date'])
+        ).fetchone()
+        
+        if not member:
+            # No longer in org (or never was) - clear session
+            session.clear()
+            return jsonify({'error': 'No longer an org member'}), 403
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 
@@ -696,6 +732,215 @@ def api_mining_signatures():
     return jsonify({
         "patch_version": p,
         "signatures":    [dict(r) for r in rows],
+    })
+
+
+# ── Mission reputation ───────────────────────────────────────────────────────
+#
+# Replaces the legacy static /static/data/mission_rep.json that
+# make_mission_rep_json.py used to produce. Same response shape, but rolled up
+# server-side from the dataforge_missions.py tables:
+#
+#   missions
+#   mission_reputation_rewards     -> joined to mission_reputation_scopes
+#                                                + mission_faction_reputations
+#   mission_reputation_requirements -> joined to mission_reputation_scopes
+#                                                 + mission_reputation_standings
+#
+# A mission's rep block lists every (faction, scope, outcome) contribution. We
+# pick a "primary" career scope via MISSION_CAREER_MAP (named scopes the player
+# actually progresses on) and roll the rest into `extras`. This mirrors the
+# rollup that lived in the old make_mission_rep_json.py CAREER_MAP.
+
+# Scope name -> friendly career bucket shown in the UI / filters. Anything not
+# in here is treated as a secondary "extra" rep impact (Affinity, Faction_Band,
+# etc. fire on almost every mission and would dominate the table).
+MISSION_CAREER_MAP = {
+    "Hauling":                          "Hauling",
+    "Courier":                          "Hauling",
+    "Courier_TransportGuild":           "Hauling",
+    "Delivery_CitizensForPyro":         "Hauling",
+    "Delivery_RoughAndReady":           "Hauling",
+    "BountyHunter":                     "Bounty Hunting",
+    "BountyHunter_BountyHuntersGuild":  "Bounty Hunting",
+    "HiredMuscle":                      "Mercenary",
+    "Assassination":                    "Mercenary",
+    "Security":                         "Security",
+    "Security_MercenaryGuild":          "Security",
+    "Emergency":                        "Emergency Services",
+    "FPS_Combat":                       "PvE Combat",
+    "FPS_Combat_XenoThreat":            "PvE Combat",
+    "FPS_Combat_CitizensForPyro":       "PvE Combat",
+    "FPS_Combat_HeadHunter":            "PvE Combat",
+    "FPS_Combat_RoughAndReady":         "PvE Combat",
+    "ShipCombat":                       "Ship Combat",
+    "ShipCombat_XenoThreat":            "Ship Combat",
+    "ShipCombat_HeadHunters":           "Ship Combat",
+    "ShipCombat_RoughAndReady":         "Ship Combat",
+    "Salvaging":                        "Salvage",
+    "Technician":                       "Repair",
+    "Maintenance":                      "Repair",
+    "HandyMan":                         "Handyman",
+    "HandyMan_CitizensForPyro":         "Handyman",
+    "RacingShip":                       "Racing",
+    "Racing_HeadHunter":                "Racing",
+    "HoverTimeTrial":                   "Racing",
+    "WheeledTimeTrial":                 "Racing",
+    "Smuggling":                        "Smuggling",
+    "Theft":                            "Theft",
+    "Wikelo":                           "Wikelo",
+    "Worker":                           "Worker",
+    "Worker_RoughAndReady":             "Worker",
+}
+
+
+@app.route("/api/mission-rep")
+def api_mission_rep():
+    """PU mission reputation/UEC data for the latest patch.
+
+    One record per mission with the primary-career rep rolled to top-level
+    (rep_s/rep_f) and other contributions in `extras`.
+    """
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+
+    missions = conn.execute("""
+        SELECT entry_uuid, file_path, title_resolved, desc_resolved,
+               mission_giver_resolved, lawful, uec_reward, currency_type,
+               difficulty_tier
+        FROM missions
+        WHERE patch_version = ?
+    """, (p,)).fetchall()
+
+    rewards = conn.execute("""
+        SELECT mrr.entry_uuid, mrr.outcome, mrr.outcome_index,
+               s.scope_name, f.display_resolved AS faction_name,
+               mrr.rep_change
+        FROM mission_reputation_rewards mrr
+        LEFT JOIN mission_reputation_scopes s
+               ON s.scope_uuid = mrr.scope_uuid
+              AND s.patch_version = mrr.patch_version
+        LEFT JOIN mission_faction_reputations f
+               ON f.faction_uuid = mrr.faction_uuid
+              AND f.patch_version = mrr.patch_version
+        WHERE mrr.patch_version = ?
+    """, (p,)).fetchall()
+
+    requirements = conn.execute("""
+        SELECT mreq.entry_uuid, s.scope_name,
+               f.display_resolved AS faction_name,
+               mreq.comparison,
+               st.display_resolved AS standing_name,
+               st.min_reputation
+        FROM mission_reputation_requirements mreq
+        LEFT JOIN mission_reputation_scopes s
+               ON s.scope_uuid = mreq.scope_uuid
+              AND s.patch_version = mreq.patch_version
+        LEFT JOIN mission_faction_reputations f
+               ON f.faction_uuid = mreq.faction_uuid
+              AND f.patch_version = mreq.patch_version
+        LEFT JOIN mission_reputation_standings st
+               ON st.standing_uuid = mreq.standing_uuid
+              AND st.patch_version = mreq.patch_version
+        WHERE mreq.patch_version = ?
+    """, (p,)).fetchall()
+    conn.close()
+
+    # ── Group rewards per mission ────────────────────────────────────────
+    # rewards_by_mission[entry_uuid][scope_name] = {
+    #     "fac": faction_name,
+    #     "rep_s": int|None,         # rep on Success outcome
+    #     "rep_f": int|None,         # rep on Failure outcome
+    # }
+    rewards_by_mission: dict[str, dict[str, dict]] = {}
+    for r in rewards:
+        scope = r["scope_name"]
+        if not scope:
+            continue
+        m = rewards_by_mission.setdefault(r["entry_uuid"], {})
+        entry = m.setdefault(scope, {"fac": r["faction_name"],
+                                     "rep_s": None, "rep_f": None})
+        rep = r["rep_change"]
+        if r["outcome"] == "Success" and entry["rep_s"] is None:
+            entry["rep_s"] = rep
+        elif r["outcome"] == "Failure" and entry["rep_f"] is None:
+            entry["rep_f"] = rep
+        # Outcome3+ rows are kept on the raw table but not surfaced here.
+
+    # ── Group requirements per mission ───────────────────────────────────
+    reqs_by_mission: dict[str, list[dict]] = {}
+    for r in requirements:
+        reqs_by_mission.setdefault(r["entry_uuid"], []).append({
+            "scope":      r["scope_name"],
+            "fac":        r["faction_name"],
+            "comparison": r["comparison"],
+            "standing":   r["standing_name"],
+            "min_rep":    r["min_reputation"],
+        })
+
+    # ── Build output records ─────────────────────────────────────────────
+    out = []
+    skipped_no_career = 0
+    for m in missions:
+        scope_rows = rewards_by_mission.get(m["entry_uuid"], {})
+
+        primary_scope = None
+        for scope in scope_rows:
+            if scope in MISSION_CAREER_MAP:
+                primary_scope = scope
+                break
+
+        if primary_scope is None:
+            # Affinity-only / no-career mission — same skip behavior as the
+            # legacy JSON. We could surface them under "Other" if useful.
+            skipped_no_career += 1
+            continue
+
+        primary = scope_rows[primary_scope]
+        extras = []
+        for scope, data in scope_rows.items():
+            if scope == primary_scope:
+                continue
+            extras.append({
+                "scope": scope,
+                "fac":   data["fac"],
+                "rep_s": data["rep_s"],
+                "rep_f": data["rep_f"],
+            })
+
+        # Pick a requirement that matches the primary scope if possible.
+        reqs = reqs_by_mission.get(m["entry_uuid"], [])
+        primary_req = next((r for r in reqs if r["scope"] == primary_scope), None)
+        if primary_req is None:
+            primary_req = next((r for r in reqs if r["scope"] != "Affinity"), None)
+        if primary_req is None and reqs:
+            primary_req = reqs[0]
+
+        out.append({
+            "f":        m["file_path"],
+            "t":        m["title_resolved"],
+            "desc":     m["desc_resolved"],
+            "g":        m["mission_giver_resolved"],
+            "law":      1 if m["lawful"] == 1 else 0,
+            "uec":      m["uec_reward"] or 0,
+            "currency": m["currency_type"],
+            "career":   MISSION_CAREER_MAP[primary_scope],
+            "scope":    primary_scope,
+            "fac":      primary["fac"],
+            "rep_s":    primary["rep_s"],
+            "rep_f":    primary["rep_f"],
+            "tier":     m["difficulty_tier"],
+            "min_rank": primary_req["standing"] if primary_req else None,
+            "min_rep":  primary_req["min_rep"] if primary_req else None,
+            "extras":   extras,
+        })
+
+    out.sort(key=lambda x: (x["career"], -(x["rep_s"] or 0)))
+
+    return jsonify({
+        "patch":              p,
+        "missions":           out,
+        "skipped_no_career":  skipped_no_career,
     })
 
 
@@ -2204,14 +2449,13 @@ def _resolve_discord_display_names(discord_ids):
 # Adds the current user as an owner of this blueprint in the current env.
 
 @app.route('/api/crafting/blueprint/<uuid>/claim', methods=['POST'])
+@require_org_member
 def api_crafting_blueprint_claim(uuid):
     discord_id = session.get('discord_id')
-    if not discord_id:
-        return jsonify({'error': 'Not authenticated'}), 401
-
+    # No need for auth check - decorator handles it
+    
     env = _current_env()
     conn = get_db()
-
     # Pull the blueprint's name + patch from the catalog so the ownership row
     # carries enough context to be queryable without re-joining (and so the
     # NOT NULL columns are satisfied). We always claim against the latest
@@ -2225,9 +2469,7 @@ def api_crafting_blueprint_claim(uuid):
     if not bp:
         conn.close()
         return jsonify({'error': 'Blueprint not found'}), 404
-
     blueprint_name = bp['output_display'] or bp['output_name'] or bp['entity_name']
-
     try:
         conn.execute('''
             INSERT INTO blueprint_ownership
@@ -2242,7 +2484,6 @@ def api_crafting_blueprint_claim(uuid):
         # `conn` may already be closed in the IntegrityError branch; that's fine.
         try: conn.close()
         except Exception: pass
-
     return jsonify({
         'success': True,
         'blueprint_uuid': uuid,
@@ -2257,11 +2498,11 @@ def api_crafting_blueprint_claim(uuid):
 # Removes only the current user's claim. Other owners are untouched.
 
 @app.route('/api/crafting/blueprint/<uuid>/claim', methods=['DELETE'])
+@require_org_member
 def api_crafting_blueprint_unclaim(uuid):
     discord_id = session.get('discord_id')
-    if not discord_id:
-        return jsonify({'error': 'Not authenticated'}), 401
-
+    # No need for auth check - decorator handles it
+    
     env = _current_env()
     conn = get_db()
     cur = conn.execute('''
@@ -2271,7 +2512,6 @@ def api_crafting_blueprint_unclaim(uuid):
     conn.commit()
     removed = cur.rowcount
     conn.close()
-
     if removed == 0:
         return jsonify({'error': 'Not claimed by you'}), 404
     return jsonify({'success': True, 'blueprint_uuid': uuid, 'env': env})
@@ -2344,11 +2584,11 @@ def api_crafting_blueprint_owners(uuid):
 # but kept since it's cheap and the auth bug needed fixing anyway.
 
 @app.route('/api/crafting/blueprints/my-claims')
+@require_org_member
 def api_crafting_blueprints_my_claims():
     discord_id = session.get('discord_id')
-    if not discord_id:
-        return jsonify({'error': 'Not authenticated'}), 401
-
+    # No need for auth check - decorator handles it
+    
     env = _current_env()
     conn = get_db()
     rows = conn.execute('''

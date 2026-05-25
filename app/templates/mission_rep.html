@@ -312,12 +312,9 @@ const TIER_LADDERS = {
   ],
 };
 
-// Difficulty code → friendly tier label (matches DIFFICULTY_LABELS in crafting.html)
-const DIFFICULTY_LABELS = {
-  Intro: "Trainee", VE: "Rookie", E: "Junior", M: "Member",
-  H: "Experienced", VH: "Senior", S: "Master",
-};
-const DIFFICULTY_ORDER = ["Intro", "VE", "E", "M", "H", "VH", "S"];
+// In-game contractor-rep ladder (Hauling/delivery_rank0..6). Mirrors the
+// values dataforge_missions.py writes to missions.difficulty_tier.
+const TIER_ORDER = ["Trainee", "Rookie", "Junior", "Member", "Experienced", "Senior", "Master"];
 
 const activeFilters = {
   search:    "",
@@ -325,7 +322,7 @@ const activeFilters = {
   faction:   new Set(),
   legality:  new Set(),    // "Lawful" | "Unlawful"
   min_rank:  new Set(),    // friendly rank name
-  difficulty: new Set(),   // raw code (Intro/VE/...)
+  difficulty: new Set(),   // friendly tier name (Trainee/.../Master)
 };
 let currentSort = "rep_desc";
 
@@ -361,7 +358,7 @@ function fmtSignedRep(n) {
 async function load() {
   let payload;
   try {
-    payload = await api("/static/data/mission_rep.json");
+    payload = await api("/api/mission-rep");
   } catch (e) {
     document.getElementById("mission-grid").innerHTML =
       `<div class="grid-empty">Failed to load mission data.</div>`;
@@ -437,12 +434,12 @@ function buildSidebar() {
       </label>`;
   }
 
-  // DIFFICULTY
+  // DIFFICULTY (in-game contractor rep tier)
   html += `<div class="filter-head">Difficulty</div>`;
-  DIFFICULTY_ORDER.forEach(code => {
-    const n = countBy("diff", code);
+  TIER_ORDER.forEach(tier => {
+    const n = countBy("tier", tier);
     if (n === 0) return;
-    html += checkboxRow("difficulty", code, `${DIFFICULTY_LABELS[code]} (${code})`, n);
+    html += checkboxRow("difficulty", tier, tier, n);
   });
 
   // FACTION (collapsed — long list)
@@ -487,7 +484,7 @@ function passesFilters(m) {
     if (!activeFilters.min_rank.has(key)) return false;
   }
   if (activeFilters.difficulty.size) {
-    if (!m.diff || !activeFilters.difficulty.has(m.diff)) return false;
+    if (!m.tier || !activeFilters.difficulty.has(m.tier)) return false;
   }
   return true;
 }
@@ -551,7 +548,7 @@ function renderCards() {
     const ratio = (m.uec > 0) ? ((m.rep_s || 0) * 1000 / m.uec) : null;
     const chips = [
       `<span class="m-chip chip-career">${escapeHtml(m.career)}</span>`,
-      m.diff   ? `<span class="m-chip chip-diff">${escapeHtml(DIFFICULTY_LABELS[m.diff] || m.diff)}</span>` : "",
+      m.tier   ? `<span class="m-chip chip-diff">${escapeHtml(m.tier)}</span>` : "",
       m.min_rank ? `<span class="m-chip chip-rank">Min: ${escapeHtml(m.min_rank)}</span>` : "",
     ].filter(Boolean).join(" ");
     return `
@@ -614,9 +611,16 @@ function openModal(idx) {
     <div class="modal-row"><span class="modal-row-label">Career</span><span class="modal-row-value">${escapeHtml(m.career)}</span></div>
     <div class="modal-row"><span class="modal-row-label">Faction</span><span class="modal-row-value">${escapeHtml(m.fac || "—")}</span></div>
     <div class="modal-row"><span class="modal-row-label">Legality</span><span class="modal-row-value">${lawText}</span></div>
-    ${m.diff ? `<div class="modal-row"><span class="modal-row-label">Difficulty</span><span class="modal-row-value">${escapeHtml(DIFFICULTY_LABELS[m.diff] || m.diff)} (${escapeHtml(m.diff)})</span></div>` : ""}
-    ${m.min_rank ? `<div class="modal-row"><span class="modal-row-label">Min Rank Required</span><span class="modal-row-value">${escapeHtml(m.min_rank)} (${fmtNum(m.min_rep)} rep)</span></div>` : ""}
+    ${m.tier ? `<div class="modal-row"><span class="modal-row-label">Difficulty</span><span class="modal-row-value">${escapeHtml(m.tier)}</span></div>` : ""}
+    ${m.min_rank ? `<div class="modal-row"><span class="modal-row-label">Min Rank Required</span><span class="modal-row-value">${escapeHtml(m.min_rank)}${m.min_rep != null ? ` (${fmtNum(m.min_rep)} rep)` : ""}</span></div>` : ""}
   </div>`;
+
+  if (m.desc) {
+    html += `<div class="modal-section">
+      <div class="modal-section-label">Description</div>
+      <div class="modal-row" style="display:block;">${formatMissionTokens(m.desc)}</div>
+    </div>`;
+  }
 
   html += `<div class="modal-section">
     <div class="modal-section-label">Primary Reward (${escapeHtml(m.career)})</div>
