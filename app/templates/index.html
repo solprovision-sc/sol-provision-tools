@@ -464,6 +464,8 @@
   const dashboard = document.getElementById('dashboard');
   const statusText = document.getElementById('authStatus');
   
+  let auth; // Declare auth at the top level
+  
   // Check if running on localhost
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     // Skip auth on localhost
@@ -478,7 +480,7 @@
   } else {
     // Production/Dev: Normal Firebase auth flow
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
+    auth = firebase.auth(); // Assign to the outer variable
   
     // Auth State Listener
     auth.onAuthStateChanged(async function(user) {
@@ -519,6 +521,31 @@
       }
     });
   }
+  
+  // Discord Login - now auth is accessible
+  async function loginWithDiscord() {
+    if (!auth) {
+      console.error('Auth not initialized');
+      return;
+    }
+    
+    statusText.textContent = 'CONNECTING TO DISCORD...';
+    
+    const provider = new firebase.auth.OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+  
+    try {
+      await auth.signInWithPopup(provider);
+      statusText.textContent = 'VERIFYING MEMBERSHIP...';
+      
+    } catch (err) {
+      console.error('Login error:', err);
+      statusText.textContent = 'AUTH ERROR: ' + err.message;
+    }
+  }
+  
+  // Attach event listener when DOM is ready
+  document.getElementById('discordLoginBtn').addEventListener('click', loginWithDiscord);
 
   // Discord Login
   async function loginWithDiscord() {
