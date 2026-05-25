@@ -71,7 +71,7 @@ function sizeBadge(size, label) {
 }
 
 // ── Logo HTML ─────────────────────────────────────────────────────────────────
-function logoHTML() {
+function logoHTML(patchVersion = null) {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
@@ -80,6 +80,7 @@ function logoHTML() {
       <div>
         <div class="logo-text">Sol Provision</div>
         <div class="logo-sub">Data Intelligence</div>
+        ${patchVersion ? `<div class="logo-patch">${patchVersion}</div>` : ''}
       </div>
     </a>`;
 }
@@ -109,10 +110,50 @@ function navHTML(active) {
 async function renderHeader(activePage) {
   try {
     const meta = await api('/api/meta');
-    document.getElementById('header-logo').innerHTML = logoHTML();
+    
+    // Check if user is logged in
+    let userInfo = null;
+    try {
+      userInfo = await api('/api/auth/me');
+    } catch (e) {
+      // Not logged in
+    }
+    
+    // Render logo with patch version
+    document.getElementById('header-logo').innerHTML = logoHTML(meta.patch_version);
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
-    document.getElementById('header-meta').innerHTML =
-      `<div>Patch <span>${meta.patch_version}</span></div>`;
+    
+    // Right side: show user info if logged in, otherwise show nothing
+    if (userInfo) {
+      let rankDisplay = '';
+      
+      // Check for CEO (Sulyce)
+      if (userInfo.callsign === 'Sulyce') {
+        rankDisplay = 'CEO';
+      } 
+      // Check for Officer (Rank 5)
+      else if (userInfo.rank === 5) {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Officer`;
+      }
+      // Check for Wing Commander (Rank 4)
+      else if (userInfo.rank === 4) {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Wing Commander`;
+      }
+      // Default: show division and rank number
+      else {
+        rankDisplay = `${userInfo.division || 'Unassigned'} · Rank ${userInfo.rank}`;
+      }
+      
+      document.getElementById('header-meta').innerHTML = `
+        <div class="user-info">
+          <div class="user-callsign">${userInfo.callsign}</div>
+          <div class="user-rank">${rankDisplay}</div>
+        </div>`;
+    } else {
+      // Not logged in: show nothing
+      document.getElementById('header-meta').innerHTML = '';
+    }
+    
   } catch(e) {
     document.getElementById('header-logo').innerHTML = logoHTML();
     document.getElementById('header-nav').innerHTML  = navHTML(activePage);
