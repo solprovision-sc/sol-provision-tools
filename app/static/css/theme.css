@@ -46,9 +46,10 @@
   --text-crimson: #c0392b;
 
   /* ── Typography: Orbitron for display, Exo 2 for body ── */
-  --font-ui:   'Orbitron', sans-serif;
-  --font-mono: 'Share Tech Mono', monospace;
-  --font-body: 'Exo 2', sans-serif;
+  --font-title: 'Orbitron', sans-serif;
+  --font-ui:    'Zalando Sans', sans-serif;
+  --font-mono:  'Zalando Sans', sans-serif;
+  --font-body:  'Zalando Sans', sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -126,9 +127,17 @@ header::before {
 }
 .logo-patch {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 12px;
   color: var(--gold);
-  letter-spacing: 0.25em;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.logo-patch .patch-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--terra);
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   margin-top: 5px;
 }
@@ -541,4 +550,27 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
   height: 1px;
   background: linear-gradient(90deg, var(--accent) 0%, var(--border) 40%, transparent 100%);
   margin: 4px 0;
+}
+
+/* ── User info display (header right) ── */
+.user-info {
+  text-align: right;
+}
+
+.user-callsign {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--terra);
+  text-transform: uppercase;
+}
+
+.user-rank {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-top: 2px;
 }

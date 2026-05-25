@@ -80,7 +80,7 @@ function logoHTML(patchVersion = null) {
       <div>
         <div class="logo-text">Sol Provision</div>
         <div class="logo-sub">Data Intelligence</div>
-        ${patchVersion ? `<div class="logo-patch">${patchVersion}</div>` : ''}
+        ${patchVersion ? `<div class="logo-patch"><span class="patch-label">Patch:</span> ${patchVersion}</div>` : ''}
       </div>
     </a>`;
 }
