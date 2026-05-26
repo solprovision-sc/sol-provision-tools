@@ -739,6 +739,7 @@ const activeFilters = {
   mission_type: new Set(),   // Mercenary | Hauling | ...
   faction:      new Set(),   // Red Wind Linehaul | ...
   difficulty:   new Set(),   // Intro | VE | E | M | H | VH | S
+  ownership:    new Set(),   // owned | not_owned (logged-in users only)
 };
 
 // item_category → facet name. Drives both sidebar rendering and applyFilters.
@@ -991,6 +992,26 @@ function refreshOwnershipUI() {
     const uuid = card.dataset.uuid;
     paintOwnershipForCard(card, uuid);
   });
+  refreshOwnershipFilterCounts();
+}
+
+// Update just the Owned / Not Owned counts in the sidebar. Cheaper than
+// rebuilding the whole sidebar, and we don't want to drop the user's expanded
+// filter-group state in the process.
+function refreshOwnershipFilterCounts() {
+  if (!currentUser) return;
+  const owned = countOwnership("owned");
+  const notOwned = countOwnership("not_owned");
+  document.querySelectorAll('.filter-check[data-facet="ownership"]').forEach(row => {
+    const val = row.dataset.value;
+    const cnt = row.querySelector(".fc-count");
+    if (cnt) cnt.textContent = val === "owned" ? owned : notOwned;
+  });
+  // Re-filter if the ownership filter is what the user is filtering on —
+  // otherwise a freshly-claimed BP wouldn't move into/out of the visible set.
+  if (activeFilters.ownership.size > 0) {
+    applyFilters();
+  }
 }
 
 function paintOwnershipForCard(card, uuid) {
@@ -1036,6 +1057,20 @@ function countMid(mid) {
 }
 function countFacet(field, value) {
   return allBlueprints.filter(bp => (bp[field] || []).includes(value)).length;
+}
+// Count blueprints the current user owns (or doesn't own). Only meaningful
+// after loadOwnershipForAll has populated ownershipByBp; before then the
+// counts will read as 0 / total — which is fine, the labels stay accurate
+// and refreshOwnershipFilterCounts() updates them once data lands.
+function countOwnership(value) {
+  if (!currentUser) return 0;
+  let owned = 0;
+  allBlueprints.forEach(bp => {
+    if (ownershipByBp.get(bp.uuid)?.ownedByMe) owned += 1;
+  });
+  if (value === "owned")     return owned;
+  if (value === "not_owned") return allBlueprints.length - owned;
+  return 0;
 }
 // Count blueprints in a category matching a taxonomy key.
 //   key = "<sub_level>"             → matches all variants under that type
@@ -1139,6 +1174,15 @@ function buildSidebar() {
     }
   });
 
+  // OWNERSHIP — only meaningful when logged in. Two-row group below Items.
+  // Counts update via refreshOwnershipFilterCounts() once /ownership lands.
+  if (currentUser) {
+    const ownershipRows =
+      checkboxRow("ownership", "owned",     "Owned",     countOwnership("owned")) +
+      checkboxRow("ownership", "not_owned", "Not Owned", countOwnership("not_owned"));
+    html += `<div class="filter-head">Ownership</div>` + ownershipRows;
+  }
+
   // MISSIONS — collapsible sub-groups
   html += `<div class="filter-head">Missions</div>`;
 
@@ -1207,6 +1251,10 @@ async function toggleClaim(uuid, btn) {
     document.querySelectorAll(`.bp-card[data-uuid="${CSS.escape(uuid)}"]`).forEach(card =>
       paintOwnershipForCard(card, uuid)
     );
+    // Keep the Ownership filter counts in sync; also re-applies the filter so
+    // a freshly-claimed/unclaimed BP slides out of the visible set when the
+    // user has Owned-only or Not-Owned-only active.
+    refreshOwnershipFilterCounts();
   } catch (e) {
     alert("Network error — try again.");
     btn.disabled = false;
@@ -1267,7 +1315,8 @@ function anyFilterActive() {
     || activeFilters.legality.size > 0
     || activeFilters.mission_type.size > 0
     || activeFilters.faction.size > 0
-    || activeFilters.difficulty.size > 0;
+    || activeFilters.difficulty.size > 0
+    || activeFilters.ownership.size > 0;
 }
 
 function showFilterPrompt() {
@@ -1313,6 +1362,13 @@ function applyFilters() {
     if (!passesFacet(activeFilters.mission_type, bp.mission_types  || [])) return false;
     if (!passesFacet(activeFilters.faction,      bp.factions       || [])) return false;
     if (!passesFacet(activeFilters.difficulty,   bp.tiers          || [])) return false;
+    // Ownership — checked against ownershipByBp (populated async after load).
+    // Selecting both Owned + Not Owned matches everything, same as no filter.
+    if (activeFilters.ownership.size > 0) {
+      const isOwned = !!ownershipByBp.get(bp.uuid)?.ownedByMe;
+      const want = isOwned ? "owned" : "not_owned";
+      if (!activeFilters.ownership.has(want)) return false;
+    }
     return true;
   });
   filteredBPs.sort((a, b) => {
