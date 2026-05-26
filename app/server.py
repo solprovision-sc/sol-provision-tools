@@ -146,6 +146,125 @@ def get_user_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+# ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
+# The extractor pipeline replaces dataforge.db wholesale every patch, so the
+# ownership rows have to live in their own file. Default location sits next to
+# dataforge.db so all app-writable state stays in one directory; OWNERSHIP_DB
+# env var overrides for ops flexibility.
+
+OWNERSHIP_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS blueprint_ownership (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        discord_id TEXT NOT NULL,
+        blueprint_uuid TEXT NOT NULL,
+        blueprint_name TEXT NOT NULL,
+        patch_version TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
+        notes TEXT,
+        UNIQUE(discord_id, blueprint_uuid, patch_version)
+    )
+"""
+
+
+def _resolve_ownership_db_path():
+    """Resolve the ownership DB path. OWNERSHIP_DB env var wins; otherwise it
+    sits next to whatever DB_PATH points at (computed lazily so --db overrides
+    in __main__ still work)."""
+    explicit = os.environ.get('OWNERSHIP_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'blueprint_ownership.db')
+
+
+def get_ownership_db():
+    """Connect to blueprint_ownership DB. Auto-creates the table on first run
+    so a fresh deploy doesn't need manual sqlite3-CLI setup."""
+    conn = sqlite3.connect(_resolve_ownership_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute(OWNERSHIP_SCHEMA)
+    conn.commit()
+    return conn
+
+
+def get_db_with_ownership():
+    """Open the dataforge connection and ATTACH the ownership DB as `own`.
+
+    Use for endpoints that JOIN crafting_blueprints against blueprint_ownership;
+    simple lookups stick to get_ownership_db() alone. The ownership path comes
+    from our own env config (not user input) so splicing it into the ATTACH
+    statement is safe.
+    """
+    conn = get_db()
+    own_path = _resolve_ownership_db_path().replace("'", "''")
+    conn.execute(f"ATTACH DATABASE '{own_path}' AS own")
+    # CREATE TABLE on the attached side too, so a fresh file is usable in JOINs
+    # immediately. `own.` prefix targets the attached DB.
+    conn.execute(OWNERSHIP_SCHEMA.replace(
+        "CREATE TABLE IF NOT EXISTS blueprint_ownership",
+        "CREATE TABLE IF NOT EXISTS own.blueprint_ownership"
+    ))
+    conn.commit()
+    return conn
+
+
+_OWNERSHIP_MIGRATION_DONE = False
+
+def _migrate_legacy_ownership_rows():
+    """One-time copy of blueprint_ownership rows from dataforge.db (where they
+    used to live) into the new standalone ownership DB. Idempotent — does
+    nothing if the new DB already has rows, so safe to call on every boot.
+
+    Has to run before the extractor replaces dataforge.db; otherwise the source
+    rows are gone. Logged so deployments can confirm the count moved over.
+    """
+    global _OWNERSHIP_MIGRATION_DONE
+    if _OWNERSHIP_MIGRATION_DONE:
+        return
+    _OWNERSHIP_MIGRATION_DONE = True
+    try:
+        own = get_ownership_db()
+        n_existing = own.execute("SELECT COUNT(*) FROM blueprint_ownership").fetchone()[0]
+        if n_existing > 0:
+            own.close()
+            return
+        df = sqlite3.connect(DB_PATH)
+        df.row_factory = sqlite3.Row
+        legacy = df.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='blueprint_ownership'"
+        ).fetchone()
+        if not legacy:
+            df.close()
+            own.close()
+            return
+        rows = df.execute("""
+            SELECT discord_id, blueprint_uuid, blueprint_name, patch_version,
+                   claimed_at, env, notes
+            FROM blueprint_ownership
+        """).fetchall()
+        df.close()
+        copied = 0
+        for r in rows:
+            try:
+                own.execute("""
+                    INSERT INTO blueprint_ownership
+                        (discord_id, blueprint_uuid, blueprint_name,
+                         patch_version, claimed_at, env, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (r['discord_id'], r['blueprint_uuid'], r['blueprint_name'],
+                      r['patch_version'], r['claimed_at'], r['env'], r['notes']))
+                copied += 1
+            except sqlite3.IntegrityError:
+                pass
+        own.commit()
+        own.close()
+        if copied:
+            print(f"  Migrated {copied} blueprint_ownership rows → {_resolve_ownership_db_path()}")
+    except sqlite3.Error as e:
+        # Swallow so a half-set-up local dev env doesn't crash the whole app.
+        print(f"  Ownership legacy migration skipped: {e}")
+
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
@@ -2440,7 +2559,10 @@ def api_crafting_mission_detail(mission_name):
 # ─────────────────────────────────────────────────────────────────────────────
 # BLUEPRINT OWNERSHIP
 # ─────────────────────────────────────────────────────────────────────────────
-# Schema (dataforge.db):
+# Schema lives in its own SQLite file (blueprint_ownership.db, accessed via
+# get_ownership_db() / get_db_with_ownership()) so the extractor pipeline
+# replacing dataforge.db wholesale per patch can't wipe org claim history.
+#
 #   blueprint_ownership(id, discord_id, blueprint_uuid, blueprint_name,
 #                       patch_version, claimed_at, env, notes)
 #   UNIQUE(discord_id, blueprint_uuid, patch_version)
@@ -2494,34 +2616,34 @@ def api_crafting_blueprint_claim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
+    df = get_db()
     # Pull the blueprint's name + patch from the catalog so the ownership row
     # carries enough context to be queryable without re-joining (and so the
     # NOT NULL columns are satisfied). We always claim against the latest
     # patch — claims are per-recipe, not per-patch from the user's POV.
-    patch = latest_patch(conn)
-    bp = conn.execute('''
+    patch = latest_patch(df)
+    bp = df.execute('''
         SELECT entity_name, output_display, output_name
         FROM crafting_blueprints
         WHERE uuid = ? AND patch_version = ?
     ''', (uuid, patch)).fetchone()
+    df.close()
     if not bp:
-        conn.close()
         return jsonify({'error': 'Blueprint not found'}), 404
     blueprint_name = bp['output_display'] or bp['output_name'] or bp['entity_name']
+
+    own = get_ownership_db()
     try:
-        conn.execute('''
+        own.execute('''
             INSERT INTO blueprint_ownership
                 (discord_id, blueprint_uuid, blueprint_name, patch_version, env)
             VALUES (?, ?, ?, ?, ?)
         ''', (discord_id, uuid, blueprint_name, patch, env))
-        conn.commit()
+        own.commit()
     except sqlite3.IntegrityError:
-        conn.close()
         return jsonify({'error': 'Already claimed by you'}), 409
     finally:
-        # `conn` may already be closed in the IntegrityError branch; that's fine.
-        try: conn.close()
+        try: own.close()
         except Exception: pass
     return jsonify({
         'success': True,
@@ -2543,14 +2665,14 @@ def api_crafting_blueprint_unclaim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
-    cur = conn.execute('''
+    own = get_ownership_db()
+    cur = own.execute('''
         DELETE FROM blueprint_ownership
         WHERE blueprint_uuid = ? AND discord_id = ? AND env = ?
     ''', (uuid, discord_id, env))
-    conn.commit()
+    own.commit()
     removed = cur.rowcount
-    conn.close()
+    own.close()
     if removed == 0:
         return jsonify({'error': 'Not claimed by you'}), 404
     return jsonify({'success': True, 'blueprint_uuid': uuid, 'env': env})
@@ -2572,14 +2694,14 @@ def api_crafting_blueprints_ownership():
         return jsonify([])
 
     env = _current_env()
-    conn = get_db()
+    own = get_ownership_db()
     placeholders = ','.join('?' * len(uuids))
-    rows = conn.execute(f'''
+    rows = own.execute(f'''
         SELECT blueprint_uuid, discord_id, claimed_at
         FROM blueprint_ownership
         WHERE blueprint_uuid IN ({placeholders}) AND env = ?
     ''', (*uuids, env)).fetchall()
-    conn.close()
+    own.close()
 
     return jsonify([{
         'blueprint_uuid': r['blueprint_uuid'],
@@ -2595,14 +2717,14 @@ def api_crafting_blueprints_ownership():
 @app.route('/api/crafting/blueprint/<uuid>/owners')
 def api_crafting_blueprint_owners(uuid):
     env = _current_env()
-    conn = get_db()
-    rows = conn.execute('''
+    own = get_ownership_db()
+    rows = own.execute('''
         SELECT discord_id, claimed_at
         FROM blueprint_ownership
         WHERE blueprint_uuid = ? AND env = ?
         ORDER BY claimed_at ASC
     ''', (uuid, env)).fetchall()
-    conn.close()
+    own.close()
 
     discord_ids = [r['discord_id'] for r in rows]
     name_map = _resolve_discord_display_names(discord_ids)
@@ -2629,7 +2751,7 @@ def api_crafting_blueprints_my_claims():
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
+    conn = get_db_with_ownership()
     rows = conn.execute('''
         SELECT
             bo.blueprint_uuid,
@@ -2644,7 +2766,7 @@ def api_crafting_blueprints_my_claims():
                 bo.blueprint_name
             ) AS output_display,
             cc.display_path
-        FROM blueprint_ownership bo
+        FROM own.blueprint_ownership bo
         LEFT JOIN crafting_blueprints cb
             ON cb.uuid = bo.blueprint_uuid
             AND cb.patch_version = bo.patch_version
@@ -2734,14 +2856,16 @@ def api_officers_coverage():
     conn = get_db()
     patch = latest_patch(conn)
     bps = _officer_blueprints(conn, patch)
+    conn.close()
 
     # All claims in prod env, keyed by blueprint_uuid → list of discord_ids.
-    own_rows = conn.execute('''
+    own = get_ownership_db()
+    own_rows = own.execute('''
         SELECT blueprint_uuid, discord_id
         FROM blueprint_ownership
         WHERE env = ?
     ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
-    conn.close()
+    own.close()
 
     owners_by_bp = {}
     for r in own_rows:
@@ -2818,14 +2942,16 @@ def api_officers_members():
     conn = get_db()
     patch = latest_patch(conn)
     bps = _officer_blueprints(conn, patch)
+    conn.close()
     bp_cat = {row['uuid']: row['item_category'] for row in bps}
 
-    own_rows = conn.execute('''
+    own = get_ownership_db()
+    own_rows = own.execute('''
         SELECT blueprint_uuid, discord_id
         FROM blueprint_ownership
         WHERE env = ?
     ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
-    conn.close()
+    own.close()
 
     # member_id → {total, by_category: {...}}
     by_member = {}
@@ -2856,7 +2982,7 @@ def api_officers_members():
 @app.route('/api/officers/member/<discord_id>/claims')
 @require_officer
 def api_officers_member_claims(discord_id):
-    conn = get_db()
+    conn = get_db_with_ownership()
     patch = latest_patch(conn)
     placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
     rows = conn.execute(f'''
@@ -2873,7 +2999,7 @@ def api_officers_member_claims(discord_id):
             {ITEM_CATEGORY_CASE} AS item_category,
             c.sub_display,
             c.sub_sub_display
-        FROM blueprint_ownership bo
+        FROM own.blueprint_ownership bo
         LEFT JOIN crafting_blueprints b
             ON b.uuid = bo.blueprint_uuid AND b.patch_version = ?
         LEFT JOIN crafting_categories c ON c.id = b.category_id
@@ -3153,6 +3279,14 @@ def api_shops_browse():
     """, (patch, location, store)).fetchall()
  
     return jsonify({'items': [dict(r) for r in rows]})
+
+
+# Trigger the one-shot copy of legacy blueprint_ownership rows from the old
+# dataforge.db location into the new standalone DB. Runs at import time so it
+# fires under both `python server.py` and gunicorn; the migration is a no-op
+# once the standalone DB has any rows.
+_migrate_legacy_ownership_rows()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # MAIN
