@@ -86,7 +86,9 @@ function logoHTML(patchVersion = null) {
 }
 
 // ── Nav HTML ──────────────────────────────────────────────────────────────────
-function navHTML(active) {
+// userInfo is optional. When provided and the user is rank >= 5, we append the
+// officer-only "HQ" link. Anyone else gets the normal nav.
+function navHTML(active, userInfo) {
 	const links = [
 	{ href: '/',              label: 'Dashboard' },
 	// { href: '/ships',         label: 'Ships' },
@@ -100,6 +102,13 @@ function navHTML(active) {
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	// { href: '/ledger', label: 'Ledger' },
 	];
+  // Rank may be int or string depending on the snapshot row; coerce defensively
+  // so a stringy "5" still grants access. The server enforces the same gate.
+  const rankRaw = userInfo && userInfo.rank;
+  const rankN = rankRaw == null ? 0 : (parseInt(rankRaw, 10) || 0);
+  if (rankN >= 5) {
+    links.push({ href: '/officers', label: 'HQ' });
+  }
   return `<nav class="section-nav">` +
     links.map(l =>
       `<a href="${l.href}" class="nav-link ${l.href === active ? 'active' : ''}">${l.label}</a>`
@@ -121,7 +130,7 @@ async function renderHeader(activePage) {
     
     // Render logo with patch version
     document.getElementById('header-logo').innerHTML = logoHTML(meta.patch_version);
-    document.getElementById('header-nav').innerHTML  = navHTML(activePage);
+    document.getElementById('header-nav').innerHTML  = navHTML(activePage, userInfo);
     
     // Right side: show user info if logged in, otherwise show nothing
     if (userInfo) {
