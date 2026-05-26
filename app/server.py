@@ -1217,8 +1217,29 @@ def get_ship_components(conn, ship_entity, patch):
                t.hydrogen_flow_rate, t.quantum_flow_rate,
                t.health
         {join("item_fuel_nozzles")}""")
-        
-    
+
+    # Life support (declared on the ship's foundry record, backfilled into
+    # ship_hardpoints by dataforge_foundry_loadouts.py).
+    lifesupport = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.power_draw, t.lifesupport_output,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_lifesupport")}""")
+
+    # Salvage components: heads, scraper/buff modifiers, and per-ship filler
+    # stations. All three live in item_salvage with a salvage_type column.
+    salvage = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.salvage_type, t.power_draw,
+               t.salvage_speed_multiplier, t.radius_multiplier, t.extraction_efficiency,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_salvage")}""")
 
     return {
         "armor":              armor,
@@ -1228,14 +1249,16 @@ def get_ship_components(conn, ship_entity, patch):
         "quantum_drives":     quantum_drives,
         "fuel_tanks":         fuel_tanks,
         "quantum_fuel_tanks": quantum_fuel_tanks,
-        "external_fuel_tanks": external_fuel_tanks,    
-        "fuel_nozzles":        fuel_nozzles,           
+        "external_fuel_tanks": external_fuel_tanks,
+        "fuel_nozzles":        fuel_nozzles,
         "flight_controllers": flight_controllers,
         "thrusters":          thrusters,
         "weapons":            weapons,
         "missile_racks":      missile_racks,
         "missiles":           missiles,
         "radars":             radars,
+        "lifesupport":        lifesupport,
+        "salvage":            salvage,
     }
 
 
