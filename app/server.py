@@ -1306,7 +1306,13 @@ def api_ship_detail(entity_name):
     ).fetchall()
 
     hardpoints = {}
-    for hp in hps: hardpoints.setdefault(hp["port_type"], []).append(dict(hp))
+    # Foundry-backfilled rows can have NULL port_type (no per-port type info
+    # in the foundry XML). Bucket those under "misc" so the dict keys stay
+    # str-only — otherwise Flask's sort_keys=True JSON encoder blows up on
+    # str vs None comparison.
+    for hp in hps:
+        key = hp["port_type"] or "misc"
+        hardpoints.setdefault(key, []).append(dict(hp))
     cargo_total = sum(g["scu"] or 0 for g in grids if not g["is_personal"])
     personal    = sum(g["scu"] or 0 for g in grids if g["is_personal"])
 
