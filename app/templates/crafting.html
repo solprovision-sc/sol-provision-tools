@@ -740,7 +740,13 @@ const activeFilters = {
   faction:      new Set(),   // Red Wind Linehaul | ...
   difficulty:   new Set(),   // Intro | VE | E | M | H | VH | S
   ownership:    new Set(),   // owned | not_owned (logged-in users only)
+  inputs:       new Set(),   // ingredient display_names (up to MAX_INPUTS, AND semantics)
 };
+
+// Max ingredients selectable in the Inputs filter. Selecting N requires every
+// matching blueprint to contain all N ingredients — selection order is irrelevant
+// since membership is tested as a set.
+const MAX_INPUTS = 3;
 
 // item_category → facet name. Drives both sidebar rendering and applyFilters.
 // Each listed category gets a collapsible sub-filter group built from the same
@@ -1123,6 +1129,17 @@ function distinctFacet(field) {
   return [...s];
 }
 
+// Distinct ingredient display names across all blueprints, alpha sorted
+// (case-insensitive) for stable display in the Inputs filter.
+function distinctInputs() {
+  const s = new Set();
+  allBlueprints.forEach(bp => (bp.inputs || []).forEach(v => s.add(v)));
+  return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+}
+function countInput(name) {
+  return allBlueprints.filter(bp => (bp.inputs || []).includes(name)).length;
+}
+
 function checkboxRow(facet, value, label, count) {
   return `
     <label class="filter-check" data-facet="${facet}" data-value="${escapeHtml(value)}">
@@ -1205,6 +1222,13 @@ function buildSidebar() {
     .map(v => checkboxRow("difficulty", v, DIFFICULTY_LABELS[v] || v, countFacet("tiers", v))).join("");
   html += collapsibleGroup("Difficulty", diffRows, true);
 
+  // INPUTS — distinct ingredient names across all blueprints. AND semantics
+  // (selecting N requires every match to contain all N), max MAX_INPUTS picks.
+  html += `<div class="filter-head">Inputs</div>`;
+  const inputRows = distinctInputs()
+    .map(v => checkboxRow("inputs", v, v, countInput(v))).join("");
+  html += collapsibleGroup(`Ingredients (max ${MAX_INPUTS})`, inputRows, true);
+
   tree.innerHTML = html;
 
   // Collapse toggles
@@ -1218,10 +1242,29 @@ function buildSidebar() {
       const facet = row.dataset.facet;
       const value = row.dataset.value;
       const set = activeFilters[facet];
+      // Inputs is capped — block any check past MAX_INPUTS rather than
+      // silently dropping the selection.
+      if (facet === "inputs" && input.checked && set.size >= MAX_INPUTS) {
+        input.checked = false;
+        return;
+      }
       if (input.checked) { set.add(value); row.classList.add("checked"); }
       else               { set.delete(value); row.classList.remove("checked"); }
+      if (facet === "inputs") refreshInputsCap();
       applyFilters();
     });
+  });
+  refreshInputsCap();
+}
+
+// Disable unchecked Inputs checkboxes once the cap is hit so the limit is
+// visible in the UI rather than only failing silently on click.
+function refreshInputsCap() {
+  const tree = document.getElementById("filter-tree");
+  if (!tree) return;
+  const atCap = activeFilters.inputs.size >= MAX_INPUTS;
+  tree.querySelectorAll('.filter-check[data-facet="inputs"] input').forEach(input => {
+    if (!input.checked) input.disabled = atCap;
   });
 }
 
@@ -1313,7 +1356,8 @@ function anyFilterActive() {
     || activeFilters.mission_type.size > 0
     || activeFilters.faction.size > 0
     || activeFilters.difficulty.size > 0
-    || activeFilters.ownership.size > 0;
+    || activeFilters.ownership.size > 0
+    || activeFilters.inputs.size > 0;
 }
 
 function showFilterPrompt() {
@@ -1365,6 +1409,15 @@ function applyFilters() {
       const isOwned = !!ownershipByBp.get(bp.uuid)?.ownedByMe;
       const want = isOwned ? "owned" : "not_owned";
       if (!activeFilters.ownership.has(want)) return false;
+    }
+    // Inputs — AND semantics. Every selected ingredient must appear in the
+    // blueprint's inputs list. Order of selection is irrelevant because we
+    // test set membership, not sequence.
+    if (activeFilters.inputs.size > 0) {
+      const bpInputs = new Set(bp.inputs || []);
+      for (const wanted of activeFilters.inputs) {
+        if (!bpInputs.has(wanted)) return false;
+      }
     }
     return true;
   });
@@ -1959,9 +2012,10 @@ document.getElementById("filter-search").addEventListener("input", e => {
 document.getElementById("filter-clear").addEventListener("click", () => {
   activeFilters.search = "";
   document.getElementById("filter-search").value = "";
-  ["item","component","ship_weapon","fps_weapon","armor","ammo","legality","mission_type","faction","difficulty"].forEach(f => activeFilters[f].clear());
+  ["item","component","ship_weapon","fps_weapon","armor","ammo","legality","mission_type","faction","difficulty","inputs"].forEach(f => activeFilters[f].clear());
   document.querySelectorAll("#filter-tree input[type=checkbox]").forEach(cb => {
     cb.checked = false;
+    cb.disabled = false;
     cb.closest(".filter-check").classList.remove("checked");
   });
   applyFilters();
