@@ -103,6 +103,8 @@
 /* ── Power Management grid ─────────────────────────────────────────── */
 .pm-grid {
   display: grid;
+  /* grid-template-columns is set dynamically by renderPowerGrid based on
+     visible column count — fall back to 8 if JS hasn't run yet. */
   grid-template-columns: repeat(8, 1fr);
   gap: 4px;
   margin-bottom: 8px;
@@ -114,25 +116,41 @@
   cursor: pointer;
   user-select: none;
 }
-.pm-segments {
+.pm-bars {
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: row;
   gap: 2px;
   height: 64px;
   width: 100%;
-  justify-content: flex-end;
   align-items: stretch;
   padding-bottom: 4px;
 }
-.pm-seg {
+.pm-bar {
+  display: flex;
+  flex-direction: column;
   flex: 1 1 0;
+  gap: 2px;
+  justify-content: flex-end;   /* adjustable segs stack from the top, mandatory anchors bottom */
+  min-width: 0;
+}
+.pm-seg {
+  flex: 1 0 0;
+  min-height: 3px;
   background: rgba(126,38,25,0.18);
   border-radius: 1px;
   transition: background 0.12s;
 }
+.pm-mandatory {
+  /* flex: ${mandatory} 0 0 set inline so the block is height-proportional to
+     how many segments it represents. Always-on when category is enabled. */
+  background: #E8855C;
+  border-radius: 2px;
+  transition: background 0.12s, opacity 0.12s;
+}
+.pm-mandatory.off { background: rgba(70,40,30,0.30); }
+
 .pm-seg.on   { background: #E8855C; }    /* high */
 .pm-seg.dim  { background: rgba(232,133,92,0.55); }  /* medium */
-.pm-seg.low  { background: rgba(232,133,92,0.28); }  /* low */
 .pm-col.off .pm-seg { background: rgba(70,40,30,0.30); }
 
 .pm-icon {
@@ -157,8 +175,6 @@
   line-height: 1;
 }
 .pm-col.off .pm-level { color: #5a4f3d; }
-.pm-col.disabled-cat { opacity: 0.35; cursor: default; }
-.pm-col.disabled-cat:hover .pm-icon { color: #6a4d3c; }
 
 /* ── Meta stats panel ──────────────────────────────────────────────── */
 .ms-panel { display: flex; flex-direction: column; gap: 2px; }
@@ -2326,11 +2342,12 @@ body::before {
     // Re-render the component card
     updateComponentCard(compType, hardpointIndex, newComponent);
 
-    // Refresh the sidebar's meta stats — they're derived from shipLoadout.current
-    // and need to reflect the new component immediately.
-    if (typeof recomputeSidebarStats === 'function') {
-      recomputeSidebarStats(window.__currentShip);
-    }
+    // Refresh the sidebar's power grid + meta stats — both derived from
+    // shipLoadout.current and need to reflect the new component immediately.
+    // Re-render the grid so a different-sized component shows the right
+    // segment count.
+    if (typeof renderPowerGrid === 'function')      renderPowerGrid();
+    if (typeof recomputeSidebarStats === 'function') recomputeSidebarStats(window.__currentShip);
 
     // Close modal
     closeSwapModal();
@@ -2889,61 +2906,94 @@ body::before {
   }
 
   // ── Sidebar: Power Management Grid ───────────────────────────────────────────
-  // 8 columns mirroring SP Viewer. Each column has an enabled flag and a power
-  // level (low/medium/high). The state seeds at medium-on for everything; user
-  // clicks the icon to toggle on/off, clicks the segment bars to cycle level.
+  // Mirrors SP Viewer's grid. One column per category that the current ship
+  // actually has installed components for; columns are hidden otherwise.
+  // Within a column, each installed component renders as its own stacked bar
+  // (so 2 coolers of size 3 = 2 bars of 3 segments each side by side).
+  // Each bar splits into a "mandatory" block (the always-on minimum) and
+  // a stack of "adjustable" segments above it.
+  //
+  // Power-state per category: enabled + levelIdx (0=low,1=medium,2=high).
+  // Click icon → toggle on/off; click segments → cycle level. Both trigger
+  // a stats recompute.
   const POWER_LEVELS = ['low', 'medium', 'high'];
   const POWER_CATEGORIES = [
-    { key: 'weapons',     label: 'Weapons',     icon: 'ItemWeapons.svg',         compKey: 'weapons',            powerKey: 'weapons' },
-    { key: 'engines',     label: 'Engines',     icon: 'ItemThrusters.svg',       compKey: 'flight_controllers', powerKey: 'engines' },
-    { key: 'shields',     label: 'Shields',     icon: 'ItemShields.svg',         compKey: 'shields',            powerKey: 'shields' },
-    { key: 'cooler',      label: 'Cooler',      icon: 'ItemCooler.svg',          compKey: 'coolers',            powerKey: 'cooler' },
-    { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',           compKey: 'radars',             powerKey: 'radar' },
-    { key: 'power',       label: 'Power',       icon: 'ItemPowerPlant.svg',      compKey: 'powerplants',        powerKey: 'power' },
-    { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',    compKey: 'quantum_drives',     powerKey: 'quantum' },
-    { key: 'lifesupport', label: 'Life Supp.',  icon: 'ItemLifeSupport.svg',     compKey: null,                 powerKey: null },
+    { key: 'weapons',     label: 'Weapons',     icon: 'ItemWeapons.svg',         compKey: 'weapons'            },
+    { key: 'engines',     label: 'Engines',     icon: 'ItemThrusters.svg',       compKey: 'flight_controllers' },
+    { key: 'shields',     label: 'Shields',     icon: 'ItemShields.svg',         compKey: 'shields'            },
+    { key: 'cooler',      label: 'Cooler',      icon: 'ItemCooler.svg',          compKey: 'coolers'            },
+    { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',           compKey: 'radars'             },
+    { key: 'power',       label: 'Power',       icon: 'ItemPowerPlant.svg',      compKey: 'powerplants'        },
+    { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',    compKey: 'quantum_drives'     },
+    { key: 'lifesupport', label: 'Life Supp.',  icon: 'ItemLifeSupport.svg',     compKey: 'lifesupport'        },
+    { key: 'salvage',     label: 'Salvage',     icon: 'ItemSalvage.svg',         compKey: 'salvage'            },
   ];
-  // Multiplier each level applies when a component has no per-component
-  // powerRanges in the data — fallback only. Real values come from the
-  // component's own power_low/medium/high columns when present.
+  // Fallback multipliers when a component carries no powerRanges (rare).
   const POWER_LEVEL_FALLBACK = { low: 0.7, medium: 0.85, high: 1.0 };
 
   const POWER_STATE = Object.fromEntries(
-    POWER_CATEGORIES.map(c => [c.key, { enabled: true, levelIdx: 2 }]) // start at "high"
+    POWER_CATEGORIES.map(c => [c.key, { enabled: true, levelIdx: 2 }])  // start at "high"
   );
 
-  let powerGridRendered = false;
+  // Return the installed components for a category, filtered to those that
+  // actually declare a power draw (so empty/placeholder rows don't show up).
+  function componentsForCategory(catKey) {
+    const cat = POWER_CATEGORIES.find(c => c.key === catKey);
+    if (!cat) return [];
+    const list = (sidebarLoadout()[cat.compKey] || []);
+    return list.filter(c => (c.power_draw || 0) > 0);
+  }
+
+  // Split a component's power_draw into (mandatory_block_size, adjustable_segments).
+  // mandatory_block_size = high_start - medium_start (the big always-on bar
+  // when category is at medium+ power). adjustable = the rest, rendered as
+  // individual 1-segment bars above the block.
+  function powerBarBreakdown(comp) {
+    const draw = Math.round(comp.power_draw || 0);
+    const med  = Math.round(comp.power_medium_start || 0);
+    const hi   = Math.round(comp.power_high_start   || 0);
+    const mandatory  = Math.max(0, Math.min(draw, hi - med));
+    const adjustable = Math.max(0, draw - mandatory);
+    return { mandatory, adjustable };
+  }
 
   function renderPowerGrid() {
-    if (powerGridRendered) return;  // built once; state mutations re-render in place
     const root = document.getElementById('pm-grid');
     if (!root) return;
-    root.innerHTML = POWER_CATEGORIES.map(c => `
-      <div class="pm-col" data-cat="${c.key}">
-        <div class="pm-segments">
-          <div class="pm-seg"></div>
-          <div class="pm-seg"></div>
-          <div class="pm-seg"></div>
-        </div>
-        <div class="pm-icon" style="--icon: url(/static/img/icons/${c.icon}); -webkit-mask-image: url(/static/img/icons/${c.icon}); mask-image: url(/static/img/icons/${c.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;"></div>
-        <div class="pm-level">High</div>
-      </div>
-    `).join('');
-    // Click icon → toggle on/off; click segments → cycle level low → medium → high
+    // Only show categories where the ship has installed power-bearing components.
+    const visible = POWER_CATEGORIES.filter(c => componentsForCategory(c.key).length > 0);
+    root.style.gridTemplateColumns = `repeat(${visible.length}, 1fr)`;
+    root.innerHTML = visible.map(c => {
+      const comps = componentsForCategory(c.key);
+      // Per-component bars laid out side-by-side within the column.
+      const bars = comps.map((comp, i) => {
+        const { mandatory, adjustable } = powerBarBreakdown(comp);
+        const adjSegs = Array.from({ length: adjustable }, (_, j) =>
+          `<div class="pm-seg" data-idx="${j}"></div>`
+        ).join('');
+        const mandHtml = mandatory > 0
+          ? `<div class="pm-mandatory" style="flex: ${mandatory} 0 0;"></div>`
+          : '';
+        return `<div class="pm-bar" data-comp="${i}">${adjSegs}${mandHtml}</div>`;
+      }).join('');
+      const iconStyle = `-webkit-mask-image: url(/static/img/icons/${c.icon}); mask-image: url(/static/img/icons/${c.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;`;
+      return `
+        <div class="pm-col" data-cat="${c.key}" title="${c.label}">
+          <div class="pm-bars">${bars}</div>
+          <div class="pm-icon" style="${iconStyle}"></div>
+          <div class="pm-level">High</div>
+        </div>`;
+    }).join('');
+
     root.querySelectorAll('.pm-col').forEach(col => {
       const key = col.dataset.cat;
-      const isPlaceholder = !POWER_CATEGORIES.find(c => c.key === key).compKey;
-      if (isPlaceholder) col.classList.add('disabled-cat');
-
       col.querySelector('.pm-icon').addEventListener('click', e => {
-        if (isPlaceholder) return;
         e.stopPropagation();
         POWER_STATE[key].enabled = !POWER_STATE[key].enabled;
         repaintPowerCol(key);
         recomputeSidebarStats(window.__currentShip);
       });
-      col.querySelector('.pm-segments').addEventListener('click', e => {
-        if (isPlaceholder) return;
+      col.querySelector('.pm-bars').addEventListener('click', e => {
         e.stopPropagation();
         if (!POWER_STATE[key].enabled) return;
         POWER_STATE[key].levelIdx = (POWER_STATE[key].levelIdx + 1) % POWER_LEVELS.length;
@@ -2952,7 +3002,6 @@ body::before {
       });
       repaintPowerCol(key);
     });
-    powerGridRendered = true;
   }
 
   function repaintPowerCol(key) {
@@ -2960,19 +3009,31 @@ body::before {
     if (!col) return;
     const st = POWER_STATE[key];
     col.classList.toggle('off', !st.enabled);
-    const segs = col.querySelectorAll('.pm-seg');
-    // segments are stacked bottom-up (column-reverse); paint up to the level
-    segs.forEach((s, i) => {
-      s.classList.remove('on', 'dim', 'low');
-      if (!st.enabled) return;
-      if (i <= st.levelIdx) {
-        s.classList.add(POWER_LEVELS[st.levelIdx] === 'high' ? 'on'
-                       : POWER_LEVELS[st.levelIdx] === 'medium' ? 'dim' : 'low');
-      }
+    const level = POWER_LEVELS[st.levelIdx];
+    col.dataset.level = level;
+    // Adjustable segments: "on" up to and including current level position
+    // counted from the bottom. low = 0 lit, medium = ~half, high = all.
+    col.querySelectorAll('.pm-bar').forEach(bar => {
+      const adjSegs = bar.querySelectorAll('.pm-seg');
+      const n = adjSegs.length;
+      // How many of the adjustable bars are "on" at each level:
+      //   low = 0  (only mandatory lit), medium = ceil(n/2), high = n
+      const litCount = !st.enabled ? 0
+        : level === 'low'    ? 0
+        : level === 'medium' ? Math.ceil(n / 2)
+        : n;
+      adjSegs.forEach((s, i) => {
+        s.classList.remove('on', 'dim');
+        // segments rendered top-down; "bottom" of adjustable stack = highest index
+        const fromBottom = n - 1 - i;
+        if (fromBottom < litCount) s.classList.add(level === 'high' ? 'on' : 'dim');
+      });
+      // Mandatory block: always lit when category is enabled (it's the floor)
+      const mand = bar.querySelector('.pm-mandatory');
+      if (mand) mand.classList.toggle('off', !st.enabled);
     });
     col.querySelector('.pm-level').textContent =
-      st.enabled ? POWER_LEVELS[st.levelIdx].charAt(0).toUpperCase() + POWER_LEVELS[st.levelIdx].slice(1)
-                 : 'Off';
+      st.enabled ? level.charAt(0).toUpperCase() + level.slice(1) : 'Off';
   }
 
   // Pull the modifier for a component at the current power level. Falls back
@@ -3115,7 +3176,8 @@ body::before {
     // EM & IR signature = sum across all installed components that carry one.
     const sigSources = []
       .concat(ld.shields || [], ld.coolers || [], ld.powerplants || [],
-              ld.radars || [], ld.quantum_drives || [], ld.weapons || []);
+              ld.radars || [], ld.quantum_drives || [], ld.weapons || [],
+              ld.lifesupport || [], ld.salvage || []);
     const emSig = sigSources.reduce((acc, c) => acc + (c.em_signature || 0), 0);
     const irSig = sigSources.reduce((acc, c) => acc + (c.ir_signature || 0), 0);
     setNum('ms-sig-em', emSig || null, 0);
