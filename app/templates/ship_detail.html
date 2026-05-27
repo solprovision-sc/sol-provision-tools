@@ -2917,16 +2917,32 @@ body::before {
   // Click icon → toggle on/off; click segments → cycle level. Both trigger
   // a stats recompute.
   const POWER_LEVELS = ['low', 'medium', 'high'];
+  // 13-slot layout mirroring SPViewer. Each row resolves to a list of installed
+  // components via compKey (the loadout/payload bucket) optionally filtered.
+  // Categories with no installed components are hidden by renderPowerGrid.
+  //
+  // Items typed in unusual places:
+  //   - item_weapons rows where item_type is WeaponMining → mining (slot 8)
+  //   - item_weapons rows where item_type is TractorBeam/TowingBeam → utility (slot 10)
+  //   - item_salvage rows whose entity_name starts with 'wep_' are weapon-mount
+  //     tractor beams (SalvageHead-typed) → utility (slot 10), not salvage (slot 9)
+  const isPilotWeapon  = c => c.item_type === 'WeaponGun';
+  const isMiningWeapon = c => c.item_type === 'WeaponMining';
+  const isUtilityWeapon = c => c.item_type === 'TractorBeam' || c.item_type === 'TowingBeam';
   const POWER_CATEGORIES = [
-    { key: 'weapons',     label: 'Weapons',     icon: 'ItemWeapons.svg',         compKey: 'weapons'            },
-    { key: 'engines',     label: 'Engines',     icon: 'ItemThrusters.svg',       compKey: 'flight_controllers' },
-    { key: 'shields',     label: 'Shields',     icon: 'ItemShields.svg',         compKey: 'shields'            },
-    { key: 'cooler',      label: 'Cooler',      icon: 'ItemCooler.svg',          compKey: 'coolers'            },
-    { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',           compKey: 'radars'             },
-    { key: 'power',       label: 'Power',       icon: 'ItemPowerPlant.svg',      compKey: 'powerplants'        },
-    { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',    compKey: 'quantum_drives'     },
-    { key: 'lifesupport', label: 'Life Supp.',  icon: 'ItemLifeSupport.svg',     compKey: 'lifesupport'        },
-    { key: 'salvage',     label: 'Salvage',     icon: 'ItemSalvage.svg',         compKey: 'salvage'            },
+    { key: 'weapons',     label: 'Weapons',     icon: 'ItemWeapons.svg',       compKey: 'weapons',            filter: isPilotWeapon },
+    { key: 'boost',       label: 'Boost',       icon: 'ItemThrusters.svg',     compKey: 'flight_controllers' },
+    { key: 'wheels',      label: 'Wheels',      icon: 'ItemThrusters.svg',     compKey: 'wheels_controllers' },
+    { key: 'shields',     label: 'Shields',     icon: 'ItemShields.svg',       compKey: 'shields'            },
+    { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',  compKey: 'quantum_drives'     },
+    { key: 'emp',         label: 'EMP',         icon: 'ItemCountermeasure.svg',compKey: 'emp'                },
+    { key: 'qed',         label: 'QED',         icon: 'ItemQuantumDrive.svg',  compKey: 'qed'                },
+    { key: 'mining',      label: 'Mining',      icon: 'ItemMining.svg',        compKey: 'weapons',            filter: isMiningWeapon },
+    { key: 'salvage',     label: 'Salvage',     icon: 'ItemSalvage.svg',       compKey: 'salvage',            filter: c => !(c.entity_name || '').toLowerCase().startsWith('wep_') },
+    { key: 'utility',     label: 'Utility',     icon: 'ItemTractorBeam.svg',   compKey: 'utility',            multiCompKey: ['weapons','salvage'], filter: c => isUtilityWeapon(c) || (c.entity_name || '').toLowerCase().startsWith('wep_') },
+    { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',         compKey: 'radars'             },
+    { key: 'lifesupport', label: 'Life Supp.',  icon: 'ItemLifeSupport.svg',   compKey: 'lifesupport'        },
+    { key: 'cooler',      label: 'Cooler',      icon: 'ItemCooler.svg',        compKey: 'coolers'            },
   ];
   // Fallback multipliers when a component carries no powerRanges (rare).
   const POWER_LEVEL_FALLBACK = { low: 0.7, medium: 0.85, high: 1.0 };
@@ -2940,7 +2956,16 @@ body::before {
   function componentsForCategory(catKey) {
     const cat = POWER_CATEGORIES.find(c => c.key === catKey);
     if (!cat) return [];
-    const list = (sidebarLoadout()[cat.compKey] || []);
+    const ld = sidebarLoadout();
+    // Either pull from a single bucket (compKey) or merge from multiple
+    // (multiCompKey) — used for the utility column which sources from both
+    // weapons (TractorBeam/TowingBeam) and salvage (wep_tractorbeam_* heads).
+    const buckets = cat.multiCompKey || [cat.compKey];
+    let list = [];
+    for (const k of buckets) {
+      if (Array.isArray(ld[k])) list = list.concat(ld[k]);
+    }
+    if (cat.filter) list = list.filter(cat.filter);
     return list.filter(c => (c.power_draw || 0) > 0);
   }
 
@@ -3177,7 +3202,9 @@ body::before {
     const sigSources = []
       .concat(ld.shields || [], ld.coolers || [], ld.powerplants || [],
               ld.radars || [], ld.quantum_drives || [], ld.weapons || [],
-              ld.lifesupport || [], ld.salvage || []);
+              ld.lifesupport || [], ld.salvage || [],
+              ld.emp || [], ld.qed || [], ld.tool_arms || [],
+              ld.wheels_controllers || []);
     const emSig = sigSources.reduce((acc, c) => acc + (c.em_signature || 0), 0);
     const irSig = sigSources.reduce((acc, c) => acc + (c.ir_signature || 0), 0);
     setNum('ms-sig-em', emSig || null, 0);

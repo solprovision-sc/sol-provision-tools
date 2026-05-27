@@ -1231,6 +1231,8 @@ def get_ship_components(conn, ship_entity, patch):
 
     # Salvage components: heads, scraper/buff modifiers, and per-ship filler
     # stations. All three live in item_salvage with a salvage_type column.
+    # Also catches weapon-mount tractor/towing beams (wep_tractorbeam_*)
+    # which are typed SalvageHead but live under ships/weapons/.
     salvage = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
@@ -1240,6 +1242,59 @@ def get_ship_components(conn, ship_entity, patch):
                t.power_low, t.power_medium, t.power_high,
                t.power_low_start, t.power_medium_start, t.power_high_start
         {join("item_salvage")}""")
+
+    # EMP devices (Mantis, Hawk, Vanguard Sentinel, Scorpius variant).
+    emp = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.charge_time, t.unleash_time, t.cooldown_time,
+               t.distortion_damage,
+               t.emp_radius, t.min_emp_radius,
+               t.phys_radius, t.min_phys_radius, t.pressure,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_emp")}""")
+
+    # QED — Quantum Enforcement Devices (interdictors).
+    qed = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.base_power_draw_fraction, t.pulse_power_fraction, t.jammer_power_fraction,
+               t.charge_time_secs, t.discharge_time_secs, t.cooldown_time_secs,
+               t.radius_meters, t.max_power_draw,
+               t.active_power_draw_fraction, t.tethering_power_draw_fraction,
+               t.green_zone_check_range,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_qed")}""")
+
+    # Tool arm mounts (tractor + mining arms). Structural — the actual
+    # power-bearing tool installs into the arm's hardpoint. tool_kind
+    # discriminates 'tractor' vs 'mining'.
+    tool_arms = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.tool_kind, t.ignore_warmup_cooldown,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_tool_arms")}""")
+
+    # Ground-vehicle wheels controllers (analog to flight_controllers for ships).
+    wheels_controllers = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.minimum_power_amount,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_wheels_controllers")}""")
 
     return {
         "armor":              armor,
@@ -1259,6 +1314,10 @@ def get_ship_components(conn, ship_entity, patch):
         "radars":             radars,
         "lifesupport":        lifesupport,
         "salvage":            salvage,
+        "emp":                emp,
+        "qed":                qed,
+        "tool_arms":          tool_arms,
+        "wheels_controllers": wheels_controllers,
     }
 
 
