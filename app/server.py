@@ -2117,6 +2117,30 @@ COALESCE(
         bp["tiers"]         = sorted(f["tiers"])         if f else []
         bp["legality"]      = sorted(f["legality"])      if f else []
 
+    # ── Attach distinct ingredient display names per blueprint ──
+    # Drives the "Inputs" sidebar filter — user selects up to 3 ingredients
+    # and we filter to blueprints that contain ALL of them.
+    ing_rows = db.execute("""
+        SELECT
+            s.blueprint_uuid AS bp,
+            COALESCE(e.display_name, ci.display_name, ci.resource_name) AS display_name
+        FROM crafting_slots s
+        JOIN crafting_ingredients ci ON ci.slot_id = s.id
+        LEFT JOIN entities e
+            ON e.uuid = ci.resource_uuid AND e.patch_version = ci.patch_version
+        WHERE s.patch_version = ?
+          AND COALESCE(e.display_name, ci.display_name, ci.resource_name) IS NOT NULL
+          AND COALESCE(e.display_name, ci.display_name, ci.resource_name) <> ''
+    """, (patch,)).fetchall()
+
+    inputs_by_bp = {}
+    for ir in ing_rows:
+        inputs_by_bp.setdefault(ir["bp"], set()).add(ir["display_name"])
+
+    for bp in results:
+        names = inputs_by_bp.get(bp["uuid"])
+        bp["inputs"] = sorted(names) if names else []
+
     return jsonify(results)
     
     
