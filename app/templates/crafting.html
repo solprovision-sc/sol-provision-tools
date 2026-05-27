@@ -999,7 +999,6 @@ function refreshOwnershipUI() {
 // rebuilding the whole sidebar, and we don't want to drop the user's expanded
 // filter-group state in the process.
 function refreshOwnershipFilterCounts() {
-  if (!currentUser) return;
   const owned = countOwnership("owned");
   const notOwned = countOwnership("not_owned");
   document.querySelectorAll('.filter-check[data-facet="ownership"]').forEach(row => {
@@ -1058,12 +1057,12 @@ function countMid(mid) {
 function countFacet(field, value) {
   return allBlueprints.filter(bp => (bp[field] || []).includes(value)).length;
 }
-// Count blueprints the current user owns (or doesn't own). Only meaningful
-// after loadOwnershipForAll has populated ownershipByBp; before then the
-// counts will read as 0 / total — which is fine, the labels stay accurate
-// and refreshOwnershipFilterCounts() updates them once data lands.
+// Count blueprints the current user owns (or doesn't own). Driven by
+// ownershipByBp.ownedByMe, which is populated async by loadOwnershipForAll —
+// before that resolves (or for logged-out visitors), owned reads as 0 and
+// not_owned reads as the full catalog. refreshOwnershipFilterCounts() rewrites
+// the numbers in place once data lands.
 function countOwnership(value) {
-  if (!currentUser) return 0;
   let owned = 0;
   allBlueprints.forEach(bp => {
     if (ownershipByBp.get(bp.uuid)?.ownedByMe) owned += 1;
@@ -1144,9 +1143,16 @@ function collapsibleGroup(title, innerHtml, collapsed) {
 function buildSidebar() {
   const tree = document.getElementById("filter-tree");
 
+  // OWNERSHIP — top of the sidebar so users hit it before everything else.
+  // Renders for logged-out visitors too; their counts read 0 owned / N not-owned
+  // which is the correct truth (no Discord identity → owns nothing yet).
+  let html = `<div class="filter-head">Ownership</div>`;
+  html += checkboxRow("ownership", "owned",     "Owned",     countOwnership("owned"));
+  html += checkboxRow("ownership", "not_owned", "Not Owned", countOwnership("not_owned"));
+
   // ITEMS — flat checkboxes, except Ship Components which expands into a
   // collapsible group of component-type sub-filters.
-  let html = `<div class="filter-head">Items</div>`;
+  html += `<div class="filter-head">Items</div>`;
   ITEM_CATEGORIES.forEach(([cat, label]) => {
     if (countItem(cat) === 0) return;
     if (cat === "ship_components") {
@@ -1173,15 +1179,6 @@ function buildSidebar() {
       html += checkboxRow("item", cat, label, countItem(cat));
     }
   });
-
-  // OWNERSHIP — only meaningful when logged in. Two-row group below Items.
-  // Counts update via refreshOwnershipFilterCounts() once /ownership lands.
-  if (currentUser) {
-    const ownershipRows =
-      checkboxRow("ownership", "owned",     "Owned",     countOwnership("owned")) +
-      checkboxRow("ownership", "not_owned", "Not Owned", countOwnership("not_owned"));
-    html += `<div class="filter-head">Ownership</div>` + ownershipRows;
-  }
 
   // MISSIONS — collapsible sub-groups
   html += `<div class="filter-head">Missions</div>`;
