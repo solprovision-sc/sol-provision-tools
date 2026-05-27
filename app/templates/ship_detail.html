@@ -101,57 +101,52 @@
 }
 
 /* ── Power Management grid ─────────────────────────────────────────── */
+/* Power management grid. SPViewer-style layout:
+   - Each "segment unit" has a fixed pixel height (--pm-seg).
+   - Columns grow vertically based on segment count (more segments = taller).
+   - Container (.pm-grid) flexes to the tallest column.
+   - Mandatory blocks sized by mandatory_count × --pm-seg, one per component.
+   - Adjustable segments stack above, each individually toggleable. */
 .pm-grid {
+  --pm-seg: 18px;
   display: grid;
-  /* grid-template-columns is set dynamically by renderPowerGrid based on
-     visible column count — fall back to 8 if JS hasn't run yet. */
+  /* grid-template-columns set dynamically by renderPowerGrid; fall back to 8 */
   grid-template-columns: repeat(8, 1fr);
   gap: 4px;
   margin-bottom: 8px;
+  align-items: end;     /* bottoms aligned; shorter columns sit at the floor */
 }
 .pm-col {
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: pointer;
   user-select: none;
 }
 .pm-bars {
   display: flex;
-  flex-direction: row;
+  flex-direction: column-reverse;   /* mandatory anchors at the bottom; adjustable adds upward */
   gap: 2px;
-  height: 64px;
   width: 100%;
   align-items: stretch;
   padding-bottom: 4px;
 }
-.pm-bar {
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 0;
-  gap: 2px;
-  justify-content: flex-end;   /* adjustable segs stack from the top, mandatory anchors bottom */
-  min-width: 0;
-}
 .pm-seg {
-  flex: 1 0 0;
-  min-height: 3px;
+  height: var(--pm-seg);
   background: rgba(126,38,25,0.18);
   border-radius: 1px;
+  cursor: pointer;
   transition: background 0.12s;
 }
+.pm-seg.on { background: #E8855C; }
+.pm-seg.gated { cursor: not-allowed; opacity: 0.45; }
 .pm-mandatory {
-  /* flex: ${mandatory} 0 0 set inline so the block is height-proportional to
-     how many segments it represents. Always-on when category is enabled. */
+  /* height set inline = mandatory_count × --pm-seg */
   background: #E8855C;
   border-radius: 2px;
+  cursor: pointer;
   transition: background 0.12s, opacity 0.12s;
 }
 .pm-mandatory.off { background: rgba(70,40,30,0.30); }
-
-.pm-seg.on   { background: #E8855C; }    /* high */
-.pm-seg.dim  { background: rgba(232,133,92,0.55); }  /* medium */
-.pm-col.off .pm-seg { background: rgba(70,40,30,0.30); }
 
 .pm-icon {
   width: 18px;
@@ -161,10 +156,11 @@
   -webkit-mask: var(--icon) no-repeat center / contain;
           mask: var(--icon) no-repeat center / contain;
   color: #E8855C;
+  cursor: pointer;
   transition: color 0.12s, opacity 0.12s;
 }
 .pm-col.off .pm-icon { color: #6a4d3c; opacity: 0.55; }
-.pm-col:hover .pm-icon { color: #ffb892; }
+.pm-icon:hover { color: #ffb892; }
 
 .pm-level {
   font-size: 7px;
@@ -173,6 +169,7 @@
   text-transform: uppercase;
   margin-top: 2px;
   line-height: 1;
+  text-align: center;
 }
 .pm-col.off .pm-level { color: #5a4f3d; }
 
@@ -2916,7 +2913,11 @@ body::before {
   // Power-state per category: enabled + levelIdx (0=low,1=medium,2=high).
   // Click icon → toggle on/off; click segments → cycle level. Both trigger
   // a stats recompute.
-  const POWER_LEVELS = ['low', 'medium', 'high'];
+  // Fallback multipliers used by the meta-stats math when a component
+  // doesn't declare its own powerRanges curve. Lookup by level name.
+  // (The grid UI no longer cycles low/med/high — segments are toggled
+  // individually — but the math still blends between medium and high.)
+  const POWER_LEVELS = ['low', 'medium', 'high'];  // retained for legacy refs
   // 13-slot layout mirroring SPViewer. Each row resolves to a list of installed
   // components via compKey (the loadout/payload bucket) optionally filtered.
   // Categories with no installed components are hidden by renderPowerGrid.
@@ -2947,19 +2948,27 @@ body::before {
   // Fallback multipliers when a component carries no powerRanges (rare).
   const POWER_LEVEL_FALLBACK = { low: 0.7, medium: 0.85, high: 1.0 };
 
-  const POWER_STATE = Object.fromEntries(
-    POWER_CATEGORIES.map(c => [c.key, { enabled: true, levelIdx: 2 }])  // start at "high"
-  );
+  // Cell state — one entry per rendered column. A cell groups N components
+  // that share a column (e.g. all 2 shields on Hornet), or it represents a
+  // single component (e.g. each cooler when the ship has multiple coolers).
+  // Cell key = category key for single-cell categories, or "<cat>-<idx>" for
+  // multi-cell categories (cooler).
+  //
+  //   CELL_STATE[cellKey] = {
+  //     catKey:     string,
+  //     compEnabled:[bool, ...],   // per-component on/off (mandatory block per comp)
+  //     adjLit:     [bool, ...],   // per-adjustable-segment toggle (shared in cell)
+  //   }
+  //
+  // adjLit length = sum across cell's components of (power_draw - mandatory_size).
+  // Total power-on fraction per component = mandatory (if compEnabled) + that
+  // component's share of lit adjustable segments.
+  let CELL_STATE = {};
 
-  // Return the installed components for a category, filtered to those that
-  // actually declare a power draw (so empty/placeholder rows don't show up).
   function componentsForCategory(catKey) {
     const cat = POWER_CATEGORIES.find(c => c.key === catKey);
     if (!cat) return [];
     const ld = sidebarLoadout();
-    // Either pull from a single bucket (compKey) or merge from multiple
-    // (multiCompKey) — used for the utility column which sources from both
-    // weapons (TractorBeam/TowingBeam) and salvage (wep_tractorbeam_* heads).
     const buckets = cat.multiCompKey || [cat.compKey];
     let list = [];
     for (const k of buckets) {
@@ -2969,10 +2978,9 @@ body::before {
     return list.filter(c => (c.power_draw || 0) > 0);
   }
 
-  // Split a component's power_draw into (mandatory_block_size, adjustable_segments).
-  // mandatory_block_size = high_start - medium_start (the big always-on bar
-  // when category is at medium+ power). adjustable = the rest, rendered as
-  // individual 1-segment bars above the block.
+  // Split a component's power_draw into (mandatory_size, adjustable_count).
+  // Mandatory = the always-on minimum block (high_start − medium_start).
+  // Adjustable = remaining segments, individually toggleable above.
   function powerBarBreakdown(comp) {
     const draw = Math.round(comp.power_draw || 0);
     const med  = Math.round(comp.power_medium_start || 0);
@@ -2982,94 +2990,210 @@ body::before {
     return { mandatory, adjustable };
   }
 
+  // Decide how many cells (= rendered columns) a category produces.
+  // Coolers split: 1 cell per cooler when there are ≥2. Everything else: 1.
+  function cellsForCategory(cat, comps) {
+    if (cat.key === 'cooler' && comps.length > 1) {
+      return comps.map((c, i) => ({
+        key:   `${cat.key}-${i}`,
+        cat,
+        comps: [c],
+      }));
+    }
+    return [{ key: cat.key, cat, comps }];
+  }
+
+  // Initialize / preserve cell state when grid is (re-)rendered.
+  function ensureCellState(cell) {
+    const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c).adjustable, 0);
+    const existing = CELL_STATE[cell.key];
+    if (existing && existing.compEnabled.length === cell.comps.length
+                 && existing.adjLit.length === totalAdj) {
+      return existing;     // state shape unchanged; reuse
+    }
+    CELL_STATE[cell.key] = {
+      catKey:      cell.cat.key,
+      compEnabled: cell.comps.map(() => true),
+      adjLit:      Array.from({ length: totalAdj }, () => true),
+    };
+    return CELL_STATE[cell.key];
+  }
+
+  // Categories whose adjustable segments require ALL components to be on
+  // before they can be individually activated. SPViewer behavior for shields.
+  const GATED_BY_ALL_ON = new Set(['shields']);
+
   function renderPowerGrid() {
     const root = document.getElementById('pm-grid');
     if (!root) return;
-    // Only show categories where the ship has installed power-bearing components.
-    const visible = POWER_CATEGORIES.filter(c => componentsForCategory(c.key).length > 0);
-    root.style.gridTemplateColumns = `repeat(${visible.length}, 1fr)`;
-    root.innerHTML = visible.map(c => {
-      const comps = componentsForCategory(c.key);
-      // Per-component bars laid out side-by-side within the column.
-      const bars = comps.map((comp, i) => {
-        const { mandatory, adjustable } = powerBarBreakdown(comp);
-        const adjSegs = Array.from({ length: adjustable }, (_, j) =>
-          `<div class="pm-seg" data-idx="${j}"></div>`
-        ).join('');
-        const mandHtml = mandatory > 0
-          ? `<div class="pm-mandatory" style="flex: ${mandatory} 0 0;"></div>`
-          : '';
-        return `<div class="pm-bar" data-comp="${i}">${adjSegs}${mandHtml}</div>`;
+
+    // Build cell list: for each visible category, get its cells.
+    const cells = [];
+    POWER_CATEGORIES.forEach(cat => {
+      const comps = componentsForCategory(cat.key);
+      if (comps.length === 0) return;
+      cellsForCategory(cat, comps).forEach(c => {
+        ensureCellState(c);
+        cells.push(c);
+      });
+    });
+    root.style.gridTemplateColumns = `repeat(${cells.length}, 1fr)`;
+
+    root.innerHTML = cells.map(cell => {
+      const cat = cell.cat;
+      const iconStyle = `-webkit-mask-image: url(/static/img/icons/${cat.icon}); mask-image: url(/static/img/icons/${cat.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;`;
+
+      // Mandatory blocks: one per component, sized by that component's mandatory_size.
+      // Stacked top-to-bottom from data perspective; since .pm-bars is column-reverse
+      // the bottom of the list renders at the floor.
+      const mandHtml = cell.comps.map((comp, i) => {
+        const { mandatory } = powerBarBreakdown(comp);
+        if (mandatory <= 0) return '';
+        // height = mandatory * --pm-seg (set as inline style with calc)
+        return `<div class="pm-mandatory" data-comp="${i}" style="height: calc(var(--pm-seg) * ${mandatory});"></div>`;
       }).join('');
-      const iconStyle = `-webkit-mask-image: url(/static/img/icons/${c.icon}); mask-image: url(/static/img/icons/${c.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;`;
+
+      // Adjustable segments: total across all components in the cell.
+      const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c).adjustable, 0);
+      const adjHtml = Array.from({ length: totalAdj }, (_, j) =>
+        `<div class="pm-seg" data-adj="${j}"></div>`
+      ).join('');
+
+      // Column-reverse stack: mandatory first in DOM (anchors bottom), adjustable after (stacks up).
       return `
-        <div class="pm-col" data-cat="${c.key}" title="${c.label}">
-          <div class="pm-bars">${bars}</div>
+        <div class="pm-col" data-cell="${cell.key}" data-cat="${cat.key}" title="${cat.label}">
+          <div class="pm-bars">${mandHtml}${adjHtml}</div>
           <div class="pm-icon" style="${iconStyle}"></div>
-          <div class="pm-level">High</div>
+          <div class="pm-level">100%</div>
         </div>`;
     }).join('');
 
+    // Wire up click handlers.
     root.querySelectorAll('.pm-col').forEach(col => {
-      const key = col.dataset.cat;
+      const cellKey = col.dataset.cell;
+      const st = CELL_STATE[cellKey];
+      // Icon → toggle whole cell (turn all components on or all off).
       col.querySelector('.pm-icon').addEventListener('click', e => {
         e.stopPropagation();
-        POWER_STATE[key].enabled = !POWER_STATE[key].enabled;
-        repaintPowerCol(key);
+        const anyOn = st.compEnabled.some(Boolean);
+        st.compEnabled = st.compEnabled.map(() => !anyOn);
+        repaintCell(cellKey);
         recomputeSidebarStats(window.__currentShip);
       });
-      col.querySelector('.pm-bars').addEventListener('click', e => {
-        e.stopPropagation();
-        if (!POWER_STATE[key].enabled) return;
-        POWER_STATE[key].levelIdx = (POWER_STATE[key].levelIdx + 1) % POWER_LEVELS.length;
-        repaintPowerCol(key);
-        recomputeSidebarStats(window.__currentShip);
+      // Each mandatory block → toggle that component on/off.
+      col.querySelectorAll('.pm-mandatory').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          const i = parseInt(el.dataset.comp, 10);
+          st.compEnabled[i] = !st.compEnabled[i];
+          repaintCell(cellKey);
+          recomputeSidebarStats(window.__currentShip);
+        });
       });
-      repaintPowerCol(key);
+      // Each adjustable segment → toggle that segment.
+      // For gated categories (shields), no-op when not all components are on.
+      col.querySelectorAll('.pm-seg').forEach(el => {
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          if (GATED_BY_ALL_ON.has(st.catKey) && !st.compEnabled.every(Boolean)) return;
+          const j = parseInt(el.dataset.adj, 10);
+          st.adjLit[j] = !st.adjLit[j];
+          repaintCell(cellKey);
+          recomputeSidebarStats(window.__currentShip);
+        });
+      });
+      repaintCell(cellKey);
     });
   }
 
-  function repaintPowerCol(key) {
-    const col = document.querySelector(`.pm-col[data-cat="${key}"]`);
+  function repaintCell(cellKey) {
+    const col = document.querySelector(`.pm-col[data-cell="${cellKey}"]`);
     if (!col) return;
-    const st = POWER_STATE[key];
-    col.classList.toggle('off', !st.enabled);
-    const level = POWER_LEVELS[st.levelIdx];
-    col.dataset.level = level;
-    // Adjustable segments: "on" up to and including current level position
-    // counted from the bottom. low = 0 lit, medium = ~half, high = all.
-    col.querySelectorAll('.pm-bar').forEach(bar => {
-      const adjSegs = bar.querySelectorAll('.pm-seg');
-      const n = adjSegs.length;
-      // How many of the adjustable bars are "on" at each level:
-      //   low = 0  (only mandatory lit), medium = ceil(n/2), high = n
-      const litCount = !st.enabled ? 0
-        : level === 'low'    ? 0
-        : level === 'medium' ? Math.ceil(n / 2)
-        : n;
-      adjSegs.forEach((s, i) => {
-        s.classList.remove('on', 'dim');
-        // segments rendered top-down; "bottom" of adjustable stack = highest index
-        const fromBottom = n - 1 - i;
-        if (fromBottom < litCount) s.classList.add(level === 'high' ? 'on' : 'dim');
-      });
-      // Mandatory block: always lit when category is enabled (it's the floor)
-      const mand = bar.querySelector('.pm-mandatory');
-      if (mand) mand.classList.toggle('off', !st.enabled);
+    const st = CELL_STATE[cellKey];
+    const allOff = !st.compEnabled.some(Boolean);
+    col.classList.toggle('off', allOff);
+
+    // Paint mandatory blocks per component.
+    col.querySelectorAll('.pm-mandatory').forEach(el => {
+      const i = parseInt(el.dataset.comp, 10);
+      el.classList.toggle('off', !st.compEnabled[i]);
     });
-    col.querySelector('.pm-level').textContent =
-      st.enabled ? level.charAt(0).toUpperCase() + level.slice(1) : 'Off';
+
+    // Paint adjustable segments. Gate visualization: dim/no-click if shields
+    // require all-on but not all are on.
+    const gated = GATED_BY_ALL_ON.has(st.catKey) && !st.compEnabled.every(Boolean);
+    col.querySelectorAll('.pm-seg').forEach(el => {
+      const j = parseInt(el.dataset.adj, 10);
+      el.classList.toggle('on',    !gated && st.adjLit[j]);
+      el.classList.toggle('gated', gated);
+    });
+
+    // Header text: show component-active count for multi-comp cells, else %.
+    const levelEl = col.querySelector('.pm-level');
+    if (st.compEnabled.length > 1) {
+      const onCount = st.compEnabled.filter(Boolean).length;
+      levelEl.textContent = `${onCount}/${st.compEnabled.length}`;
+    } else {
+      // For single-component cells, show a rough power percentage.
+      const cellPct = singleCellPowerPct(st, col);
+      levelEl.textContent = allOff ? 'Off' : `${cellPct}%`;
+    }
   }
 
-  // Pull the modifier for a component at the current power level. Falls back
-  // to the global low/med/high constants if the component carries no curve.
+  function singleCellPowerPct(st, col) {
+    // Sum mandatory + lit adjustable for the cell's one component
+    // divided by total power_draw, rounded to a tidy percent.
+    const cell = findCellByKey(col.dataset.cell);
+    if (!cell || cell.comps.length !== 1) return 100;
+    const comp = cell.comps[0];
+    const { mandatory, adjustable } = powerBarBreakdown(comp);
+    const draw = mandatory + adjustable;
+    if (draw <= 0) return 100;
+    const lit = (st.compEnabled[0] ? mandatory : 0) +
+                st.adjLit.filter(Boolean).length;
+    return Math.round((lit / draw) * 100);
+  }
+
+  function findCellByKey(cellKey) {
+    // Reconstruct from current loadout — cheap; runs only on repaint.
+    for (const cat of POWER_CATEGORIES) {
+      const comps = componentsForCategory(cat.key);
+      if (comps.length === 0) continue;
+      for (const c of cellsForCategory(cat, comps)) {
+        if (c.key === cellKey) return c;
+      }
+    }
+    return null;
+  }
+
+  // Effective power multiplier for one component in a cell, used by the meta-
+  // stats math. Off when the component itself is off; else proportional to how
+  // many adjustable segments are lit (mandatory always counts when on).
   function powerModifier(catKey, comp) {
-    const st = POWER_STATE[catKey];
-    if (!st || !st.enabled) return 0;
-    const level = POWER_LEVELS[st.levelIdx];
-    const col = `power_${level}`;
-    if (comp && typeof comp[col] === 'number') return comp[col];
-    return POWER_LEVEL_FALLBACK[level];
+    // Find the cell containing this component (by reference comparison).
+    let foundCell = null, foundIdx = -1;
+    for (const cat of POWER_CATEGORIES) {
+      if (cat.key !== catKey) continue;
+      const comps = componentsForCategory(cat.key);
+      for (const c of cellsForCategory(cat, comps)) {
+        const idx = c.comps.indexOf(comp);
+        if (idx >= 0) { foundCell = c; foundIdx = idx; break; }
+      }
+      if (foundCell) break;
+    }
+    if (!foundCell) return 1;
+    const st = CELL_STATE[foundCell.key];
+    if (!st || !st.compEnabled[foundIdx]) return 0;
+
+    const { mandatory, adjustable } = powerBarBreakdown(comp);
+    if (mandatory + adjustable <= 0) return 1;
+    const litAdj = st.adjLit.filter(Boolean).length;
+    // Approximation: blend power_medium (mandatory-only) and power_high
+    // (everything-on) by the adjustable fill ratio.
+    const fillRatio = adjustable > 0 ? Math.min(1, litAdj / adjustable) : 1;
+    const lo = (typeof comp.power_medium === 'number') ? comp.power_medium : POWER_LEVEL_FALLBACK.medium;
+    const hi = (typeof comp.power_high   === 'number') ? comp.power_high   : POWER_LEVEL_FALLBACK.high;
+    return lo + (hi - lo) * fillRatio;
   }
 
   // ── Sidebar: Meta Stats ──────────────────────────────────────────────────────
@@ -3225,9 +3349,9 @@ body::before {
     document.getElementById('sb-role').innerHTML   = `<span class="tag tag-c">${ship.role}</span>`;
     document.getElementById('sb-size').textContent = ship.size > 0 ? `S${ship.size}` : '—';
 
-    // Render the power management grid once (state lives in POWER_STATE; the
-    // grid is built lazily on first call). Then compute all the meta stats
-    // from the current loadout — these update on every component swap too.
+    // Render the power management grid (state lives in CELL_STATE; the grid
+    // re-renders cleanly on every loadout change, preserving same-shape state).
+    // Then compute meta stats from the current loadout.
     renderPowerGrid();
     recomputeSidebarStats(ship);
   
