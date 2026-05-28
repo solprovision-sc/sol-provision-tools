@@ -30,11 +30,10 @@
 
 /* Setup panel */
 .cp-setup {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px;
   background: var(--panel); border: 1px solid var(--border2);
   padding: 16px; margin-bottom: 18px;
 }
-@media (max-width: 900px){ .cp-setup { grid-template-columns: repeat(2,1fr); } }
 .cp-field { display: flex; flex-direction: column; gap: 5px; }
 .cp-label {
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
@@ -165,8 +164,12 @@
       <select class="cp-select" id="cp-system"><option value="">—</option></select>
     </div>
     <div class="cp-field">
+      <label class="cp-label" for="cp-psystem">Planetary System</label>
+      <select class="cp-select" id="cp-psystem" disabled><option value="">Select system first</option></select>
+    </div>
+    <div class="cp-field">
       <label class="cp-label" for="cp-current">Current Location</label>
-      <select class="cp-select" id="cp-current"><option value="">Select system first</option></select>
+      <select class="cp-select" id="cp-current" disabled><option value="">Select planetary system</option></select>
     </div>
   </section>
 
@@ -207,7 +210,7 @@ let missionSeq = 0, legSeq = 0;
 const state = {
   ship_uuid: null, ship_entity: null, ship_cargo_scu: 0,
   quantum_drive_uuid: null,
-  current_system: null, current_location_uuid: null,
+  current_system: null, current_ps_key: null, current_location_uuid: null,
   missions: [],
 };
 
@@ -286,7 +289,7 @@ async function onShipChange() {
   QDRIVES = data.drives;
   const qsel = document.getElementById('cp-qd');
   qsel.innerHTML = `<option value="">— select drive —</option>` +
-    QDRIVES.map(d => `<option value="${d.uuid}">${esc(d.name)}</option>`).join('');
+    QDRIVES.map(d => `<option value="${d.uuid}">${esc(d.name)}${d.is_stock ? ' [Stock]' : ''}</option>`).join('');
   // Default to the ship's stock drive (unless we already restored a choice)
   if (!state.quantum_drive_uuid) state.quantum_drive_uuid = data.default_uuid || null;
   if (state.quantum_drive_uuid) qsel.value = state.quantum_drive_uuid;
@@ -294,24 +297,82 @@ async function onShipChange() {
   updateMeter(); scheduleSave();
 }
 
+// Cascade: System → Planetary System → Current Location
+async function ensureSystemLocations() {
+  const sys = state.current_system;
+  if (sys && !currentLocCache[sys]) {
+    currentLocCache[sys] = await api(`/api/cargo/locations?system=${encodeURIComponent(sys)}`);
+  }
+}
+
 async function onSystemChange() {
-  const sel = document.getElementById('cp-system');
-  state.current_system = sel.value || null;
+  state.current_system = document.getElementById('cp-system').value || null;
+  state.current_ps_key = null;
   state.current_location_uuid = null;
-  await populateCurrentLocations();
+  await ensureSystemLocations();
+  populatePlanetarySystems();
+  populateCurrentLocations();
   renderMissions();
   scheduleSave();
 }
 
-async function populateCurrentLocations() {
+function onPSystemChange() {
+  state.current_ps_key = document.getElementById('cp-psystem').value || null;
+  state.current_location_uuid = null;
+  populateCurrentLocations();
+  renderMissions();
+  scheduleSave();
+}
+
+function populatePlanetarySystems() {
+  const sel = document.getElementById('cp-psystem');
   const sys = state.current_system;
-  const sel = document.getElementById('cp-current');
-  if (!sys) { sel.innerHTML = `<option value="">Select system first</option>`; return; }
-  if (!currentLocCache[sys]) {
-    currentLocCache[sys] = await api(`/api/cargo/locations?system=${encodeURIComponent(sys)}`);
+  if (!sys) {
+    sel.disabled = true;
+    sel.innerHTML = `<option value="">Select system first</option>`;
+    return;
   }
-  sel.innerHTML = buildLocationOptions(currentLocCache[sys],
-                    { prefixSystem: false, selected: state.current_location_uuid });
+  const locs = currentLocCache[sys] || [];
+  const seen = new Map();   // ps_key → ps_name (first wins; API already sorted)
+  for (const l of locs) if (!seen.has(l.ps_key)) seen.set(l.ps_key, l.ps_name);
+  const entries = [...seen.entries()].sort((a, b) => {
+    if (a[0] === '_system') return 1;       // System-wide last
+    if (b[0] === '_system') return -1;
+    return (a[1] || '').localeCompare(b[1] || '');
+  });
+  sel.disabled = false;
+  sel.innerHTML = `<option value="">— select —</option>` +
+    entries.map(([k, n]) =>
+      `<option value="${esc(k)}"${k === state.current_ps_key ? ' selected' : ''}>${esc(n)}</option>`
+    ).join('');
+}
+
+function populateCurrentLocations() {
+  const sel = document.getElementById('cp-current');
+  const sys = state.current_system, ps = state.current_ps_key;
+  if (!sys || !ps) {
+    sel.disabled = true;
+    sel.innerHTML = `<option value="">Select planetary system</option>`;
+    return;
+  }
+  const locs = (currentLocCache[sys] || []).filter(l => l.ps_key === ps);
+  const groups = new Map();   // group_label → [locs] (API already ordered)
+  for (const l of locs) {
+    if (!groups.has(l.group_label)) groups.set(l.group_label, []);
+    groups.get(l.group_label).push(l);
+  }
+  let html = `<option value="">— select —</option>`;
+  for (const [label, items] of groups) {
+    html += `<optgroup label="${esc(label)}">`;
+    for (const l of items) {
+      const tag = (l.kind && !['outpost', 'landing_zone', 'station'].includes(l.kind)) ? ` (${l.kind})` : '';
+      const selAttr = l.location_uuid === state.current_location_uuid ? ' selected' : '';
+      html += `<option value="${l.location_uuid}"${selAttr}>${esc(l.name)}${tag}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  sel.disabled = false;
+  sel.innerHTML = html;
 }
 
 function wireSetupHandlers() {
@@ -320,6 +381,7 @@ function wireSetupHandlers() {
     state.quantum_drive_uuid = e.target.value || null; scheduleSave();
   });
   document.getElementById('cp-system').addEventListener('change', onSystemChange);
+  document.getElementById('cp-psystem').addEventListener('change', onPSystemChange);
   document.getElementById('cp-current').addEventListener('change', e => {
     state.current_location_uuid = e.target.value || null;
     renderMissions();   // legs using "same as current" follow it
@@ -648,7 +710,15 @@ async function applySetupDropdowns() {
   }
   if (state.current_system) {
     document.getElementById('cp-system').value = state.current_system;
-    await populateCurrentLocations();
+    await ensureSystemLocations();
+    // Derive the planetary system from the saved location (not persisted directly)
+    if (state.current_location_uuid && !state.current_ps_key) {
+      const loc = (currentLocCache[state.current_system] || [])
+        .find(l => l.location_uuid === state.current_location_uuid);
+      if (loc) state.current_ps_key = loc.ps_key;
+    }
+    populatePlanetarySystems();
+    populateCurrentLocations();
   }
 }
 
