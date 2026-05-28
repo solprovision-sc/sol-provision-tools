@@ -202,7 +202,6 @@
 {% endblock %}
 
 {% block page_script %}
-<script>
 // ── State ────────────────────────────────────────────────────────────────────
 let missionSeq = 0, legSeq = 0;
 const state = {
@@ -658,5 +657,4 @@ function setSaveState(s) {
   el.className = 'cp-save-state ' + s;
   el.textContent = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : '';
 }
-</script>
 {% endblock %}
