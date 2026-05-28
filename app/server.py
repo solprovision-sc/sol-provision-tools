@@ -1,12 +1,12 @@
 # ══════════════════════════════════════════════════════════════════════
 # IMPORTS
 # ══════════════════════════════════════════════════════════════════════
-import os, json, argparse, sqlite3, re
+import os, json, argparse, sqlite3, re, uuid
 from pathlib import Path
 from flask import Flask, jsonify, request, render_template, session
 import requests
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 
 
@@ -123,6 +123,65 @@ def get_user_db():
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
+
+
+# ── Cargo planner user DB (saved plans + activity) ────────────────────────────
+_cargo_schema_ready = False
+
+def _resolve_cargo_db_path():
+    """cargo_planner.db lives alongside dataforge.db unless overridden."""
+    return os.environ.get('CARGO_PLANNER_DB') or \
+        str(Path(DB_PATH).resolve().parent / 'cargo_planner.db')
+
+def _ensure_cargo_schema(conn):
+    """Apply the canonical schema from tools/init_cargo_planner_db.py so the
+    server is self-sufficient (no separate init step needed in deploys)."""
+    import importlib.util
+    init_path = Path(__file__).resolve().parent.parent / "tools" / "init_cargo_planner_db.py"
+    spec = importlib.util.spec_from_file_location("init_cargo_planner_db", init_path)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    conn.executescript(mod.SCHEMA)
+    conn.commit()
+
+def get_cargo_db():
+    global _cargo_schema_ready
+    conn = sqlite3.connect(_resolve_cargo_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    if not _cargo_schema_ready:
+        _ensure_cargo_schema(conn)
+        _cargo_schema_ready = True
+    return conn
+
+def _utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+def _cargo_session_id():
+    sid = session.get('_cargo_sid')
+    if not sid:
+        sid = uuid.uuid4().hex
+        session['_cargo_sid'] = sid
+    return sid
+
+def _cargo_touch_user(conn, discord_id):
+    """Upsert the users row so the activity dashboard has a current name."""
+    now = _utc_now()
+    conn.execute("""
+        INSERT INTO users (discord_id, first_seen_utc, last_seen_utc, username, display_name)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(discord_id) DO UPDATE SET
+            last_seen_utc = excluded.last_seen_utc,
+            username      = COALESCE(excluded.username, users.username),
+            display_name  = COALESCE(excluded.display_name, users.display_name)
+    """, (discord_id, now, now, session.get('username'), session.get('callsign')))
+
+def _cargo_log(conn, discord_id, event_type, details=None):
+    conn.execute("""
+        INSERT INTO activity_log (discord_id, event_type, event_details, timestamp_utc, session_id)
+        VALUES (?, ?, ?, ?, ?)
+    """, (discord_id, event_type,
+          json.dumps(details) if details is not None else None,
+          _utc_now(), _cargo_session_id()))
 
 MFR_MAP = {
     "aegs":"Aegis","anvl":"Anvil","argo":"Argo","cnou":"C.O.","crus":"Crusader",
@@ -406,10 +465,9 @@ def mission_rep():
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
-#@app.route("/cargo-planner")
-#def cargo_planner_page():
-#    from flask import send_from_directory
-#    return send_from_directory("templates", "cargo_planner.html")
+@app.route("/cargo-planner")
+def cargo_planner_page():
+    return render_template("cargo_planner.html", active_page="/cargo-planner")
 
 @app.route("/ledger")
 def ledger(): return render_template("ledger.html", active_page="ledger")
@@ -2892,6 +2950,350 @@ def api_shops_browse():
     """, (patch, location, store)).fetchall()
  
     return jsonify({'items': [dict(r) for r in rows]})
+
+# ══════════════════════════════════════════════════════════════════════
+# CARGO PLANNER — reference data APIs (read-only from dataforge.db)
+# ══════════════════════════════════════════════════════════════════════
+# The cargo planner page lets users plan multi-mission hauling routes. These
+# endpoints feed its dropdowns: ships, quantum drives (with stock default),
+# systems, and locations. Plan persistence lives in cargo_planner.db (added
+# separately). All reference data here is public game data — no auth needed.
+
+CARGO_SYSTEMS = [
+    {"code": "STANTON", "name": "Stanton", "star_key": "StantonStar"},
+    {"code": "PYRO",    "name": "Pyro",    "star_key": "PyroStar"},
+    {"code": "NYX",     "name": "Nyx",     "star_key": "NyxStar"},
+]
+_STAR_KEY_TO_SYSTEM = {s["star_key"]: s["code"] for s in CARGO_SYSTEMS}
+
+
+def _qd_display_name(entity_name):
+    """Prettify a quantum drive entity_name into a readable label.
+    'qdrv_acas_s01_foxfire_scitem' → 'Castra Foxfire (S1)'."""
+    if not entity_name:
+        return ""
+    parts = entity_name.split("_")
+    # Drop leading 'qdrv' and trailing 'scitem'
+    parts = [p for p in parts if p not in ("qdrv", "scitem")]
+    mfr = ""
+    size = ""
+    model_parts = []
+    for p in parts:
+        if not mfr and p in MFR_MAP:
+            mfr = MFR_MAP[p]
+        elif re.fullmatch(r"s\d{1,2}", p):
+            size = f"S{int(p[1:])}"
+        else:
+            model_parts.append(p)
+    model = " ".join(w.capitalize() for w in model_parts) if model_parts else entity_name
+    label = f"{mfr} {model}".strip()
+    return f"{label} ({size})" if size else label
+
+
+@app.route("/api/cargo/systems")
+def api_cargo_systems():
+    return jsonify([{"code": s["code"], "name": s["name"]} for s in CARGO_SYSTEMS])
+
+
+@app.route("/api/cargo/ships")
+def api_cargo_ships():
+    """Ships for the ship dropdown. Includes cargo_scu so the UI can show
+    capacity and warn on overload. Cargo-capable ships first, then the rest."""
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    rows = conn.execute("""
+        SELECT uuid, entity_name, vehicle_name, display_name, cargo_scu,
+               size_class, role, career, mass_kg
+          FROM ships
+         WHERE patch_version = ?
+         ORDER BY (cargo_scu IS NULL OR cargo_scu = 0) ASC,
+                  display_name, vehicle_name
+    """, (p,)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        out.append({
+            "uuid":         r["uuid"],
+            "entity_name":  r["entity_name"],
+            "name":         best_name(r["display_name"], r["vehicle_name"] or r["entity_name"]),
+            "cargo_scu":    r["cargo_scu"] or 0,
+            "size_class":   r["size_class"],
+            "role":         clean_role(r["role"]),
+        })
+    return jsonify(out)
+
+
+@app.route("/api/cargo/qdrives")
+def api_cargo_qdrives():
+    """Quantum drives for the QD dropdown. If ?ship=<entity_name> is given,
+    also returns default_uuid = the stock QD on that ship's default loadout."""
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    rows = conn.execute("""
+        SELECT uuid, entity_name, drive_speed, quantum_fuel_req, jump_range,
+               spool_up_time, cooldown_time, engage_speed,
+               stage_one_accel_mps2, stage_two_accel_mps2
+          FROM item_quantum_drives
+         WHERE patch_version = ?
+         ORDER BY drive_speed DESC
+    """, (p,)).fetchall()
+
+    default_uuid = None
+    ship = request.args.get("ship")
+    if ship:
+        row = conn.execute("""
+            SELECT qd.uuid
+              FROM ship_hardpoints hp
+              JOIN item_quantum_drives qd
+                ON qd.uuid = hp.installed_uuid AND qd.patch_version = hp.patch_version
+             WHERE hp.patch_version = ? AND hp.ship_entity_name = ?
+             LIMIT 1
+        """, (p, ship)).fetchone()
+        default_uuid = row["uuid"] if row else None
+    conn.close()
+
+    drives = [{
+        "uuid":             r["uuid"],
+        "entity_name":      r["entity_name"],
+        "name":             _qd_display_name(r["entity_name"]),
+        "drive_speed":      r["drive_speed"],
+        "quantum_fuel_req": r["quantum_fuel_req"],
+        "jump_range":       r["jump_range"],
+        "spool_up_time":    r["spool_up_time"],
+        "cooldown_time":    r["cooldown_time"],
+        "engage_speed":     r["engage_speed"],
+    } for r in rows]
+    return jsonify({"drives": drives, "default_uuid": default_uuid})
+
+
+def _build_navpt_hierarchy(conn, patch):
+    """Load all nav_points and return (by_uuid, resolver). resolver(uuid)
+    returns (system_code, planet_node, moon_node) by walking parent_uuid up
+    to the star. Cached per call."""
+    by_uuid = {}
+    for r in conn.execute("""
+        SELECT location_uuid, display_name, location_key, kind, parent_uuid
+          FROM nav_points WHERE patch_version = ?
+    """, (patch,)):
+        by_uuid[r["location_uuid"]] = dict(r)
+
+    cache = {}
+
+    def resolve(uuid):
+        if uuid in cache:
+            return cache[uuid]
+        system_code = planet = moon = None
+        cur = uuid
+        seen = set()
+        while cur and cur not in seen:
+            seen.add(cur)
+            node = by_uuid.get(cur)
+            if not node:
+                break
+            kind = node["kind"]
+            if kind == "star":
+                system_code = _STAR_KEY_TO_SYSTEM.get(node["location_key"])
+            elif kind == "planet":
+                planet = node
+            elif kind == "moon":
+                moon = node
+            cur = node["parent_uuid"]
+        cache[uuid] = (system_code, planet, moon)
+        return cache[uuid]
+
+    return by_uuid, resolve
+
+
+@app.route("/api/cargo/locations")
+def api_cargo_locations():
+    """Locations for the planner dropdowns.
+
+    Query params:
+      system=PYRO     — filter to one system (for the 'current location' list)
+      cargo_only=1    — only cargo-capable nav_points (for pickup/dropoff)
+
+    Each location carries system + parent planet/moon so the UI can group:
+        System → Planet → Moon → Location.
+    """
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    system_filter = (request.args.get("system") or "").upper() or None
+    cargo_only = request.args.get("cargo_only") in ("1", "true", "yes")
+
+    by_uuid, resolve = _build_navpt_hierarchy(conn, p)
+
+    cargo_set = set()
+    if cargo_only:
+        cargo_set = {
+            r["location_uuid"] for r in conn.execute(
+                "SELECT DISTINCT location_uuid FROM nav_point_amenities "
+                "WHERE patch_version = ? AND amenity = 'cargo_lift'", (p,)
+            )
+        }
+    conn.close()
+
+    out = []
+    for uuid, node in by_uuid.items():
+        if cargo_only and uuid not in cargo_set:
+            continue
+        # Skip the bodies/stars themselves from the "where am I" list? No —
+        # user could be orbiting a planet. Keep everything; UI groups it.
+        system_code, planet, moon = resolve(uuid)
+        if system_filter and system_code != system_filter:
+            continue
+        out.append({
+            "location_uuid": uuid,
+            "name":          node["display_name"] or node["location_key"],
+            "kind":          node["kind"],
+            "system":        system_code,
+            "planet":        planet["display_name"] if planet else None,
+            "planet_uuid":   planet["location_uuid"] if planet else None,
+            "moon":          moon["display_name"] if moon else None,
+            "moon_uuid":     moon["location_uuid"] if moon else None,
+        })
+
+    # Sort: system, planet, moon, then name — gives the UI a ready grouping
+    out.sort(key=lambda x: (
+        x["system"] or "zzz",
+        x["planet"] or "",
+        x["moon"] or "",
+        x["name"] or "",
+    ))
+    return jsonify(out)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# CARGO PLANNER — plan persistence + activity (cargo_planner.db)
+# ══════════════════════════════════════════════════════════════════════
+# One auto-saved "active draft" per user, keyed on discord_id (the app's
+# canonical identity). Anonymous users get 401 here and the page falls back
+# to localStorage. Saves use a replace strategy: the draft stack's missions
+# (and their legs, via cascade) are wiped and re-inserted on every save.
+
+@app.route('/api/cargo/plan', methods=['GET'])
+def api_cargo_plan_load():
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    conn = get_cargo_db()
+    try:
+        stack = conn.execute(
+            "SELECT * FROM mission_stacks "
+            "WHERE discord_id=? AND is_active_draft=1 AND is_archived=0",
+            (discord_id,)).fetchone()
+        if not stack:
+            return jsonify({'plan': None})
+        missions = []
+        for m in conn.execute(
+            "SELECT * FROM missions WHERE stack_id=? ORDER BY seq", (stack['stack_id'],)):
+            legs = []
+            for l in conn.execute(
+                "SELECT * FROM legs WHERE mission_id=? ORDER BY seq", (m['mission_id'],)):
+                legs.append({
+                    'pickup_uuid':            l['pickup_location_uuid'],
+                    'dropoff_uuid':           l['dropoff_location_uuid'],
+                    'commodity':              l['commodity'],
+                    'quantity_scu':           l['quantity_scu'],
+                    'pickup_same_as_current': bool(l['pickup_same_as_current']),
+                    'pickup_same_as_prev':    bool(l['pickup_same_as_prev']),
+                    'dropoff_same_as_prev':   bool(l['dropoff_same_as_prev']),
+                })
+            missions.append({'notes': m['notes'], 'legs': legs})
+        plan = {
+            'ship_uuid':             stack['ship_uuid'],
+            'quantum_drive_uuid':    stack['quantum_drive_uuid'],
+            'current_system':        stack['current_system'],
+            'current_location_uuid': stack['current_location_uuid'],
+            'missions':              missions,
+        }
+        _cargo_log(conn, discord_id, 'plan_loaded', {'stack_id': stack['stack_id']})
+        conn.commit()
+        return jsonify({'plan': plan})
+    finally:
+        conn.close()
+
+
+@app.route('/api/cargo/plan', methods=['PUT'])
+def api_cargo_plan_save():
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    plan = request.get_json(silent=True) or {}
+    conn = get_cargo_db()
+    try:
+        _cargo_touch_user(conn, discord_id)
+        now = _utc_now()
+        row = conn.execute(
+            "SELECT stack_id FROM mission_stacks "
+            "WHERE discord_id=? AND is_active_draft=1 AND is_archived=0",
+            (discord_id,)).fetchone()
+        if row:
+            stack_id = row['stack_id']
+            conn.execute("""
+                UPDATE mission_stacks
+                   SET ship_uuid=?, quantum_drive_uuid=?, current_system=?,
+                       current_location_uuid=?, updated_utc=?
+                 WHERE stack_id=?
+            """, (plan.get('ship_uuid'), plan.get('quantum_drive_uuid'),
+                  plan.get('current_system'), plan.get('current_location_uuid'),
+                  now, stack_id))
+            conn.execute("DELETE FROM missions WHERE stack_id=?", (stack_id,))  # cascades to legs
+        else:
+            cur = conn.execute("""
+                INSERT INTO mission_stacks
+                    (discord_id, name, ship_uuid, quantum_drive_uuid,
+                     current_system, current_location_uuid, is_active_draft,
+                     created_utc, updated_utc)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, (discord_id, plan.get('name'), plan.get('ship_uuid'),
+                  plan.get('quantum_drive_uuid'), plan.get('current_system'),
+                  plan.get('current_location_uuid'), now, now))
+            stack_id = cur.lastrowid
+
+        leg_count = 0
+        for mi, m in enumerate(plan.get('missions') or []):
+            mcur = conn.execute(
+                "INSERT INTO missions (stack_id, seq, notes) VALUES (?, ?, ?)",
+                (stack_id, mi, m.get('notes')))
+            mid = mcur.lastrowid
+            for li, leg in enumerate(m.get('legs') or []):
+                conn.execute("""
+                    INSERT INTO legs
+                        (mission_id, seq, pickup_location_uuid, dropoff_location_uuid,
+                         commodity, quantity_scu,
+                         pickup_same_as_current, pickup_same_as_prev, dropoff_same_as_prev)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (mid, li, leg.get('pickup_uuid'), leg.get('dropoff_uuid'),
+                      leg.get('commodity'), leg.get('quantity_scu'),
+                      1 if leg.get('pickup_same_as_current') else 0,
+                      1 if leg.get('pickup_same_as_prev') else 0,
+                      1 if leg.get('dropoff_same_as_prev') else 0))
+                leg_count += 1
+
+        _cargo_log(conn, discord_id, 'plan_saved',
+                   {'stack_id': stack_id,
+                    'missions': len(plan.get('missions') or []),
+                    'legs': leg_count})
+        conn.commit()
+        return jsonify({'ok': True, 'stack_id': stack_id})
+    finally:
+        conn.close()
+
+
+@app.route('/api/cargo/activity', methods=['POST'])
+def api_cargo_activity():
+    """Lightweight event logger (page visits, etc.). Auth optional — anon
+    visits are recorded with a null discord_id for aggregate usage stats."""
+    discord_id = session.get('discord_id')
+    body = request.get_json(silent=True) or {}
+    event_type = body.get('event_type', 'page_visit')
+    conn = get_cargo_db()
+    try:
+        if discord_id:
+            _cargo_touch_user(conn, discord_id)
+        _cargo_log(conn, discord_id, event_type, body.get('details'))
+        conn.commit()
+        return jsonify({'ok': True})
+    finally:
+        conn.close()
+
 
 # ══════════════════════════════════════════════════════════════════════
 # MAIN

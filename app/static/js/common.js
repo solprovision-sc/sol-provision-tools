@@ -97,7 +97,7 @@ function navHTML(active) {
 	{ href: '/crafting', 	  label: 'Crafting'},
 	{ href: '/mission-rep',   label: 'Mission Rep' },
 	{ href: '/mining-signatures', label: 'Mining Sigs' },
-	// { href: '/cargo-planner', label: 'Cargo Planner' },
+	{ href: '/cargo-planner', label: 'Cargo Planner' },
 	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
 	{ href: '/ledger', label: 'Ledger' },
 	{ href: '/item_collection',    label: 'Item Collection' },
