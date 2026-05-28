@@ -1,894 +1,662 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sol Provision — Cargo Planner</title>
+{% extends "base.html" %}
+{% block title %}Cargo Route Planner — Sol Provision{% endblock %}
+
+{% block extra_css %}
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Share+Tech+Mono&display=swap');
+.cp-wrap { max-width: 1200px; margin: 0 auto; padding: 0 4px; }
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Page header */
+.cp-page-header {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap;
+  padding-bottom: 14px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border2);
+}
+.cp-title {
+  font-family: var(--font-title); font-size: 24px; font-weight: 700;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text); line-height: 1;
+}
+.cp-subtitle {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  margin-top: 6px; letter-spacing: 0.05em;
+}
+.cp-subtitle .cp-patch { color: var(--gold); font-weight: 600; }
+.cp-save-state {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--text3);
+}
+.cp-save-state.saved  { color: var(--green); }
+.cp-save-state.saving { color: var(--gold); }
 
-  body {
-    background: #060c12;
-    color: #c8d8e8;
-    font-family: 'Rajdhani', sans-serif;
-    overflow: hidden;
-    height: 100vh;
-    width: 100vw;
-  }
+/* Setup panel */
+.cp-setup {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  background: var(--panel); border: 1px solid var(--border2);
+  padding: 16px; margin-bottom: 18px;
+}
+@media (max-width: 900px){ .cp-setup { grid-template-columns: repeat(2,1fr); } }
+.cp-field { display: flex; flex-direction: column; gap: 5px; }
+.cp-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--text3);
+}
+.cp-select, .cp-input {
+  background: var(--bg2); border: 1px solid var(--border2); color: var(--text);
+  font-family: var(--font-ui); font-size: 13px; padding: 8px 10px; width: 100%;
+}
+.cp-select:focus, .cp-input:focus { outline: none; border-color: var(--accent); }
+.cp-select:disabled, .cp-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  #canvas-container {
-    position: absolute;
-    inset: 0;
-  }
+/* SCU meter */
+.cp-meter { margin-bottom: 22px; }
+.cp-meter-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  margin-bottom: 5px; letter-spacing: 0.04em;
+}
+.cp-meter-bar {
+  height: 8px; background: var(--bg3); border: 1px solid var(--border2);
+  position: relative; overflow: hidden;
+}
+.cp-meter-fill { height: 100%; background: var(--green); transition: width 0.2s, background 0.2s; }
+.cp-meter-fill.warn { background: var(--gold); }
+.cp-meter-fill.over { background: var(--red); }
+.cp-meter-val { color: var(--text); font-weight: 600; }
+.cp-meter-val.warn { color: var(--gold-bright); }
+.cp-meter-val.over { color: var(--red); }
 
-  canvas { display: block; }
+/* Mission cards */
+.cp-mission {
+  background: var(--panel); border: 1px solid var(--border2);
+  margin-bottom: 16px;
+}
+.cp-mission-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; background: var(--bg3); border-bottom: 1px solid var(--border);
+}
+.cp-mission-title {
+  font-family: var(--font-ui); font-size: 13px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+.cp-mission-sub { font-family: var(--font-mono); font-size: 10px; color: var(--text3); margin-left: 10px; }
 
-  /* ── Header ── */
-  #header {
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    padding: 14px 24px;
-    background: linear-gradient(180deg, rgba(6,12,18,0.95) 0%, transparent 100%);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    pointer-events: none;
-    z-index: 10;
-  }
+/* Leg rows */
+.cp-legs { padding: 6px 14px 14px; }
+.cp-leg {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 80px 32px;
+  gap: 10px; align-items: end;
+  padding: 10px 0; border-bottom: 1px dashed var(--border);
+}
+.cp-leg:last-child { border-bottom: none; }
+@media (max-width: 800px){ .cp-leg { grid-template-columns: 1fr 1fr; } }
+.cp-leg-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cp-leg-checks { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 3px; }
+.cp-check {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text3); cursor: pointer; user-select: none;
+}
+.cp-check input { accent-color: var(--accent); cursor: pointer; }
 
-  .header-left { display: flex; align-items: center; gap: 16px; }
+/* Buttons */
+.cp-btn {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 7px 13px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border2); color: var(--text2);
+  transition: all 0.15s;
+}
+.cp-btn:hover { color: var(--gold); border-color: var(--accent2); }
+.cp-btn-accent { border-color: var(--accent2); color: var(--gold); }
+.cp-btn-accent:hover { background: var(--accent-dim); border-color: var(--accent); }
+.cp-icon-btn {
+  width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid var(--border2); color: var(--text3);
+  cursor: pointer; font-size: 16px; line-height: 1; transition: all 0.15s;
+}
+.cp-icon-btn:hover { color: var(--red); border-color: var(--red); }
+.cp-add-leg { margin-top: 10px; }
+.cp-add-mission { margin: 4px 0 26px; }
 
-  .back-btn {
-    pointer-events: all;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #00d4ff;
-    text-decoration: none;
-    border: 1px solid #1e2d3d;
-    padding: 5px 12px;
-    background: rgba(0,20,35,0.8);
-    transition: all 0.15s;
-  }
-  .back-btn:hover { border-color: #00d4ff; background: rgba(0,50,80,0.6); }
-
-  .ship-name {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: #e8f4ff;
-  }
-  .ship-sub {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.2em;
-    color: #00d4ff;
-    text-transform: uppercase;
-    margin-top: 2px;
-  }
-
-  .patch-badge {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.15em;
-    color: #3d5a72;
-    border: 1px solid #1e2d3d;
-    padding: 4px 10px;
-  }
-
-  /* ── Side panel ── */
-  #side-panel {
-    position: absolute;
-    top: 80px;
-    right: 20px;
-    width: 260px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 10;
-    pointer-events: none;
-  }
-
-  .grid-card {
-    background: rgba(8,18,28,0.88);
-    border: 1px solid;
-    padding: 14px 16px;
-    backdrop-filter: blur(4px);
-  }
-  .grid-card.primary   { border-color: #004488; }
-  .grid-card.secondary { border-color: #553300; }
-
-  .grid-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 10px;
-  }
-
-  .grid-dot {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .grid-dot.primary   { background: #0088ff; box-shadow: 0 0 8px #0066cc; }
-  .grid-dot.secondary { background: #ff8800; box-shadow: 0 0 8px #cc6600; }
-
-  .grid-port-name {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: #7a9ab8;
-    letter-spacing: 0.1em;
-    flex: 1;
-    margin-left: 8px;
-  }
-
-  .scu-badge {
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 20px;
-    font-weight: 700;
-    line-height: 1;
-  }
-  .scu-badge.primary   { color: #4499ff; }
-  .scu-badge.secondary { color: #ff9933; }
-  .scu-badge span { font-size: 11px; color: #3d5a72; font-weight: 400; }
-
-  .grid-dims {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 4px;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #0d1820;
-  }
-
-  .dim-item { text-align: center; }
-  .dim-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: #3d5a72;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-  .dim-value {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    color: #c8d8e8;
-    margin-top: 2px;
-  }
-  .dim-scu {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    color: #3d5a72;
-    margin-top: 1px;
-  }
-
-  .grid-cells-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #0d1820;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: #3d5a72;
-  }
-  .grid-cells-row strong { color: #7a9ab8; }
-
-  /* ── Legend ── */
-  #legend {
-    position: absolute;
-    bottom: 20px;
-    right: 20px;
-    background: rgba(8,18,28,0.88);
-    border: 1px solid #1e2d3d;
-    padding: 12px 16px;
-    z-index: 10;
-    pointer-events: none;
-    backdrop-filter: blur(4px);
-  }
-
-  .legend-title {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: #3d5a72;
-    margin-bottom: 8px;
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 6px;
-    font-family: 'Rajdhani', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: #7a9ab8;
-  }
-  .legend-item:last-child { margin-bottom: 0; }
-
-  .legend-swatch {
-    width: 28px; height: 14px;
-    border: 1px solid;
-  }
-  .legend-swatch.primary   { background: rgba(0,100,255,0.25); border-color: #0066cc; }
-  .legend-swatch.secondary { background: rgba(255,120,0,0.25);  border-color: #cc6600; }
-  .legend-swatch.floor     { background: rgba(0,50,80,0.15);    border-color: #1e3a4a; }
-
-  /* ── Controls hint ── */
-  #controls-hint {
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    color: #2a4050;
-    letter-spacing: 0.1em;
-    line-height: 1.8;
-    z-index: 10;
-    pointer-events: none;
-  }
-
-  /* ── Axis lock buttons ── */
-  #axis-controls {
-    position: absolute;
-    bottom: 110px;
-    left: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    z-index: 10;
-  }
-
-  .axis-label {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 9px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    color: #2a4050;
-    margin-bottom: 2px;
-  }
-
-  .axis-btn-row { display: flex; gap: 6px; }
-
-  .axis-btn {
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 6px 12px;
-    background: rgba(6,18,28,0.85);
-    border: 1px solid #1e2d3d;
-    color: #3d5a72;
-    cursor: pointer;
-    transition: all 0.15s;
-    backdrop-filter: blur(4px);
-    white-space: nowrap;
-  }
-  .axis-btn:hover {
-    border-color: #00d4ff;
-    color: #00d4ff;
-    background: rgba(0,40,60,0.85);
-  }
-  .axis-btn.active {
-    border-color: #00d4ff;
-    color: #00d4ff;
-    background: rgba(0,50,80,0.7);
-    box-shadow: 0 0 8px rgba(0,180,255,0.2);
-  }
-  .axis-btn.snap {
-    border-color: #336644;
-    color: #44aa66;
-  }
-  .axis-btn.snap:hover, .axis-btn.snap.active {
-    border-color: #44ff88;
-    color: #44ff88;
-    background: rgba(0,40,20,0.7);
-    box-shadow: 0 0 8px rgba(0,255,100,0.2);
-  }
-
-  /* ── Crosshair reticle ── */
-  #reticle {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 20px; height: 20px;
-    pointer-events: none;
-    z-index: 5;
-    opacity: 0.2;
-  }
-  #reticle::before, #reticle::after {
-    content: '';
-    position: absolute;
-    background: #00d4ff;
-  }
-  #reticle::before { width: 1px; height: 100%; left: 50%; top: 0; }
-  #reticle::after  { width: 100%; height: 1px; top: 50%; left: 0; }
-
-  /* ── Loading ── */
-  #loading {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #060c12;
-    z-index: 100;
-    font-family: 'Share Tech Mono', monospace;
-    font-size: 12px;
-    letter-spacing: 0.3em;
-    color: #00d4ff;
-    text-transform: uppercase;
-    transition: opacity 0.5s;
-  }
+/* Route summary placeholder */
+.cp-route {
+  background: var(--panel); border: 1px solid var(--border2); padding: 16px;
+  margin-bottom: 30px;
+}
+.cp-route-title {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px;
+}
+.cp-route-stats { display: flex; gap: 28px; flex-wrap: wrap; margin-bottom: 12px; }
+.cp-stat { display: flex; flex-direction: column; gap: 3px; }
+.cp-stat-num { font-family: var(--font-title); font-size: 22px; color: var(--text); }
+.cp-stat-lbl { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); }
+.cp-route-note {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text3);
+  border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.5;
+}
 </style>
-</head>
-<body>
+{% endblock %}
 
-<div id="loading">INITIALIZING CARGO SYSTEMS...</div>
-<div id="canvas-container"></div>
-<div id="reticle"></div>
-
-<!-- Header -->
-<div id="header">
-  <div class="header-left">
-    <a href="/" class="back-btn">← Dashboard</a>
+{% block body %}
+<main class="cp-wrap">
+  <div class="cp-page-header">
     <div>
-      <div class="ship-name">Crusader Mercury Star Runner</div>
-      <div class="ship-sub">Cargo Grid Visualizer — POC · crus_star_runner</div>
-    </div>
-  </div>
-  <div class="patch-badge">PATCH 4.6</div>
-</div>
-
-<!-- Side panel -->
-<div id="side-panel">
-
-  <div class="grid-card primary">
-    <div class="grid-card-header">
-      <div class="grid-dot primary"></div>
-      <div class="grid-port-name">hardpoint_cargo_large</div>
-      <div class="scu-badge primary">108 <span>SCU</span></div>
-    </div>
-    <div class="grid-dims">
-      <div class="dim-item">
-        <div class="dim-label">WIDTH</div>
-        <div class="dim-value">7.500m</div>
-        <div class="dim-scu">6 SCU</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-label">LENGTH</div>
-        <div class="dim-value">7.500m</div>
-        <div class="dim-scu">6 SCU</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-label">HEIGHT</div>
-        <div class="dim-value">3.750m</div>
-        <div class="dim-scu">3 SCU</div>
+      <div class="cp-title">Cargo Route Planner</div>
+      <div class="cp-subtitle">
+        Plan multi-mission hauling routes · <span class="cp-patch" id="cp-patch">—</span>
       </div>
     </div>
-    <div class="grid-cells-row">
-      <span>CELLS</span>
-      <strong>6 × 6 × 3 = 108</strong>
-    </div>
+    <div class="cp-save-state" id="cp-save-state"></div>
   </div>
 
-  <div class="grid-card secondary">
-    <div class="grid-card-header">
-      <div class="grid-dot secondary"></div>
-      <div class="grid-port-name">hardpoint_cargo_small</div>
-      <div class="scu-badge secondary">6 <span>SCU</span></div>
+  <!-- Setup -->
+  <section class="cp-setup">
+    <div class="cp-field">
+      <label class="cp-label" for="cp-ship">Ship</label>
+      <select class="cp-select" id="cp-ship"><option value="">Loading…</option></select>
     </div>
-    <div class="grid-dims">
-      <div class="dim-item">
-        <div class="dim-label">WIDTH</div>
-        <div class="dim-value">1.250m</div>
-        <div class="dim-scu">1 SCU</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-label">LENGTH</div>
-        <div class="dim-value">3.750m</div>
-        <div class="dim-scu">3 SCU</div>
-      </div>
-      <div class="dim-item">
-        <div class="dim-label">HEIGHT</div>
-        <div class="dim-value">2.500m</div>
-        <div class="dim-scu">2 SCU</div>
-      </div>
+    <div class="cp-field">
+      <label class="cp-label" for="cp-qd">Quantum Drive</label>
+      <select class="cp-select" id="cp-qd"><option value="">—</option></select>
     </div>
-    <div class="grid-cells-row">
-      <span>CELLS</span>
-      <strong>1 × 3 × 2 = 6</strong>
+    <div class="cp-field">
+      <label class="cp-label" for="cp-system">Current System</label>
+      <select class="cp-select" id="cp-system"><option value="">—</option></select>
     </div>
-  </div>
+    <div class="cp-field">
+      <label class="cp-label" for="cp-current">Current Location</label>
+      <select class="cp-select" id="cp-current"><option value="">Select system first</option></select>
+    </div>
+  </section>
 
-</div>
+  <!-- SCU capacity meter -->
+  <section class="cp-meter">
+    <div class="cp-meter-row">
+      <span>Cargo load</span>
+      <span><span class="cp-meter-val" id="cp-scu-used">0</span> / <span id="cp-scu-cap">— SCU</span></span>
+    </div>
+    <div class="cp-meter-bar"><div class="cp-meter-fill" id="cp-meter-fill" style="width:0%"></div></div>
+  </section>
 
-<!-- Legend -->
-<div id="legend">
-  <div class="legend-title">Legend</div>
-  <div class="legend-item"><div class="legend-swatch primary"></div>Primary Cargo (accessible)</div>
-  <div class="legend-item"><div class="legend-swatch secondary"></div>Suspected Hidden Compartment</div>
-  <div class="legend-item"><div class="legend-swatch floor"></div>Reference Floor Plane</div>
-</div>
+  <!-- Missions -->
+  <div id="cp-missions"></div>
+  <button class="cp-btn cp-btn-accent cp-add-mission" id="cp-add-mission">+ Add Mission to Stack</button>
 
-<!-- Axis lock controls -->
-<div id="axis-controls">
-  <div class="axis-label">Camera Axis Lock</div>
-  <div class="axis-btn-row">
-    <button class="axis-btn active" id="btn-free"    onclick="setAxisMode('free')">Free</button>
-    <button class="axis-btn"        id="btn-lockx"   onclick="setAxisMode('lockX')">Lock&nbsp;Horizontal</button>
-    <button class="axis-btn"        id="btn-lockz"   onclick="setAxisMode('lockZ')">Lock&nbsp;Vertical</button>
-  </div>
-  <div class="axis-btn-row">
-    <button class="axis-btn snap"   id="btn-top"     onclick="snapView('top')">Top</button>
-    <button class="axis-btn snap"   id="btn-front"   onclick="snapView('front')">Front</button>
-    <button class="axis-btn snap"   id="btn-side"    onclick="snapView('side')">Side</button>
-    <button class="axis-btn snap"   id="btn-iso"     onclick="snapView('iso')">Iso</button>
-  </div>
-</div>
+  <!-- Route summary (placeholder until QT math lands) -->
+  <section class="cp-route">
+    <div class="cp-route-title">Route</div>
+    <div class="cp-route-stats">
+      <div class="cp-stat"><span class="cp-stat-num" id="cp-stat-missions">0</span><span class="cp-stat-lbl">Missions</span></div>
+      <div class="cp-stat"><span class="cp-stat-num" id="cp-stat-legs">0</span><span class="cp-stat-lbl">Legs</span></div>
+      <div class="cp-stat"><span class="cp-stat-num" id="cp-stat-stops">0</span><span class="cp-stat-lbl">Distinct Stops</span></div>
+      <div class="cp-stat"><span class="cp-stat-num" id="cp-stat-scu">0</span><span class="cp-stat-lbl">Total SCU</span></div>
+    </div>
+    <div class="cp-route-note">
+      Route optimization (travel time + quantum fuel, minimized across the stack)
+      is coming next — it will use the navigation data and your selected quantum drive.
+    </div>
+  </section>
+</main>
+<datalist id="cp-commodity-hints"></datalist>
+{% endblock %}
 
-<!-- Controls -->
-<div id="controls-hint">
-  LEFT DRAG  · ORBIT<br>
-  RIGHT DRAG · PAN<br>
-  SCROLL     · ZOOM<br>
-  DBL CLICK  · RESET
-</div>
-
-<!-- Three.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+{% block page_script %}
 <script>
-// ── OrbitControls (inline — not available on Cloudflare CDN for r128) ────────
-// Minimal orbit implementation to avoid CDN path issues
-class OrbitControls {
-  constructor(camera, domElement) {
-    this.camera     = camera;
-    this.domElement = domElement;
-    this.target     = new THREE.Vector3();
-    this.enableDamping = true;
-    this.dampingFactor = 0.15;
-    this.lockTheta = false;   // when true: horizontal rotation locked
-    this.lockPhi   = false;   // when true: vertical rotation locked
+// ── State ────────────────────────────────────────────────────────────────────
+let missionSeq = 0, legSeq = 0;
+const state = {
+  ship_uuid: null, ship_entity: null, ship_cargo_scu: 0,
+  quantum_drive_uuid: null,
+  current_system: null, current_location_uuid: null,
+  missions: [],
+};
 
-    // Spherical coords
-    this._spherical     = new THREE.Spherical();
-    this._sphericalDelta = new THREE.Spherical();
-    this._panOffset     = new THREE.Vector3();
-    this._scale         = 1;
+// Reference data caches
+let SHIPS = [], QDRIVES = [], CARGO_LOCS = [];
+const currentLocCache = {};   // system → location list
+let AUTH = false;             // logged-in? (server persistence vs localStorage)
+let initializing = true;      // suppress auto-save during hydration
 
-    this._rotateStart   = new THREE.Vector2();
-    this._panStart      = new THREE.Vector2();
-    this._state         = 'none'; // 'rotate' | 'pan'
+const esc = s => (s == null ? '' : String(s).replace(/[&<>"]/g, c => (
+  {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
 
-    this._updateSpherical();
-    this._bindEvents();
-  }
+// ── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  try {
+    const meta = await api('/api/meta');
+    document.getElementById('cp-patch').textContent = meta.patch_version || '—';
+  } catch (e) {}
 
-  _updateSpherical() {
-    const offset = new THREE.Vector3().subVectors(this.camera.position, this.target);
-    this._spherical.setFromVector3(offset);
-  }
+  // Load reference data in parallel
+  const [ships, , cargoLocs] = await Promise.all([
+    api('/api/cargo/ships'),
+    populateSystems(),
+    api('/api/cargo/locations?cargo_only=1'),
+  ]);
+  SHIPS = ships; CARGO_LOCS = cargoLocs;
+  populateShips();
 
-  _bindEvents() {
-    const el = this.domElement;
-    el.addEventListener('mousedown',  e => this._onMouseDown(e));
-    el.addEventListener('mousemove',  e => this._onMouseMove(e));
-    el.addEventListener('mouseup',    e => this._state = 'none');
-    el.addEventListener('wheel',      e => this._onWheel(e), {passive:false});
-    el.addEventListener('contextmenu',e => e.preventDefault());
-    el.addEventListener('dblclick',   e => this.reset());
-    el.addEventListener('touchstart', e => this._onTouchStart(e), {passive:false});
-    el.addEventListener('touchmove',  e => this._onTouchMove(e),  {passive:false});
-    el.addEventListener('touchend',   e => this._state = 'none');
-    this._lastTouchDist = null;
-  }
+  // Detect auth (drives server vs localStorage persistence)
+  try { await api('/api/auth/me'); AUTH = true; } catch (e) { AUTH = false; }
+  // Record the visit (fire-and-forget; works for anon + logged-in)
+  fetch('/api/cargo/activity', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ event_type: 'page_visit' }),
+  }).catch(() => {});
 
-  _onMouseDown(e) {
-    if (e.button === 0) {
-      this._state = 'rotate';
-      this._rotateStart.set(e.clientX, e.clientY);
-    } else if (e.button === 2) {
-      this._state = 'pan';
-      this._panStart.set(e.clientX, e.clientY);
-    }
-  }
+  await loadPlan();   // server-first when logged in, else localStorage
+  if (state.missions.length === 0) addMission();
+  await applySetupDropdowns();
 
-  _onMouseMove(e) {
-    if (this._state === 'rotate') {
-      const dx = (e.clientX - this._rotateStart.x) / window.innerHeight * Math.PI * 0.5;
-      const dy = (e.clientY - this._rotateStart.y) / window.innerHeight * Math.PI * 0.5;
-      if (!this.lockTheta) this._sphericalDelta.theta -= dx;
-      if (!this.lockPhi)   this._sphericalDelta.phi   -= dy;
-      this._rotateStart.set(e.clientX, e.clientY);
-    } else if (this._state === 'pan') {
-      const dx = e.clientX - this._panStart.x;
-      const dy = e.clientY - this._panStart.y;
-      this._doPan(dx, dy);
-      this._panStart.set(e.clientX, e.clientY);
-    }
-  }
+  renderMissions();
+  refreshSummary();
+  wireSetupHandlers();
+  initializing = false;
+})();
 
-  _onWheel(e) {
-    e.preventDefault();
-    this._scale *= e.deltaY > 0 ? 1.12 : 0.89;
-  }
-
-  _onTouchStart(e) {
-    e.preventDefault();
-    if (e.touches.length === 1) {
-      this._state = 'rotate';
-      this._rotateStart.set(e.touches[0].clientX, e.touches[0].clientY);
-    } else if (e.touches.length === 2) {
-      this._state = 'pinch';
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      this._lastTouchDist = Math.sqrt(dx*dx + dy*dy);
-    }
-  }
-
-  _onTouchMove(e) {
-    e.preventDefault();
-    if (this._state === 'rotate' && e.touches.length === 1) {
-      const dx = (e.touches[0].clientX - this._rotateStart.x) / window.innerHeight * Math.PI * 0.5;
-      const dy = (e.touches[0].clientY - this._rotateStart.y) / window.innerHeight * Math.PI * 0.5;
-      if (!this.lockTheta) this._sphericalDelta.theta -= dx;
-      if (!this.lockPhi)   this._sphericalDelta.phi   -= dy;
-      this._rotateStart.set(e.touches[0].clientX, e.touches[0].clientY);
-    } else if (this._state === 'pinch' && e.touches.length === 2) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      this._scale *= this._lastTouchDist / dist;
-      this._lastTouchDist = dist;
-    }
-  }
-
-  _doPan(dx, dy) {
-    const el = this.domElement;
-    const fov = this.camera.fov * Math.PI / 180;
-    const dist = this.camera.position.distanceTo(this.target);
-    const h = 2 * dist * Math.tan(fov / 2);
-    const w = h * el.clientWidth / el.clientHeight;
-    const right = new THREE.Vector3().crossVectors(
-      new THREE.Vector3().subVectors(this.camera.position, this.target).normalize(),
-      this.camera.up
-    ).normalize();
-    const up = this.camera.up.clone().normalize();
-    this._panOffset.addScaledVector(right, -dx / el.clientWidth  * w);
-    this._panOffset.addScaledVector(up,     dy / el.clientHeight * h);
-  }
-
-  reset() {
-    this.target.set(0, 0, 0);
-    this._spherical.set(35, Math.PI / 4, Math.PI / 3);
-    this._sphericalDelta.set(0, 0, 0);
-    this._panOffset.set(0, 0, 0);
-    this._scale = 1;
-    this.update();
-  }
-
-  update() {
-    this._spherical.theta += this._sphericalDelta.theta;
-    this._spherical.phi   += this._sphericalDelta.phi;
-    this._spherical.phi    = Math.max(0.01, Math.min(Math.PI - 0.01, this._spherical.phi));
-    this._spherical.radius = Math.max(2, Math.min(200, this._spherical.radius * this._scale));
-
-    if (this.enableDamping) {
-      this._sphericalDelta.theta *= (1 - this.dampingFactor);
-      this._sphericalDelta.phi   *= (1 - this.dampingFactor);
-      this._panOffset.multiplyScalar(1 - this.dampingFactor);
-    } else {
-      this._sphericalDelta.set(0, 0, 0);
-      this._panOffset.set(0, 0, 0);
-    }
-    this._scale = 1;
-
-    const offset = new THREE.Vector3().setFromSpherical(this._spherical);
-    this.target.add(this._panOffset);
-    this.camera.position.copy(this.target).add(offset);
-    this.camera.lookAt(this.target);
-  }
+// ── Setup dropdowns ──────────────────────────────────────────────────────────
+async function populateSystems() {
+  const systems = await api('/api/cargo/systems');
+  const sel = document.getElementById('cp-system');
+  sel.innerHTML = `<option value="">— select —</option>` +
+    systems.map(s => `<option value="${s.code}">${esc(s.name)}</option>`).join('');
 }
 
-// ── Scene setup ───────────────────────────────────────────────────────────────
-const W = window.innerWidth;
-const H = window.innerHeight;
-
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(W, H);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setClearColor(0x060c12, 1);
-renderer.shadowMap.enabled = true;
-document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-const scene  = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
-camera.position.set(18, -20, 16);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(4, -4, -2);
-controls._updateSpherical();
-
-// ── Lighting ──────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x223344, 2.0));
-const dirLight = new THREE.DirectionalLight(0x88bbff, 1.2);
-dirLight.position.set(10, 10, 20);
-scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0x334455, 0.5);
-fillLight.position.set(-10, -5, -10);
-scene.add(fillLight);
-
-// ── Grid data ─────────────────────────────────────────────────────────────────
-const SCU_SIZE = 1.25; // 1 SCU = 1.25m
-
-const GRIDS = [
-  {
-    name:     'hardpoint_cargo_large',
-    pos:      { x: 0.314,  y: -3.9609, z: -4.1195 },
-    dim:      { x: 7.5,    y: 7.5,     z: 3.75 },
-    scu:      108,
-    primary:  true,
-    color:    0x0066ff,
-    emissive: 0x001133,
-  },
-  {
-    name:     'hardpoint_cargo_small',
-    pos:      { x: 10.500, y: -5.3359, z: -4.1195 },
-    dim:      { x: 1.25,   y: 3.75,    z: 2.5 },
-    scu:      6,
-    primary:  false,
-    color:    0xff8800,
-    emissive: 0x331100,
-  },
-];
-
-// ── Build grid boxes ──────────────────────────────────────────────────────────
-function buildCargoGrid(grid) {
-  const group = new THREE.Group();
-
-  // Blender: Z-up, Three.js: Y-up
-  // Map: Blender X→Three X, Blender Y→Three Z (negated), Blender Z→Three Y
-  // But let's keep it intuitive — render in Blender coords and orient camera accordingly
-  // Position: center of box = pos + dim/2 offset (hardpoint is at corner)
-  const cx = grid.pos.x + grid.dim.x / 2;
-  const cy = grid.pos.y + grid.dim.y / 2;
-  const cz = grid.pos.z + grid.dim.z / 2;
-
-  // ── Solid fill (semi-transparent) ──
-  const fillGeo = new THREE.BoxGeometry(grid.dim.x, grid.dim.y, grid.dim.z);
-  const fillMat = new THREE.MeshPhongMaterial({
-    color:       grid.color,
-    emissive:    grid.emissive,
-    transparent: true,
-    opacity:     grid.primary ? 0.18 : 0.22,
-    side:        THREE.FrontSide,
-    depthWrite:  false,
-  });
-  const fillMesh = new THREE.Mesh(fillGeo, fillMat);
-  fillMesh.position.set(cx, cy, cz);
-  group.add(fillMesh);
-
-  // ── Outer wireframe border ──
-  const edgesGeo = new THREE.EdgesGeometry(fillGeo);
-  const edgesMat = new THREE.LineBasicMaterial({
-    color:     grid.primary ? 0x2288ff : 0xff9922,
-    linewidth: 2,
-    transparent: true,
-    opacity: 0.9,
-  });
-  const edges = new THREE.LineSegments(edgesGeo, edgesMat);
-  edges.position.set(cx, cy, cz);
-  group.add(edges);
-
-  // ── SCU cell grid lines (1.25m intervals) ──
-  const cellColor = grid.primary ? 0x004488 : 0x553300;
-  const cellMat   = new THREE.LineBasicMaterial({
-    color:       cellColor,
-    transparent: true,
-    opacity:     0.45,
-  });
-
-  const points = [];
-  const { x: dx, y: dy, z: dz } = grid.dim;
-  const ox = grid.pos.x, oy = grid.pos.y, oz = grid.pos.z;
-
-  // X-axis slices (YZ planes at each X interval)
-  const nx = Math.round(dx / SCU_SIZE);
-  const ny = Math.round(dy / SCU_SIZE);
-  const nz = Math.round(dz / SCU_SIZE);
-
-  for (let i = 1; i < nx; i++) {
-    const x = ox + i * SCU_SIZE;
-    points.push(new THREE.Vector3(x, oy,    oz),    new THREE.Vector3(x, oy+dy, oz));
-    points.push(new THREE.Vector3(x, oy,    oz),    new THREE.Vector3(x, oy,    oz+dz));
-    points.push(new THREE.Vector3(x, oy+dy, oz),    new THREE.Vector3(x, oy+dy, oz+dz));
-    points.push(new THREE.Vector3(x, oy,    oz+dz), new THREE.Vector3(x, oy+dy, oz+dz));
-  }
-  // Y-axis slices
-  for (let i = 1; i < ny; i++) {
-    const y = oy + i * SCU_SIZE;
-    points.push(new THREE.Vector3(ox,    y, oz),    new THREE.Vector3(ox+dx, y, oz));
-    points.push(new THREE.Vector3(ox,    y, oz),    new THREE.Vector3(ox,    y, oz+dz));
-    points.push(new THREE.Vector3(ox+dx, y, oz),    new THREE.Vector3(ox+dx, y, oz+dz));
-    points.push(new THREE.Vector3(ox,    y, oz+dz), new THREE.Vector3(ox+dx, y, oz+dz));
-  }
-  // Z-axis slices
-  for (let i = 1; i < nz; i++) {
-    const z = oz + i * SCU_SIZE;
-    points.push(new THREE.Vector3(ox,    oy,    z), new THREE.Vector3(ox+dx, oy,    z));
-    points.push(new THREE.Vector3(ox,    oy,    z), new THREE.Vector3(ox,    oy+dy, z));
-    points.push(new THREE.Vector3(ox+dx, oy,    z), new THREE.Vector3(ox+dx, oy+dy, z));
-    points.push(new THREE.Vector3(ox,    oy+dy, z), new THREE.Vector3(ox+dx, oy+dy, z));
-  }
-
-  if (points.length > 0) {
-    const cellGeo = new THREE.BufferGeometry().setFromPoints(points);
-    const cellLines = new THREE.LineSegments(cellGeo, cellMat);
-    group.add(cellLines);
-  }
-
-  // ── Corner marker at hardpoint origin ──
-  const markerGeo = new THREE.SphereGeometry(0.12, 8, 8);
-  const markerMat = new THREE.MeshBasicMaterial({ color: grid.primary ? 0x44aaff : 0xffaa44 });
-  const marker    = new THREE.Mesh(markerGeo, markerMat);
-  marker.position.set(grid.pos.x, grid.pos.y, grid.pos.z);
-  group.add(marker);
-
-  // ── Label sprite (simple axis line to corner) ──
-  const axisPoints = [
-    new THREE.Vector3(grid.pos.x, grid.pos.y, grid.pos.z),
-    new THREE.Vector3(grid.pos.x, grid.pos.y, grid.pos.z + grid.dim.z + 1.5),
-  ];
-  const axisGeo = new THREE.BufferGeometry().setFromPoints(axisPoints);
-  const axisMat = new THREE.LineBasicMaterial({
-    color: grid.primary ? 0x2288ff : 0xff9922,
-    transparent: true, opacity: 0.4
-  });
-  group.add(new THREE.Line(axisGeo, axisMat));
-
-  return group;
+function populateShips() {
+  const sel = document.getElementById('cp-ship');
+  sel.innerHTML = `<option value="">— select ship —</option>` +
+    SHIPS.map(s => {
+      const scu = s.cargo_scu ? ` · ${s.cargo_scu} SCU` : '';
+      return `<option value="${s.uuid}" data-entity="${esc(s.entity_name)}" data-scu="${s.cargo_scu||0}">${esc(s.name)}${scu}</option>`;
+    }).join('');
 }
 
-// ── Reference floor ───────────────────────────────────────────────────────────
-function buildFloor() {
-  const group = new THREE.Group();
+async function onShipChange() {
+  const sel = document.getElementById('cp-ship');
+  const opt = sel.selectedOptions[0];
+  state.ship_uuid    = sel.value || null;
+  state.ship_entity  = opt ? opt.dataset.entity : null;
+  state.ship_cargo_scu = opt ? Number(opt.dataset.scu || 0) : 0;
 
-  // Main grid plane
-  const size = 30;
-  const divs = 24;
-  const gridHelper = new THREE.GridHelper(size, divs, 0x0d2030, 0x0d2030);
-  gridHelper.rotation.x = Math.PI / 2; // rotate to XY plane (Z=0)
-  group.add(gridHelper);
+  // Load quantum drives + default for this ship
+  const url = state.ship_entity
+    ? `/api/cargo/qdrives?ship=${encodeURIComponent(state.ship_entity)}`
+    : '/api/cargo/qdrives';
+  const data = await api(url);
+  QDRIVES = data.drives;
+  const qsel = document.getElementById('cp-qd');
+  qsel.innerHTML = `<option value="">— select drive —</option>` +
+    QDRIVES.map(d => `<option value="${d.uuid}">${esc(d.name)}</option>`).join('');
+  // Default to the ship's stock drive (unless we already restored a choice)
+  if (!state.quantum_drive_uuid) state.quantum_drive_uuid = data.default_uuid || null;
+  if (state.quantum_drive_uuid) qsel.value = state.quantum_drive_uuid;
 
-  // Floor fill
-  const floorGeo = new THREE.PlaneGeometry(size, size);
-  const floorMat = new THREE.MeshBasicMaterial({
-    color:       0x030810,
-    transparent: true,
-    opacity:     0.6,
-    side:        THREE.DoubleSide,
-    depthWrite:  false,
-  });
-  const floor = new THREE.Mesh(floorGeo, floorMat);
-  group.add(floor);
-
-  // Axis indicators
-  const axisLen = 8;
-  const axes = [
-    { dir: [1,0,0], color: 0xff3333, label: '+X' },
-    { dir: [0,1,0], color: 0x33ff33, label: '+Y' },
-    { dir: [0,0,1], color: 0x3333ff, label: '+Z' },
-  ];
-  axes.forEach(({ dir, color }) => {
-    const pts = [new THREE.Vector3(0,0,0), new THREE.Vector3(...dir).multiplyScalar(axisLen)];
-    const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.4 });
-    group.add(new THREE.Line(geo, mat));
-  });
-
-  return group;
+  updateMeter(); scheduleSave();
 }
 
-// ── Atmosphere ────────────────────────────────────────────────────────────────
-// Subtle fog
-scene.fog = new THREE.FogExp2(0x060c12, 0.012);
-
-// Add everything to scene
-const floor = buildFloor();
-scene.add(floor);
-
-GRIDS.forEach(grid => {
-  scene.add(buildCargoGrid(grid));
-});
-
-// ── Stars (distant points) ────────────────────────────────────────────────────
-const starCount = 800;
-const starPositions = new Float32Array(starCount * 3);
-for (let i = 0; i < starCount; i++) {
-  const r = 120 + Math.random() * 80;
-  const theta = Math.random() * Math.PI * 2;
-  const phi   = Math.acos(2 * Math.random() - 1);
-  starPositions[i*3]   = r * Math.sin(phi) * Math.cos(theta);
-  starPositions[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
-  starPositions[i*3+2] = r * Math.cos(phi);
+async function onSystemChange() {
+  const sel = document.getElementById('cp-system');
+  state.current_system = sel.value || null;
+  state.current_location_uuid = null;
+  await populateCurrentLocations();
+  renderMissions();
+  scheduleSave();
 }
-const starGeo = new THREE.BufferGeometry();
-starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-const starMat = new THREE.PointsMaterial({ color: 0x334455, size: 0.3, transparent: true, opacity: 0.6 });
-scene.add(new THREE.Points(starGeo, starMat));
 
-// ── Resize ────────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  const w = window.innerWidth, h = window.innerHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
-});
+async function populateCurrentLocations() {
+  const sys = state.current_system;
+  const sel = document.getElementById('cp-current');
+  if (!sys) { sel.innerHTML = `<option value="">Select system first</option>`; return; }
+  if (!currentLocCache[sys]) {
+    currentLocCache[sys] = await api(`/api/cargo/locations?system=${encodeURIComponent(sys)}`);
+  }
+  sel.innerHTML = buildLocationOptions(currentLocCache[sys],
+                    { prefixSystem: false, selected: state.current_location_uuid });
+}
 
-// ── Axis lock controls ────────────────────────────────────────────────────────
-function setAxisMode(mode) {
-  controls.lockTheta = (mode === 'lockZ');   // lockZ = only vertical = lock horizontal (theta)
-  controls.lockPhi   = (mode === 'lockX');   // lockX = only horizontal = lock vertical (phi)
-
-  ['free','lockx','lockz'].forEach(id => {
-    document.getElementById('btn-' + id).classList.remove('active');
+function wireSetupHandlers() {
+  document.getElementById('cp-ship').addEventListener('change', onShipChange);
+  document.getElementById('cp-qd').addEventListener('change', e => {
+    state.quantum_drive_uuid = e.target.value || null; scheduleSave();
   });
-  const map = { free: 'btn-free', lockX: 'btn-lockx', lockZ: 'btn-lockz' };
-  document.getElementById(map[mode]).classList.add('active');
+  document.getElementById('cp-system').addEventListener('change', onSystemChange);
+  document.getElementById('cp-current').addEventListener('change', e => {
+    state.current_location_uuid = e.target.value || null;
+    renderMissions();   // legs using "same as current" follow it
+    scheduleSave();
+  });
+  document.getElementById('cp-add-mission').addEventListener('click', () => {
+    addMission(); renderMissions(); refreshSummary(); scheduleSave();
+  });
 }
 
-function snapView(view) {
-  // Snap camera to a preset angle — animates via damping
-  controls._sphericalDelta.set(0, 0, 0);
-  controls._panOffset.set(0, 0, 0);
+// ── Location <select> builder (grouped by hierarchy) ─────────────────────────
+function buildLocationOptions(locs, { prefixSystem = false, selected = null } = {}) {
+  const groups = new Map();
+  for (const l of locs) {
+    let label = l.moon ? `${l.planet || '?'} › ${l.moon}`
+              : l.planet ? l.planet
+              : (l.system || 'System');
+    if (prefixSystem) label = `${l.system || '?'} · ${label}`;
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label).push(l);
+  }
+  let html = `<option value="">— select —</option>`;
+  for (const label of [...groups.keys()].sort()) {
+    html += `<optgroup label="${esc(label)}">`;
+    for (const l of groups.get(label).sort((a, b) => (a.name||'').localeCompare(b.name||''))) {
+      const sel = l.location_uuid === selected ? ' selected' : '';
+      const tag = (l.kind && l.kind !== 'outpost' && l.kind !== 'landing_zone') ? ` (${l.kind})` : '';
+      html += `<option value="${l.location_uuid}"${sel}>${esc(l.name)}${tag}</option>`;
+    }
+    html += `</optgroup>`;
+  }
+  return html;
+}
 
-  const r = controls._spherical.radius;
-  const cx = 4, cy = -4, cz = -2; // scene center approx
-  controls.target.set(cx, cy, cz);
-
-  const snaps = {
-    top:   { r, phi: 0.01,         theta: 0 },
-    front: { r, phi: Math.PI / 2,  theta: 0 },
-    side:  { r, phi: Math.PI / 2,  theta: Math.PI / 2 },
-    iso:   { r, phi: Math.PI / 4,  theta: Math.PI / 3 },
+// ── Mission / leg model ──────────────────────────────────────────────────────
+function addMission() {
+  state.missions.push({ id: ++missionSeq, legs: [newLeg()] });
+}
+function newLeg() {
+  return {
+    id: ++legSeq, pickup_uuid: null, dropoff_uuid: null,
+    commodity: '', quantity_scu: null,
+    pickup_same_as_current: false, pickup_same_as_prev: false, dropoff_same_as_prev: false,
   };
-  const s = snaps[view];
-  controls._spherical.set(s.r, s.phi, s.theta);
-
-  // Flash the snap button
-  ['top','front','side','iso'].forEach(id =>
-    document.getElementById('btn-' + id).classList.remove('active')
-  );
-  const btn = document.getElementById('btn-' + view);
-  btn.classList.add('active');
-  setTimeout(() => btn.classList.remove('active'), 600);
-
-  controls.update();
+}
+function addLeg(missionId) {
+  const m = state.missions.find(x => x.id === missionId);
+  if (m) m.legs.push(newLeg());
+}
+function removeLeg(missionId, legId) {
+  const m = state.missions.find(x => x.id === missionId);
+  if (!m) return;
+  m.legs = m.legs.filter(l => l.id !== legId);
+  if (m.legs.length === 0) m.legs.push(newLeg());
+}
+function removeMission(missionId) {
+  state.missions = state.missions.filter(x => x.id !== missionId);
+  if (state.missions.length === 0) addMission();
 }
 
-// ── Render loop ───────────────────────────────────────────────────────────────
-function animate() {
-  requestAnimationFrame(animate);
-  controls.update();
-  renderer.render(scene, camera);
+// Resolve a leg's effective pickup/dropoff given the same-as flags.
+function resolvedLeg(mission, idx) {
+  const leg = mission.legs[idx];
+  const prev = idx > 0 ? resolvedLeg(mission, idx - 1) : null;
+  const pickup = leg.pickup_same_as_current ? state.current_location_uuid
+               : (leg.pickup_same_as_prev && prev) ? prev.pickup
+               : leg.pickup_uuid;
+  const dropoff = (leg.dropoff_same_as_prev && prev) ? prev.dropoff : leg.dropoff_uuid;
+  return { pickup, dropoff };
 }
 
-// Hide loading screen
-setTimeout(() => {
-  const loading = document.getElementById('loading');
-  loading.style.opacity = '0';
-  setTimeout(() => loading.style.display = 'none', 500);
-  animate();
-}, 600);
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderMissions() {
+  const wrap = document.getElementById('cp-missions');
+  wrap.innerHTML = state.missions.map((m, mi) => renderMission(m, mi)).join('');
+  wireMissionHandlers();
+  updateMeter();
+}
+
+function renderMission(m, mi) {
+  const legsHtml = m.legs.map((leg, li) => renderLeg(m, mi, leg, li)).join('');
+  return `
+  <div class="cp-mission" data-mid="${m.id}">
+    <div class="cp-mission-head">
+      <div>
+        <span class="cp-mission-title">Mission ${mi + 1}</span>
+        <span class="cp-mission-sub">${m.legs.length} leg${m.legs.length === 1 ? '' : 's'}</span>
+      </div>
+      <button class="cp-icon-btn" data-act="rm-mission" data-mid="${m.id}" title="Remove mission">×</button>
+    </div>
+    <div class="cp-legs">
+      ${legsHtml}
+      <button class="cp-btn cp-add-leg" data-act="add-leg" data-mid="${m.id}">+ Add Leg</button>
+    </div>
+  </div>`;
+}
+
+function renderLeg(m, mi, leg, li) {
+  const res = resolvedLeg(m, li);
+  const pickupLocked  = leg.pickup_same_as_current || (leg.pickup_same_as_prev && li > 0);
+  const dropoffLocked = leg.dropoff_same_as_prev && li > 0;
+  const pickupOpts  = buildLocationOptions(CARGO_LOCS, { prefixSystem: true, selected: res.pickup });
+  const dropoffOpts = buildLocationOptions(CARGO_LOCS, { prefixSystem: true, selected: res.dropoff });
+
+  // Checkboxes: every leg can mirror current location; legs after the first can copy prev
+  const checks = [];
+  checks.push(`<label class="cp-check"><input type="checkbox" data-act="same-current" data-mid="${m.id}" data-lid="${leg.id}" ${leg.pickup_same_as_current ? 'checked' : ''}> pickup = current</label>`);
+  if (li > 0) {
+    checks.push(`<label class="cp-check"><input type="checkbox" data-act="pickup-prev" data-mid="${m.id}" data-lid="${leg.id}" ${leg.pickup_same_as_prev ? 'checked' : ''}> pickup = prev</label>`);
+    checks.push(`<label class="cp-check"><input type="checkbox" data-act="dropoff-prev" data-mid="${m.id}" data-lid="${leg.id}" ${leg.dropoff_same_as_prev ? 'checked' : ''}> dropoff = prev</label>`);
+  }
+
+  return `
+  <div class="cp-leg" data-mid="${m.id}" data-lid="${leg.id}">
+    <div class="cp-leg-field">
+      <label class="cp-label">Pickup</label>
+      <select class="cp-select" data-act="pickup" data-mid="${m.id}" data-lid="${leg.id}" ${pickupLocked ? 'disabled' : ''}>${pickupOpts}</select>
+      <div class="cp-leg-checks">${checks.join('')}</div>
+    </div>
+    <div class="cp-leg-field">
+      <label class="cp-label">Dropoff</label>
+      <select class="cp-select" data-act="dropoff" data-mid="${m.id}" data-lid="${leg.id}" ${dropoffLocked ? 'disabled' : ''}>${dropoffOpts}</select>
+    </div>
+    <div class="cp-leg-field">
+      <label class="cp-label">Commodity</label>
+      <input class="cp-input" type="text" data-act="commodity" data-mid="${m.id}" data-lid="${leg.id}" value="${esc(leg.commodity)}" placeholder="e.g. Titanium" list="cp-commodity-hints">
+    </div>
+    <div class="cp-leg-field">
+      <label class="cp-label">Qty (SCU)</label>
+      <input class="cp-input" type="number" min="0" step="1" data-act="qty" data-mid="${m.id}" data-lid="${leg.id}" value="${leg.quantity_scu ?? ''}" placeholder="0">
+    </div>
+    <div class="cp-leg-field">
+      <label class="cp-label">&nbsp;</label>
+      <button class="cp-icon-btn" data-act="rm-leg" data-mid="${m.id}" data-lid="${leg.id}" title="Remove leg">×</button>
+    </div>
+  </div>`;
+}
+
+// ── Event delegation for mission/leg controls ────────────────────────────────
+function wireMissionHandlers() {
+  const wrap = document.getElementById('cp-missions');
+
+  wrap.querySelectorAll('[data-act]').forEach(el => {
+    const act = el.dataset.act;
+    const mid = Number(el.dataset.mid);
+    const lid = el.dataset.lid ? Number(el.dataset.lid) : null;
+    const leg = lid ? legById(mid, lid) : null;
+
+    if (act === 'add-leg') {
+      el.addEventListener('click', () => { addLeg(mid); renderMissions(); refreshSummary(); scheduleSave(); });
+    } else if (act === 'rm-mission') {
+      el.addEventListener('click', () => { removeMission(mid); renderMissions(); refreshSummary(); scheduleSave(); });
+    } else if (act === 'rm-leg') {
+      el.addEventListener('click', () => { removeLeg(mid, lid); renderMissions(); refreshSummary(); scheduleSave(); });
+    } else if (act === 'pickup') {
+      el.addEventListener('change', e => { if (leg) leg.pickup_uuid = e.target.value || null; refreshSummary(); scheduleSave(); });
+    } else if (act === 'dropoff') {
+      el.addEventListener('change', e => { if (leg) leg.dropoff_uuid = e.target.value || null; refreshSummary(); scheduleSave(); });
+    } else if (act === 'commodity') {
+      el.addEventListener('input', e => { if (leg) leg.commodity = e.target.value; scheduleSave(); });
+    } else if (act === 'qty') {
+      el.addEventListener('input', e => {
+        if (leg) leg.quantity_scu = e.target.value === '' ? null : Number(e.target.value);
+        updateMeter(); refreshSummary(); scheduleSave();
+      });
+    } else if (act === 'same-current') {
+      el.addEventListener('change', e => {
+        if (!leg) return;
+        leg.pickup_same_as_current = e.target.checked;
+        if (e.target.checked) leg.pickup_same_as_prev = false;
+        renderMissions(); refreshSummary(); scheduleSave();
+      });
+    } else if (act === 'pickup-prev') {
+      el.addEventListener('change', e => {
+        if (!leg) return;
+        leg.pickup_same_as_prev = e.target.checked;
+        if (e.target.checked) leg.pickup_same_as_current = false;
+        renderMissions(); refreshSummary(); scheduleSave();
+      });
+    } else if (act === 'dropoff-prev') {
+      el.addEventListener('change', e => { if (leg) leg.dropoff_same_as_prev = e.target.checked; renderMissions(); refreshSummary(); scheduleSave(); });
+    }
+  });
+}
+
+function legById(mid, lid) {
+  const m = state.missions.find(x => x.id === mid);
+  return m ? m.legs.find(l => l.id === lid) : null;
+}
+
+// ── SCU meter + summary ──────────────────────────────────────────────────────
+function totalScu() {
+  let t = 0;
+  for (const m of state.missions) for (const l of m.legs) t += Number(l.quantity_scu || 0);
+  return t;
+}
+
+function updateMeter() {
+  const used = totalScu();
+  const cap = state.ship_cargo_scu || 0;
+  document.getElementById('cp-scu-used').textContent = used;
+  document.getElementById('cp-scu-cap').textContent = cap ? `${cap} SCU` : '— SCU';
+  const fill = document.getElementById('cp-meter-fill');
+  const valEl = document.getElementById('cp-scu-used');
+  const pct = cap > 0 ? (used / cap) * 100 : 0;
+  fill.style.width = Math.min(100, pct) + '%';
+  fill.classList.remove('warn', 'over'); valEl.classList.remove('warn', 'over');
+  if (cap > 0 && used > cap) { fill.classList.add('over'); valEl.classList.add('over'); }
+  else if (cap > 0 && pct >= 90) { fill.classList.add('warn'); valEl.classList.add('warn'); }
+}
+
+function refreshSummary() {
+  const missions = state.missions.length;
+  let legs = 0; const stops = new Set();
+  for (const m of state.missions) for (let i = 0; i < m.legs.length; i++) {
+    legs++;
+    const r = resolvedLeg(m, i);
+    if (r.pickup) stops.add(r.pickup);
+    if (r.dropoff) stops.add(r.dropoff);
+  }
+  document.getElementById('cp-stat-missions').textContent = missions;
+  document.getElementById('cp-stat-legs').textContent = legs;
+  document.getElementById('cp-stat-stops').textContent = stops.size;
+  document.getElementById('cp-stat-scu').textContent = totalScu();
+}
+
+// ── Persistence ──────────────────────────────────────────────────────────────
+// Logged-in users persist to cargo_planner.db via /api/cargo/plan; anonymous
+// users (and any server failure) fall back to localStorage. localStorage is
+// always written as a local cache.
+const LS_KEY = 'cargoPlannerState';
+let saveTimer = null;
+
+function scheduleSave() {
+  if (initializing) return;
+  setSaveState('saving');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(persist, 400);
+}
+
+function planPayload() {
+  return {
+    ship_uuid:             state.ship_uuid,
+    quantum_drive_uuid:    state.quantum_drive_uuid,
+    current_system:        state.current_system,
+    current_location_uuid: state.current_location_uuid,
+    missions: state.missions.map(m => ({
+      notes: m.notes || null,
+      legs: m.legs.map(l => ({
+        pickup_uuid:            l.pickup_uuid,
+        dropoff_uuid:           l.dropoff_uuid,
+        commodity:              l.commodity,
+        quantity_scu:           l.quantity_scu,
+        pickup_same_as_current: l.pickup_same_as_current,
+        pickup_same_as_prev:    l.pickup_same_as_prev,
+        dropoff_same_as_prev:   l.dropoff_same_as_prev,
+      })),
+    })),
+  };
+}
+
+async function persist() {
+  try { localStorage.setItem(LS_KEY, JSON.stringify({ state, missionSeq, legSeq })); } catch (e) {}
+  if (AUTH) {
+    try {
+      const r = await fetch('/api/cargo/plan', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(planPayload()),
+      });
+      setSaveState(r.ok ? 'saved' : '');
+      return;
+    } catch (e) { setSaveState(''); return; }
+  }
+  setSaveState('saved');
+}
+
+async function loadPlan() {
+  if (AUTH) {
+    try {
+      const res = await api('/api/cargo/plan');
+      if (res && res.plan) { applyPlan(res.plan); return; }
+      // Logged in but no server plan yet — seed from any local draft.
+    } catch (e) { /* fall through to localStorage */ }
+  }
+  restoreLocal();
+}
+
+function applyPlan(plan) {
+  state.ship_uuid             = plan.ship_uuid || null;
+  state.quantum_drive_uuid    = plan.quantum_drive_uuid || null;
+  state.current_system        = plan.current_system || null;
+  state.current_location_uuid = plan.current_location_uuid || null;
+  state.missions = (plan.missions || []).map(m => ({
+    id: ++missionSeq,
+    notes: m.notes || null,
+    legs: (m.legs || []).map(l => ({
+      id: ++legSeq,
+      pickup_uuid:  l.pickup_uuid || null,
+      dropoff_uuid: l.dropoff_uuid || null,
+      commodity:    l.commodity || '',
+      quantity_scu: l.quantity_scu ?? null,
+      pickup_same_as_current: !!l.pickup_same_as_current,
+      pickup_same_as_prev:    !!l.pickup_same_as_prev,
+      dropoff_same_as_prev:   !!l.dropoff_same_as_prev,
+    })),
+  }));
+}
+
+function restoreLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    Object.assign(state, saved.state || {});
+    missionSeq = saved.missionSeq || state.missions.reduce((a, m) => Math.max(a, m.id || 0), 0);
+    legSeq = saved.legSeq || state.missions.reduce(
+      (a, m) => Math.max(a, ...(m.legs || []).map(l => l.id || 0), 0), 0);
+  } catch (e) { /* ignore corrupt state */ }
+}
+
+// Set the setup <select>s from state and trigger their dependent loads.
+async function applySetupDropdowns() {
+  if (state.ship_uuid && SHIPS.find(s => s.uuid === state.ship_uuid)) {
+    document.getElementById('cp-ship').value = state.ship_uuid;
+    await onShipChange();   // sets entity/scu, loads QDs, keeps saved QD choice
+  }
+  if (state.current_system) {
+    document.getElementById('cp-system').value = state.current_system;
+    await populateCurrentLocations();
+  }
+}
+
+function setSaveState(s) {
+  const el = document.getElementById('cp-save-state');
+  el.className = 'cp-save-state ' + s;
+  el.textContent = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : '';
+}
 </script>
-</body>
-</html>
+{% endblock %}
