@@ -2966,28 +2966,38 @@ CARGO_SYSTEMS = [
 ]
 _STAR_KEY_TO_SYSTEM = {s["star_key"]: s["code"] for s in CARGO_SYSTEMS}
 
+# Known non-PU / leftover test assets to hide from the planner. 'Ellis3'
+# ("Green") is a stray test planet CIG parented to Stanton's star — not a real
+# Stanton body. Matched by location_key prefix (catches its OMs / children too).
+CARGO_EXCLUDED_KEY_PREFIXES = ("Ellis",)
+
+def _is_excluded_nav_key(key):
+    return bool(key) and any(key.startswith(pre) for pre in CARGO_EXCLUDED_KEY_PREFIXES)
+
 
 def _qd_display_name(entity_name):
-    """Prettify a quantum drive entity_name into a readable label.
-    'qdrv_acas_s01_foxfire_scitem' → 'Castra Foxfire (S1)'."""
+    """Fallback prettifier for a quantum drive entity_name when the component
+    record has no display_name. Drops manufacturer + size tokens, keeping just
+    the model: 'qdrv_acas_s01_foxfire_scitem' → 'Foxfire'."""
     if not entity_name:
         return ""
     parts = entity_name.split("_")
-    # Drop leading 'qdrv' and trailing 'scitem'
-    parts = [p for p in parts if p not in ("qdrv", "scitem")]
-    mfr = ""
-    size = ""
-    model_parts = []
-    for p in parts:
-        if not mfr and p in MFR_MAP:
-            mfr = MFR_MAP[p]
-        elif re.fullmatch(r"s\d{1,2}", p):
-            size = f"S{int(p[1:])}"
-        else:
-            model_parts.append(p)
-    model = " ".join(w.capitalize() for w in model_parts) if model_parts else entity_name
-    label = f"{mfr} {model}".strip()
-    return f"{label} ({size})" if size else label
+    model_parts = [
+        p for p in parts
+        if p not in ("qdrv", "scitem")
+        and p not in MFR_MAP
+        and not re.fullmatch(r"s\d{1,2}", p)
+    ]
+    return " ".join(w.capitalize() for w in model_parts) if model_parts else entity_name
+
+
+def _qd_name(comp_name, entity_name):
+    """Prefer the component's localized display_name, but fall back to the
+    entity-parsed name when it's an unresolved placeholder."""
+    if comp_name and "PLACEHOLDER" not in comp_name and "UNINITIALIZED" not in comp_name \
+            and not comp_name.startswith("<="):
+        return comp_name
+    return _qd_display_name(entity_name)
 
 
 @app.route("/api/cargo/systems")
@@ -2997,16 +3007,18 @@ def api_cargo_systems():
 
 @app.route("/api/cargo/ships")
 def api_cargo_ships():
-    """Ships for the ship dropdown. Includes cargo_scu so the UI can show
-    capacity and warn on overload. Cargo-capable ships first, then the rest."""
+    """Ships for the ship dropdown. Limited to flyable/in-game ships via the
+    ships_index join (same filter the main /api/ships uses). Includes
+    cargo_scu so the UI can show capacity; cargo-capable ships sort first."""
     conn = get_db(); p = PATCH or latest_patch(conn)
     rows = conn.execute("""
-        SELECT uuid, entity_name, vehicle_name, display_name, cargo_scu,
-               size_class, role, career, mass_kg
-          FROM ships
-         WHERE patch_version = ?
-         ORDER BY (cargo_scu IS NULL OR cargo_scu = 0) ASC,
-                  display_name, vehicle_name
+        SELECT s.uuid, s.entity_name, s.vehicle_name, s.display_name, s.cargo_scu,
+               s.size_class, s.role, s.career
+          FROM ships s
+          JOIN ships_index si ON si.entity_name = s.entity_name
+         WHERE s.patch_version = ?
+         ORDER BY (s.cargo_scu IS NULL OR s.cargo_scu = 0) ASC,
+                  s.display_name, s.vehicle_name
     """, (p,)).fetchall()
     conn.close()
     out = []
@@ -3024,36 +3036,61 @@ def api_cargo_ships():
 
 @app.route("/api/cargo/qdrives")
 def api_cargo_qdrives():
-    """Quantum drives for the QD dropdown. If ?ship=<entity_name> is given,
-    also returns default_uuid = the stock QD on that ship's default loadout."""
-    conn = get_db(); p = PATCH or latest_patch(conn)
-    rows = conn.execute("""
-        SELECT uuid, entity_name, drive_speed, quantum_fuel_req, jump_range,
-               spool_up_time, cooldown_time, engage_speed,
-               stage_one_accel_mps2, stage_two_accel_mps2
-          FROM item_quantum_drives
-         WHERE patch_version = ?
-         ORDER BY drive_speed DESC
-    """, (p,)).fetchall()
+    """Quantum drives for the QD dropdown.
 
-    default_uuid = None
+    With ?ship=<entity_name>: returns only drives that match the ship's
+    quantum-drive hardpoint size, marks the stock drive (is_stock), and sets
+    default_uuid to it. Names come from item_components.display_name (no
+    manufacturer prefix). Without a ship: returns all drives.
+    """
+    conn = get_db(); p = PATCH or latest_patch(conn)
     ship = request.args.get("ship")
+
+    hp_size = None
+    stock_uuid = None
     if ship:
-        row = conn.execute("""
-            SELECT qd.uuid
-              FROM ship_hardpoints hp
-              JOIN item_quantum_drives qd
-                ON qd.uuid = hp.installed_uuid AND qd.patch_version = hp.patch_version
-             WHERE hp.patch_version = ? AND hp.ship_entity_name = ?
+        hp = conn.execute("""
+            SELECT max_size, installed_name
+              FROM ship_hardpoints
+             WHERE patch_version = ? AND ship_entity_name = ?
+               AND port_type = 'quantumdrive'
+             ORDER BY max_size DESC
              LIMIT 1
         """, (p, ship)).fetchone()
-        default_uuid = row["uuid"] if row else None
+        if hp:
+            hp_size = hp["max_size"]
+            if hp["installed_name"]:
+                srow = conn.execute("""
+                    SELECT uuid FROM item_quantum_drives
+                     WHERE patch_version = ? AND LOWER(entity_name) = LOWER(?)
+                """, (p, hp["installed_name"])).fetchone()
+                stock_uuid = srow["uuid"] if srow else None
+
+    sql = """
+        SELECT qd.uuid, qd.entity_name, ic.display_name AS comp_name, ic.size,
+               qd.drive_speed, qd.quantum_fuel_req, qd.jump_range,
+               qd.spool_up_time, qd.cooldown_time, qd.engage_speed
+          FROM item_quantum_drives qd
+          LEFT JOIN item_components ic
+            ON LOWER(ic.entity_name) = LOWER(qd.entity_name)
+           AND ic.patch_version = qd.patch_version
+         WHERE qd.patch_version = ?
+           AND qd.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
+    """
+    params = [p]
+    if hp_size is not None:
+        sql += " AND ic.size = ?"
+        params.append(hp_size)
+    sql += " ORDER BY ic.display_name, qd.entity_name"
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
 
     drives = [{
         "uuid":             r["uuid"],
         "entity_name":      r["entity_name"],
-        "name":             _qd_display_name(r["entity_name"]),
+        "name":             _qd_name(r["comp_name"], r["entity_name"]),
+        "size":             r["size"],
+        "is_stock":         (r["uuid"] == stock_uuid),
         "drive_speed":      r["drive_speed"],
         "quantum_fuel_req": r["quantum_fuel_req"],
         "jump_range":       r["jump_range"],
@@ -3061,13 +3098,23 @@ def api_cargo_qdrives():
         "cooldown_time":    r["cooldown_time"],
         "engage_speed":     r["engage_speed"],
     } for r in rows]
-    return jsonify({"drives": drives, "default_uuid": default_uuid})
+    # Stock drive first, then alphabetical
+    drives.sort(key=lambda d: (not d["is_stock"], d["name"] or ""))
+    return jsonify({"drives": drives, "default_uuid": stock_uuid, "hardpoint_size": hp_size})
+
+
+# Ordering of dropdown-3 groups within a planetary system.
+_GROUP_ORDER = {"planet": 0, "moon": 1, "lagrange": 2, "system": 3}
 
 
 def _build_navpt_hierarchy(conn, patch):
     """Load all nav_points and return (by_uuid, resolver). resolver(uuid)
-    returns (system_code, planet_node, moon_node) by walking parent_uuid up
-    to the star. Cached per call."""
+    returns a dict with system, planet/moon names, and the planetary-system +
+    group fields the cascading dropdowns need. Cached per call.
+
+    Hierarchy note: moons parent to their planet (clean), but Lagrange points
+    parent to the star — their planet is derived from the location_key prefix
+    (e.g. 'Stanton1_L1' → planet 'Stanton1')."""
     by_uuid = {}
     for r in conn.execute("""
         SELECT location_uuid, display_name, location_key, kind, parent_uuid
@@ -3075,12 +3122,15 @@ def _build_navpt_hierarchy(conn, patch):
     """, (patch,)):
         by_uuid[r["location_uuid"]] = dict(r)
 
+    planet_by_key = {n["location_key"]: n for n in by_uuid.values()
+                     if n["kind"] == "planet"}
+
     cache = {}
 
     def resolve(uuid):
         if uuid in cache:
             return cache[uuid]
-        system_code = planet = moon = None
+        system_code = planet = moon = lagrange = None
         cur = uuid
         seen = set()
         while cur and cur not in seen:
@@ -3091,13 +3141,41 @@ def _build_navpt_hierarchy(conn, patch):
             kind = node["kind"]
             if kind == "star":
                 system_code = _STAR_KEY_TO_SYSTEM.get(node["location_key"])
-            elif kind == "planet":
+            elif kind == "planet" and planet is None:
                 planet = node
-            elif kind == "moon":
+            elif kind == "moon" and moon is None:
                 moon = node
+            elif kind == "lagrange" and lagrange is None:
+                lagrange = node
             cur = node["parent_uuid"]
-        cache[uuid] = (system_code, planet, moon)
-        return cache[uuid]
+
+        # Planetary system = the planet (directly, or derived for Lagrange points)
+        ps = planet
+        if ps is None and lagrange is not None:
+            base = re.sub(r"_[Ll]\d+$", "", lagrange["location_key"])
+            ps = planet_by_key.get(base)
+
+        # Dropdown-3 group: moon name | "Lagrange Points" | planet name | System-wide
+        if moon is not None:
+            group_label, group_kind = (moon["display_name"] or moon["location_key"]), "moon"
+        elif lagrange is not None:
+            group_label, group_kind = "Lagrange Points", "lagrange"
+        elif planet is not None:
+            group_label, group_kind = (planet["display_name"] or planet["location_key"]), "planet"
+        else:
+            group_label, group_kind = "System-wide", "system"
+
+        result = {
+            "system":      system_code,
+            "planet":      (planet["display_name"] or planet["location_key"]) if planet else None,
+            "moon":        (moon["display_name"] or moon["location_key"]) if moon else None,
+            "ps_name":     (ps["display_name"] or ps["location_key"]) if ps else "System-wide",
+            "ps_key":      ps["location_key"] if ps else "_system",
+            "group_label": group_label,
+            "group_kind":  group_kind,
+        }
+        cache[uuid] = result
+        return result
 
     return by_uuid, resolve
 
@@ -3133,27 +3211,33 @@ def api_cargo_locations():
     for uuid, node in by_uuid.items():
         if cargo_only and uuid not in cargo_set:
             continue
-        # Skip the bodies/stars themselves from the "where am I" list? No —
-        # user could be orbiting a planet. Keep everything; UI groups it.
-        system_code, planet, moon = resolve(uuid)
-        if system_filter and system_code != system_filter:
+        h = resolve(uuid)
+        # Drop leftover test assets (e.g. Ellis 'Green') and anything whose
+        # planetary system resolves to one.
+        if _is_excluded_nav_key(node["location_key"]) or _is_excluded_nav_key(h["ps_key"]):
+            continue
+        if system_filter and h["system"] != system_filter:
             continue
         out.append({
             "location_uuid": uuid,
             "name":          node["display_name"] or node["location_key"],
             "kind":          node["kind"],
-            "system":        system_code,
-            "planet":        planet["display_name"] if planet else None,
-            "planet_uuid":   planet["location_uuid"] if planet else None,
-            "moon":          moon["display_name"] if moon else None,
-            "moon_uuid":     moon["location_uuid"] if moon else None,
+            "system":        h["system"],
+            "planet":        h["planet"],         # for pickup/dropoff grouping
+            "moon":          h["moon"],
+            "ps_name":       h["ps_name"],         # cascade: planetary system
+            "ps_key":        h["ps_key"],
+            "group_label":   h["group_label"],     # cascade: dropdown-3 optgroup
+            "group_kind":    h["group_kind"],
         })
 
-    # Sort: system, planet, moon, then name — gives the UI a ready grouping
+    # Sort so the UI gets ready-made cascade ordering:
+    #   system → planetary system → group (planet/moon/lagrange/system) → name
     out.sort(key=lambda x: (
         x["system"] or "zzz",
-        x["planet"] or "",
-        x["moon"] or "",
+        x["ps_name"] or "zzz",
+        _GROUP_ORDER.get(x["group_kind"], 9),
+        x["group_label"] or "",
         x["name"] or "",
     ))
     return jsonify(out)
