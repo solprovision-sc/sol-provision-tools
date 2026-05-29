@@ -475,6 +475,9 @@ def ledger(): return render_template("ledger.html", active_page="ledger")
 @app.route("/item_collection")
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
+@app.route("/base-builder")
+def base_builder_page(): return render_template("base_builder.html", active_page="/base-builder")
+
 @app.route("/starmap")
 @app.route("/starmap/<system>")
 @app.route("/starmap/<system>/<body>")
@@ -3101,6 +3104,71 @@ def api_cargo_qdrives():
     # Stock drive first, then alphabetical
     drives.sort(key=lambda d: (not d["is_stock"], d["name"] or ""))
     return jsonify({"drives": drives, "default_uuid": stock_uuid, "hardpoint_size": hp_size})
+
+
+# Quantum-travel route engine (Layers 1-3, see app/quantum_travel.py,
+# nav_graph.py, route_planner.py). NavGraph is cached per patch — it copies the
+# nav_points rows in at build time and holds no DB handle afterwards.
+_NAV_GRAPH_CACHE = {}
+
+
+def _get_nav_graph(conn, patch):
+    g = _NAV_GRAPH_CACHE.get(patch)
+    if g is None:
+        from helpers.quantum_travel import NavGraph
+        g = NavGraph(conn, patch)
+        _NAV_GRAPH_CACHE[patch] = g
+    return g
+
+
+@app.route("/api/cargo/route", methods=["POST"])
+def api_cargo_route():
+    """Compute QT travel time + fuel for a sequence of origin->dest legs.
+
+    Body: {ship_uuid?, qd_uuid (or quantum_drive_uuid), legs:[{from,to}, ...]}
+    where from/to are nav_points.location_uuid. Returns the Route dict from
+    plan_route (flat legs + time/distance/fuel totals + warnings).
+    """
+    from helpers.quantum_travel import plan_route
+
+    body = request.get_json(silent=True) or {}
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    ship_uuid = body.get("ship_uuid")
+    raw_legs = body.get("legs") or []
+    if not qd_uuid:
+        return jsonify({"error": "qd_uuid is required"}), 400
+
+    segments = [(l.get("from"), l.get("to")) for l in raw_legs
+                if l.get("from") and l.get("to")]
+    if not segments:
+        return jsonify({"error": "at least one leg with from/to is required"}), 400
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return jsonify({"error": "quantum drive not found"}), 404
+        qd = dict(qd_row)
+
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute(
+                "SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+
+        nav = _get_nav_graph(conn, p)
+        try:
+            route = plan_route(segments, ship, qd, nav)
+        except Exception as e:  # unknown nav point, bad geometry, etc.
+            return jsonify({"error": str(e)}), 400
+        return jsonify(route)
+    finally:
+        conn.close()
 
 
 # Ordering of dropdown-3 groups within a planetary system.

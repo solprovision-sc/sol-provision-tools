@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+{% block title %}Base Builder — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+  body { overflow: hidden; }
+
+  .bb-layout {
+    display: flex;
+    height: calc(100vh - 52px);
+    width: 100%;
+  }
+
+  /* ── Palette sidebar ── */
+  .bb-palette {
+    width: 280px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .bb-palette-head {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .bb-palette-head h2 {
+    font-family: var(--font-title);
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 3px;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .bb-palette-head p {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+  #palette {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 10px 24px;
+  }
+  .pal-cat {
+    font-family: var(--font-ui);
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 16px 8px 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pal-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    text-align: left;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 2px solid transparent;
+    color: var(--text);
+    padding: 8px 10px;
+    margin-bottom: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font-ui);
+  }
+  .pal-item:hover { border-color: var(--border2); border-left-color: var(--terra); background: var(--bg2); }
+  .pal-item.active { border-left-color: var(--accent); background: var(--accent-dim); }
+  .pal-name { font-size: 11px; letter-spacing: 0.5px; }
+  .pal-dim { font-size: 9px; color: var(--text2); font-family: var(--font-mono); letter-spacing: 1px; }
+
+  /* ── Viewport ── */
+  .bb-main { flex: 1; position: relative; }
+  #viewport { position: absolute; inset: 0; }
+
+  .bb-toolbar {
+    position: absolute;
+    top: 12px; left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(12,14,17,0.85);
+    border: 1px solid var(--border2);
+    padding: 8px 12px;
+    z-index: 5;
+    backdrop-filter: blur(4px);
+  }
+  .bb-toolbar label { font-size: 10px; letter-spacing: 1px; color: var(--text2); text-transform: uppercase; }
+  .bb-toolbar select, .bb-toolbar button {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 11px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .bb-toolbar button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .bb-status {
+    position: absolute;
+    bottom: 12px; left: 12px;
+    background: rgba(12,14,17,0.85);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--accent);
+    padding: 7px 14px;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--text);
+    z-index: 5;
+    backdrop-filter: blur(4px);
+    max-width: 60%;
+  }
+  .bb-help {
+    position: absolute;
+    bottom: 12px; right: 12px;
+    background: rgba(12,14,17,0.8);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--text2);
+    z-index: 5;
+    line-height: 1.7;
+  }
+  .bb-help b { color: var(--gold); font-family: var(--font-mono); }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="bb-layout">
+  <aside class="bb-palette">
+    <div class="bb-palette-head">
+      <h2>Building Sets</h2>
+      <p>Star Citizen 4.8 · curated prototype</p>
+    </div>
+    <div id="palette"></div>
+  </aside>
+
+  <div class="bb-main">
+    <div id="viewport"></div>
+
+    <div class="bb-toolbar">
+      <label>Snap</label>
+      <select id="snap-step">
+        <option value="0.5">0.5 m</option>
+        <option value="1" selected>1 m</option>
+        <option value="2">2 m</option>
+        <option value="4">4 m</option>
+      </select>
+      <button id="btn-clear">Clear All</button>
+    </div>
+
+    <div class="bb-status" id="builder-status">Loading…</div>
+    <div class="bb-help">
+      <div><b>Left-drag</b> orbit · <b>Right-drag</b> pan · <b>Wheel</b> zoom</div>
+      <div><b>Click</b> place / select · <b>R</b> rotate · <b>Del</b> remove · <b>Esc</b> cancel</div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="/static/buildingsets/builder.js"></script>
+{% endblock %}
