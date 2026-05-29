@@ -87,7 +87,7 @@
 .cp-leg {
   display: grid;
   grid-template-columns: 1.4fr 1.4fr 1fr 80px 32px;
-  gap: 10px; align-items: end;
+  gap: 10px; align-items: start;
   padding: 10px 0; border-bottom: 1px dashed var(--border);
 }
 .cp-leg:last-child { border-bottom: none; }
@@ -137,6 +137,40 @@
   font-family: var(--font-mono); font-size: 11px; color: var(--text3);
   border-top: 1px solid var(--border); padding-top: 10px; line-height: 1.5;
 }
+.cp-route-note.cp-warn { color: var(--red); }
+
+/* Route optimizer */
+.cp-optimize {
+  background: var(--panel); border: 1px solid var(--border2); padding: 16px;
+  margin-bottom: 30px;
+}
+.cp-optimize-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 12px;
+}
+.cp-optimize-title {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold);
+}
+.cp-btn-lg { padding: 9px 18px; font-size: 11px; }
+.cp-stops { list-style: none; margin: 6px 0 0; padding: 0; }
+.cp-stop {
+  display: flex; align-items: center; gap: 10px; padding: 7px 0;
+  border-bottom: 1px dashed var(--border);
+  font-family: var(--font-mono); font-size: 11px;
+}
+.cp-stop:last-child { border-bottom: none; }
+.cp-stop-n { width: 18px; text-align: right; color: var(--text3); }
+.cp-stop-badge {
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 6px; border: 1px solid var(--border2); white-space: nowrap;
+}
+.cp-stop-badge.cp-pickup  { color: var(--green); border-color: var(--green); }
+.cp-stop-badge.cp-dropoff { color: var(--gold);  border-color: var(--accent2); }
+.cp-stop-badge.cp-start   { color: var(--text3); }
+.cp-stop-name { color: var(--text); flex: 1; min-width: 0; }
+.cp-stop-id   { color: var(--text3); }
+.cp-stop-load { color: var(--text2); white-space: nowrap; }
 </style>
 {% endblock %}
 
@@ -199,9 +233,23 @@
       <div class="cp-stat"><span class="cp-stat-num" id="cp-stat-scu">0</span><span class="cp-stat-lbl">Total SCU</span></div>
     </div>
     <div class="cp-route-note">
-      Route optimization (travel time + quantum fuel, minimized across the stack)
-      is coming next — it will use the navigation data and your selected quantum drive.
+      Live summary of your stack. Use <strong>Optimize Route</strong> below to
+      compute travel time and the best visiting order with your selected drive.
     </div>
+  </section>
+
+  <!-- Route optimizer -->
+  <section class="cp-optimize">
+    <div class="cp-optimize-head">
+      <div class="cp-optimize-title">Optimize Route</div>
+      <button class="cp-btn cp-btn-accent cp-btn-lg" id="cp-optimize-btn">Optimize Route</button>
+    </div>
+    <div class="cp-route-note" id="cp-optimize-hint">
+      Set your ship, quantum drive, and current location above, add your missions
+      and legs, then press <strong>Optimize Route</strong> to minimize travel time
+      (respecting cargo capacity and pickup-before-dropoff order).
+    </div>
+    <div id="cp-optimize-results"></div>
   </section>
 </main>
 <datalist id="cp-commodity-hints"></datalist>
@@ -257,6 +305,7 @@ const esc = s => (s == null ? '' : String(s).replace(/[&<>"]/g, c => (
   renderMissions();
   refreshSummary();
   wireSetupHandlers();
+  document.getElementById('cp-optimize-btn').addEventListener('click', optimizeRoute);
   initializing = false;
 })();
 
@@ -609,6 +658,109 @@ function refreshSummary() {
   document.getElementById('cp-stat-legs').textContent = legs;
   document.getElementById('cp-stat-stops').textContent = stops.size;
   document.getElementById('cp-stat-scu').textContent = totalScu();
+}
+
+// ── Route optimizer ──────────────────────────────────────────────────────────
+function fmtDur(s) {
+  s = Math.round(s);
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return (h ? `${h}h ` : '') + (h || m ? `${m}m ` : '') + `${sec}s`;
+}
+
+async function optimizeRoute() {
+  const btn = document.getElementById('cp-optimize-btn');
+  const out = document.getElementById('cp-optimize-results');
+  const hint = document.getElementById('cp-optimize-hint');
+
+  if (!state.quantum_drive_uuid) {
+    out.innerHTML = `<div class="cp-route-note cp-warn">Select a quantum drive first.</div>`;
+    return;
+  }
+
+  // Resolve each leg's "same as current/prev" flags into concrete pickup/dropoff
+  // UUIDs BEFORE optimizing — the optimizer reorders the moves, so "same as
+  // prev" must be pinned against the current order here, not server-side.
+  const moves = [];
+  let incomplete = 0;
+  state.missions.forEach((m, mi) => m.legs.forEach((leg, li) => {
+    const r = resolvedLeg(m, li);
+    if (!r.pickup || !r.dropoff) { incomplete++; return; }
+    moves.push({
+      id: (leg.commodity && leg.commodity.trim()) ? leg.commodity.trim() : `M${mi + 1}·L${li + 1}`,
+      pickup: r.pickup, dropoff: r.dropoff,
+      scu: Number(leg.quantity_scu || 0),
+    });
+  });
+  if (!moves.length) {
+    out.innerHTML = `<div class="cp-route-note cp-warn">Add at least one leg with both a pickup and a dropoff.</div>`;
+    return;
+  }
+
+  if (hint) hint.style.display = 'none';
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Optimizing…';
+  try {
+    const res = await fetch('/api/cargo/optimize', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        qd_uuid: state.quantum_drive_uuid,
+        ship_uuid: state.ship_uuid || undefined,
+        origin_uuid: state.current_location_uuid || undefined,
+        moves,
+      }),
+    });
+    renderOptimizeResults(await res.json(), incomplete);
+  } catch (e) {
+    out.innerHTML = `<div class="cp-route-note cp-warn">Couldn't reach the route engine. Try again.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+}
+
+function renderOptimizeResults(d, incomplete) {
+  const out = document.getElementById('cp-optimize-results');
+  if (d.error) {
+    out.innerHTML = `<div class="cp-route-note cp-warn">Error: ${esc(d.error)}</div>`;
+    return;
+  }
+  if (!d.feasible) {
+    const why = (d.warnings || []).map(esc).join(' ') || 'No feasible ordering for this stack.';
+    out.innerHTML = `<div class="cp-route-note cp-warn">Couldn't build a route: ${why}</div>`;
+    return;
+  }
+  const r = d.route || {};
+  const stat = (num, lbl) =>
+    `<div class="cp-stat"><span class="cp-stat-num">${num}</span><span class="cp-stat-lbl">${lbl}</span></div>`;
+  const stats = `<div class="cp-route-stats">
+    ${stat(fmtDur(d.value), 'Total Time')}
+    ${stat(r.qt_jumps || 0, 'QT Jumps')}
+    ${stat(r.jump_count || 0, 'System Jumps')}
+    ${stat((r.total_distance_m / 1e9).toFixed(2) + ' Gm', 'Distance')}
+    ${stat((r.total_fuel_scu || 0).toFixed(2), 'QT Fuel (SCU)')}
+  </div>`;
+
+  // Origin name comes from the first leg's "from" (only present when an origin was sent).
+  const originName = (state.current_location_uuid && r.legs && r.legs.length) ? r.legs[0].from_name : null;
+  const originLi = originName
+    ? `<li class="cp-stop"><span class="cp-stop-n">0</span><span class="cp-stop-badge cp-start">start</span><span class="cp-stop-name">${esc(originName)}</span><span class="cp-stop-load"></span></li>`
+    : '';
+  const stops = (d.stops || []).map((s, i) => `
+    <li class="cp-stop">
+      <span class="cp-stop-n">${i + 1}</span>
+      <span class="cp-stop-badge cp-${s.action}">${s.action}</span>
+      <span class="cp-stop-name">${esc(s.name)}</span>
+      <span class="cp-stop-id">${esc(String(s.obligation_id))}</span>
+      <span class="cp-stop-load">${s.load_after_scu} SCU</span>
+    </li>`).join('');
+
+  const warn = (d.warnings && d.warnings.length)
+    ? `<div class="cp-route-note cp-warn">${d.warnings.map(esc).join(' ')}</div>` : '';
+  const skipped = incomplete
+    ? `<div class="cp-route-note cp-warn">${incomplete} leg(s) skipped — missing a pickup or dropoff.</div>` : '';
+  out.innerHTML = stats + `<ol class="cp-stops">${originLi}${stops}</ol>` + warn + skipped +
+    `<div class="cp-route-note">Optimized for time. Atmospheric climb/descent and jump-tunnel times are placeholder constants; quantum-flight time is white-paper-accurate. Fuel covers QT only.</div>`;
 }
 
 // ── Persistence ──────────────────────────────────────────────────────────────

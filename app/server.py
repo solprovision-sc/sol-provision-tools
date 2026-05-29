@@ -3171,6 +3171,75 @@ def api_cargo_route():
         conn.close()
 
 
+@app.route("/api/cargo/optimize", methods=["POST"])
+def api_cargo_optimize():
+    """Optimise the visiting order of a set of cargo moves to minimise travel.
+
+    Body: {qd_uuid (or quantum_drive_uuid), ship_uuid?, origin_uuid?,
+           objective? ("time"|"distance"|"fuel", default "time"),
+           moves: [{id?, pickup, dropoff, scu}, ...]}
+    pickup/dropoff are nav_points.location_uuid; the caller resolves any
+    "same as current/prev" planner flags into concrete UUIDs before sending
+    (also accepts pickup_uuid/dropoff_uuid/quantity_scu and a `legs` alias).
+    ship_uuid supplies the cargo_scu capacity (omit -> unlimited). Returns the
+    optimize_stack result: feasibility, ordered stops, and the full route.
+    """
+    from helpers.route_optimizer import optimize_stack, OptimizeError
+
+    body = request.get_json(silent=True) or {}
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    ship_uuid = body.get("ship_uuid")
+    origin_uuid = body.get("origin_uuid")
+    objective = body.get("objective") or "time"
+    raw_moves = body.get("moves") or body.get("legs") or []
+    if not qd_uuid:
+        return jsonify({"error": "qd_uuid is required"}), 400
+
+    moves = []
+    for m in raw_moves:
+        pickup = m.get("pickup") or m.get("pickup_uuid")
+        dropoff = m.get("dropoff") or m.get("dropoff_uuid")
+        if not (pickup and dropoff):
+            continue
+        mv = {"pickup": pickup, "dropoff": dropoff,
+              "scu": m.get("scu", m.get("quantity_scu")) or 0}
+        if m.get("id") is not None:
+            mv["id"] = m["id"]
+        moves.append(mv)
+    if not moves:
+        return jsonify({"error": "at least one move with pickup/dropoff is required"}), 400
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return jsonify({"error": "quantum drive not found"}), 404
+        qd = dict(qd_row)
+
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute(
+                "SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+
+        nav = _get_nav_graph(conn, p)
+        try:
+            result = optimize_stack(moves, ship, qd, nav,
+                                    objective=objective, origin_uuid=origin_uuid)
+        except OptimizeError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:  # unknown nav point, etc.
+            return jsonify({"error": str(e)}), 400
+        return jsonify(result)
+    finally:
+        conn.close()
+
+
 # Ordering of dropdown-3 groups within a planetary system.
 _GROUP_ORDER = {"planet": 0, "moon": 1, "lagrange": 2, "system": 3}
 
