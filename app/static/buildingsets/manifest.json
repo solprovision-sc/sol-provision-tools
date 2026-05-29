@@ -1,0 +1,451 @@
+[
+  {
+    "id": "plaza_floor_a_cap_b",
+    "name": "Plaza Floor A Cap B",
+    "category": "Floor",
+    "file": "plaza_floor_a_cap_b.glb",
+    "size": [
+      8.516,
+      0.535,
+      8.555
+    ],
+    "materials": [
+      "glass_a",
+      "decal_pom_a",
+      "decal_pom_metallic",
+      "paint_c_notint",
+      "metal_a",
+      "marble_light_a"
+    ],
+    "vertices": 1646,
+    "src": "human/hightech/loc/stanton/microtech/newbab/int/plaza/plaza_floor_a_cap_b.cgf"
+  },
+  {
+    "id": "admin_floor_bespoke_16x11x0025_a",
+    "name": "Admin Floor Bespoke A",
+    "category": "Floor",
+    "file": "admin_floor_bespoke_16x11x0025_a.glb",
+    "size": [
+      16.002,
+      0.317,
+      15.0
+    ],
+    "materials": [
+      "glass_a",
+      "decal_graphic_a",
+      "grating_atlas_a",
+      "decal_pom_a",
+      "decal_pom_metallic",
+      "secondary_tint_paint_b",
+      "paint_c_notint",
+      "metal_a",
+      "rubber_a",
+      "wood_b_light"
+    ],
+    "vertices": 6533,
+    "src": "human/hightech/delta/int/admin/admin_floor_bespoke_16x11x0025_a.cgf"
+  },
+  {
+    "id": "roomsm_a_wall_straight_08x01x04_a",
+    "name": "Roomsm A Wall Straight A",
+    "category": "Wall",
+    "file": "roomsm_a_wall_straight_08x01x04_a.glb",
+    "size": [
+      8.001,
+      4.0,
+      0.82
+    ],
+    "materials": [
+      "proxy_shadow",
+      "proxy_metal_thin",
+      "proxy_metal_vent_shaft"
+    ],
+    "vertices": 2055,
+    "src": "human/hightech/delta/int/roomsm_a/wall/roomsm_a_wall_straight_08x01x04_a.cgf"
+  },
+  {
+    "id": "roomsm_a_wall_straight_08x01x04_b",
+    "name": "Roomsm A Wall Straight B",
+    "category": "Wall",
+    "file": "roomsm_a_wall_straight_08x01x04_b.glb",
+    "size": [
+      8.018,
+      4.0,
+      0.745
+    ],
+    "materials": [
+      "proxy_metal_hollow",
+      "proxy_metal_grate"
+    ],
+    "vertices": 2249,
+    "src": "human/hightech/delta/int/roomsm_a/wall/roomsm_a_wall_straight_08x01x04_b.cgf"
+  },
+  {
+    "id": "roomsm_a_wall_straight_02x01x04_c",
+    "name": "Roomsm A Wall Straight C",
+    "category": "Wall",
+    "file": "roomsm_a_wall_straight_02x01x04_c.glb",
+    "size": [
+      2.0,
+      4.021,
+      1.021
+    ],
+    "materials": [
+      "glow_a_link",
+      "decal_graphic_a",
+      "decal_pom_a",
+      "decal_pom_b",
+      "grating_atlas_a",
+      "trim_a",
+      "trim_c",
+      "paint_c_notint",
+      "metal_a",
+      "panel_metal_a"
+    ],
+    "vertices": 7835,
+    "src": "human/hightech/delta/int/roomsm_a/wall/roomsm_a_wall_straight_02x01x04_c.cgf"
+  },
+  {
+    "id": "wall_base_straight_08x04x08_a_a",
+    "name": "Wall Base Straight A A",
+    "category": "Wall",
+    "file": "wall_base_straight_08x04x08_a_a.glb",
+    "size": [
+      8.0,
+      8.0,
+      3.616
+    ],
+    "materials": [
+      "pom_decal",
+      "markings_dc",
+      "beams_atlas",
+      "mechanical_parts",
+      "pipe_paneling_b",
+      "panels_walls"
+    ],
+    "vertices": 8669,
+    "src": "garage/lt_b/wall_base_straight_08x04x08_a_a.cgf"
+  },
+  {
+    "id": "roomsm_a_wall_straight_door_frame_08x01x04_a",
+    "name": "Roomsm A Wall Straight Door Frame A",
+    "category": "Door",
+    "file": "roomsm_a_wall_straight_door_frame_08x01x04_a.glb",
+    "size": [
+      8.0,
+      4.0,
+      1.813
+    ],
+    "materials": [
+      "glass_unbreakable_a",
+      "decal_graphic_a",
+      "decal_pom_a",
+      "decal_pom_b",
+      "trim_c",
+      "primary_tint_paint_a",
+      "primary_tint_paint_b",
+      "metal_a"
+    ],
+    "vertices": 8155,
+    "src": "human/hightech/delta/int/roomsm_a/wall/roomsm_a_wall_straight_door_frame_08x01x04_a.cgf"
+  },
+  {
+    "id": "roomsm_a_partition_door_04x005x04_d",
+    "name": "Roomsm A Partition Door D",
+    "category": "Door",
+    "file": "roomsm_a_partition_door_04x005x04_d.glb",
+    "size": [
+      4.004,
+      4.0,
+      0.498
+    ],
+    "materials": [
+      "decal_pom_a",
+      "decal_pom_b",
+      "primary_tint_paint_b",
+      "paint_c_notint",
+      "metal_a"
+    ],
+    "vertices": 4650,
+    "src": "human/hightech/delta/int/roomsm_a/partition/roomsm_a_partition_door_04x005x04_d.cgf"
+  },
+  {
+    "id": "roomlg_wall_door_base_08x01x04_a",
+    "name": "Roomlg Wall Door Base A",
+    "category": "Door",
+    "file": "roomlg_wall_door_base_08x01x04_a.glb",
+    "size": [
+      8.0,
+      4.001,
+      1.188
+    ],
+    "materials": [
+      "graphical_tint_decal_a",
+      "decal_pom_a_obsolete",
+      "grating_metal",
+      "trim_greeble",
+      "metal_bare",
+      "secondary_tint_paint_a",
+      "primary_tint_panel_b",
+      "secondary_tint_panel_floor_b"
+    ],
+    "vertices": 3911,
+    "src": "human/lowtech/alpha/int/roomlg/wall/roomlg_wall_door_base_08x01x04_a.cgf"
+  },
+  {
+    "id": "roomsm_a_wall_upper_window_straight_right_12x01x04_c",
+    "name": "Roomsm A Wall Upper Window Straight Right C",
+    "category": "Window",
+    "file": "roomsm_a_wall_upper_window_straight_right_12x01x04_c.glb",
+    "size": [
+      12.992,
+      5.207,
+      3.004
+    ],
+    "materials": [
+      "decal_pom_a",
+      "primary_tint_paint_b",
+      "paint_c_notint",
+      "rubber_a"
+    ],
+    "vertices": 5303,
+    "src": "human/hightech/delta/int/roomsm_a/wall/roomsm_a_wall_upper_window_straight_right_12x01x04_c.cgf"
+  },
+  {
+    "id": "roomlg_wall_atrium_window_08x04x08_b",
+    "name": "Roomlg Wall Atrium Window B",
+    "category": "Window",
+    "file": "roomlg_wall_atrium_window_08x04x08_b.glb",
+    "size": [
+      8.003,
+      8.901,
+      4.97
+    ],
+    "materials": [
+      "proxy",
+      "graphical_tint_decal_a",
+      "decal_pom_a_obsolete",
+      "trim_greeble",
+      "metal_bare",
+      "primary_tint_paint_a",
+      "secondary_tint_paint_a",
+      "primary_tint_panel_b"
+    ],
+    "vertices": 4969,
+    "src": "human/lowtech/alpha/int/roomlg/wall/roomlg_wall_atrium_window_08x04x08_b.cgf"
+  },
+  {
+    "id": "roomsm_a_partition_corner_01x01x04_c",
+    "name": "Roomsm A Partition Corner C",
+    "category": "Corner",
+    "file": "roomsm_a_partition_corner_01x01x04_c.glb",
+    "size": [
+      1.251,
+      4.0,
+      1.25
+    ],
+    "materials": [
+      "decal_graphic_a",
+      "decal_pom_a",
+      "decal_pom_b",
+      "paint_c_notint",
+      "metal_a"
+    ],
+    "vertices": 7179,
+    "src": "human/hightech/delta/int/roomsm_a/partition/roomsm_a_partition_corner_01x01x04_c.cgf"
+  },
+  {
+    "id": "roomlg_wall_hero_corneroutleft_base_04x04x04_b",
+    "name": "Roomlg Wall Hero Corneroutleft Base B",
+    "category": "Corner",
+    "file": "roomlg_wall_hero_corneroutleft_base_04x04x04_b.glb",
+    "size": [
+      3.99,
+      4.009,
+      3.993
+    ],
+    "materials": [
+      "graphical_tint_decal_a",
+      "decal_pom_a_obsolete",
+      "metal_bare",
+      "secondary_tint_paint_a",
+      "primary_tint_panel_b",
+      "secondary_tint_panel_floor_b"
+    ],
+    "vertices": 2823,
+    "src": "human/lowtech/alpha/int/roomlg/wall/roomlg_wall_hero_corneroutleft_base_04x04x04_b.cgf"
+  },
+  {
+    "id": "roomsm_wall_cornerout_02x02x04_a",
+    "name": "Roomsm Wall Cornerout A",
+    "category": "Corner",
+    "file": "roomsm_wall_cornerout_02x02x04_a.glb",
+    "size": [
+      2.002,
+      4.0,
+      2.002
+    ],
+    "materials": [
+      "graphical_tint_decal_a",
+      "decal_pom_a_obsolete",
+      "glow_linked",
+      "trim_greeble",
+      "metal_bare",
+      "secondary_tint_panel_a",
+      "primary_tint_panel_b",
+      "secondary_tint_panel_b",
+      "secondary_tint_panel_floor_b"
+    ],
+    "vertices": 2369,
+    "src": "human/lowtech/alpha/int/roomsm/wall/roomsm_wall_cornerout_02x02x04_a.cgf"
+  },
+  {
+    "id": "roomsm_a_partition_pillar_005x005x04_a",
+    "name": "Roomsm A Partition Pillar A",
+    "category": "Pillar",
+    "file": "roomsm_a_partition_pillar_005x005x04_a.glb",
+    "size": [
+      0.251,
+      4.0,
+      0.495
+    ],
+    "materials": [
+      "decal_pom_a",
+      "decal_pom_b",
+      "primary_tint_paint_b",
+      "paint_c_notint",
+      "metal_a"
+    ],
+    "vertices": 1854,
+    "src": "human/hightech/delta/int/roomsm_a/partition/roomsm_a_partition_pillar_005x005x04_a.cgf"
+  },
+  {
+    "id": "roomlg_addon_pillar_top_01x04x04_a",
+    "name": "Roomlg Addon Pillar Top A",
+    "category": "Pillar",
+    "file": "roomlg_addon_pillar_top_01x04x04_a.glb",
+    "size": [
+      1.038,
+      4.007,
+      5.3
+    ],
+    "materials": [
+      "light_a",
+      "decal_graphic_a",
+      "decal_a",
+      "trim_b",
+      "paint_grey_a",
+      "paint_white_a",
+      "metal_a",
+      "panel_a",
+      "plastic_dark_grey_a"
+    ],
+    "vertices": 5239,
+    "src": "human/lowtech/alpha/int/roomlg/addon/roomlg_addon_pillar_top_01x04x04_a.cgf"
+  },
+  {
+    "id": "roomsm_a_ceiling_straight_06x06x0025_d",
+    "name": "Roomsm A Ceiling Straight D",
+    "category": "Ceiling",
+    "file": "roomsm_a_ceiling_straight_06x06x0025_d.glb",
+    "size": [
+      6.0,
+      0.504,
+      6.0
+    ],
+    "materials": [
+      "decal_graphic_a",
+      "graphic_tint_decal_b",
+      "decal_pom_a",
+      "decal_pom_b",
+      "trim_c",
+      "paint_c_notint",
+      "metal_a"
+    ],
+    "vertices": 7400,
+    "src": "human/hightech/delta/int/roomsm_a/ceiling/roomsm_a_ceiling_straight_06x06x0025_d.cgf"
+  },
+  {
+    "id": "roomlg_addon_ceiling_frame_08x08x05_a",
+    "name": "Roomlg Addon Ceiling Frame A",
+    "category": "Ceiling",
+    "file": "roomlg_addon_ceiling_frame_08x08x05_a.glb",
+    "size": [
+      8.116,
+      0.906,
+      8.022
+    ],
+    "materials": [
+      "decal_pom_a_obsolete",
+      "metal_bare",
+      "secondary_tint_paint_a",
+      "secondary_tint_panel_floor_b"
+    ],
+    "vertices": 4452,
+    "src": "human/lowtech/alpha/int/roomlg/addon/roomlg_addon_ceiling_frame_08x08x05_a.cgf"
+  },
+  {
+    "id": "pilar_archway_08x01x02",
+    "name": "Pilar Archway",
+    "category": "Archway",
+    "file": "pilar_archway_08x01x02.glb",
+    "size": [
+      8.066,
+      1.673,
+      1.185
+    ],
+    "materials": [
+      "graphical_tint_decal_a",
+      "decal_pom_a_obsolete",
+      "metal_bare",
+      "rubber_tread",
+      "primary_tint_paint_a"
+    ],
+    "vertices": 3040,
+    "src": "human/lowtech/alpha/int/roomlg/Pilar_archway_08x01x02.cgf"
+  },
+  {
+    "id": "deluxe_balcony_stairs_01",
+    "name": "Deluxe Balcony Stairs 01",
+    "category": "Stairs",
+    "file": "deluxe_balcony_stairs_01.glb",
+    "size": [
+      15.366,
+      4.219,
+      16.0
+    ],
+    "materials": [
+      "wood_dark",
+      "wood_oak",
+      "plastic_white01",
+      "lights01",
+      "brass_shiny"
+    ],
+    "vertices": 6644,
+    "src": "hangar/deluxe/deluxe_balcony_stairs_01.cgf"
+  },
+  {
+    "id": "ramp_a_12x04x05_a",
+    "name": "Ramp A A",
+    "category": "Ramp",
+    "file": "ramp_a_12x04x05_a.glb",
+    "size": [
+      5.952,
+      4.808,
+      14.756
+    ],
+    "materials": [
+      "decal_graphic_a",
+      "graphic_tint_decal_b",
+      "decal_pom_a",
+      "decal_pom_b",
+      "trim_c",
+      "paint_c_notint",
+      "rubber_a",
+      "metal_a",
+      "primary_tint_paint_a_terrainblend"
+    ],
+    "vertices": 6896,
+    "src": "human/hightech/delta/ext/outpost/ramp/ramp_a_12x04x05_a.cgf"
+  }
+]

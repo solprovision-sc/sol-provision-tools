@@ -3097,7 +3097,14 @@ body::before {
           e.stopPropagation();
           if (GATED_BY_ALL_ON.has(st.catKey) && !st.compEnabled.every(Boolean)) return;
           const j = parseInt(el.dataset.adj, 10);
-          st.adjLit[j] = !st.adjLit[j];
+          // Contiguous fill: segments activate/deactivate in order, no gaps.
+          // Off→on lights this segment + every segment below it (lower index).
+          // On→off clears this segment + every segment above it (higher index).
+          if (st.adjLit[j]) {
+            for (let k = j; k < st.adjLit.length; k++) st.adjLit[k] = false;
+          } else {
+            for (let k = 0; k <= j; k++) st.adjLit[k] = true;
+          }
           repaintCell(cellKey);
           recomputeSidebarStats(window.__currentShip);
         });
