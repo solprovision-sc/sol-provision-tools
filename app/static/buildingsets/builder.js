@@ -40,6 +40,8 @@ const placed = [];
 const modelCache = new Map();  // id -> Promise<THREE.Group>
 let snapStep = 1;
 let ghostRotation = 0;
+let ghostElevation = 0;   // persists between placements so you can lay a whole upper floor
+let ghostMirror = 1;      // 1 = normal, -1 = mirrored on local X
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
@@ -146,6 +148,7 @@ function loadModel(p) {
           o.castShadow = true; o.receiveShadow = true;
           const srcName = o.material ? o.material.name : '';
           o.material = new THREE.MeshStandardMaterial(matParams(srcName));
+          o.material.name = srcName;   // keep slot name so downstream matParams() still resolves
         });
         // recentre on ground: x/z centred, y resting on 0
         const box = new THREE.Box3().setFromObject(root);
@@ -167,10 +170,12 @@ async function armPiece(p, el) {
   el.classList.add('active');
   armed = p;
   ghostRotation = 0;
+  ghostMirror = 1;
   deselect();
   const tmpl = await loadModel(p);
   if (ghost) scene.remove(ghost);
   ghost = tmpl.clone(true);
+  ghost.scale.x = ghostMirror;
   ghost.traverse((o) => {
     if (o.isMesh) {
       o.material = o.material.clone();
@@ -180,7 +185,7 @@ async function armPiece(p, el) {
     }
   });
   scene.add(ghost);
-  setStatus(`${p.name} armed — click grid to place · R rotate · Esc cancel`);
+  setStatus(`${p.name} armed — click grid to place · R rotate · Q/E elevate · F mirror · Esc cancel`);
 }
 
 // ── pointer / placement ──────────────────────────────────────────────────────────
@@ -218,7 +223,7 @@ function onPointerMove(e) {
   if (!armed || !ghost) return;
   const g = groundPoint(e);
   if (g) {
-    ghost.position.set(g.x, 0, g.z);
+    ghost.position.set(g.x, ghostElevation, g.z);
     ghost.rotation.y = ghostRotation;
   }
 }
@@ -268,10 +273,45 @@ function onKey(e) {
     ghostRotation += Math.PI / 2;
     if (ghost) ghost.rotation.y = ghostRotation;
     if (selected) selected.rotation.y += Math.PI / 2;
+  } else if (e.key === 'e' || e.key === 'E') {
+    adjustElevation(snapStep);
+  } else if (e.key === 'q' || e.key === 'Q') {
+    adjustElevation(-snapStep);
+  } else if (e.key === 'f' || e.key === 'F') {
+    toggleMirror();
   } else if (e.key === 'Escape') {
     disarm(); deselect();
   } else if (e.key === 'Delete' || e.key === 'Backspace') {
     if (selected) { scene.remove(selected); placed.splice(placed.indexOf(selected), 1); selected = null; setStatus('Piece removed.'); }
+  }
+}
+
+function adjustElevation(delta) {
+  if (armed && ghost) {
+    ghostElevation += delta;
+    ghost.position.y = ghostElevation;
+    setStatus(`${armed.name} · elevation ${ghostElevation.toFixed(2)} m — Q/E adjust · click to place`);
+  } else if (selected) {
+    selected.position.y += delta;
+    setStatus(`Elevation ${selected.position.y.toFixed(2)} m`);
+  }
+}
+
+// Mirror a piece by negating local-X scale; negative scale flips winding so we
+// switch its materials to DoubleSide to keep lighting correct.
+function applyMirror(obj, sign) {
+  obj.scale.x = Math.abs(obj.scale.x) * sign;
+  obj.traverse((o) => { if (o.isMesh && o.material) o.material.side = THREE.DoubleSide; });
+}
+
+function toggleMirror() {
+  if (armed && ghost) {
+    ghostMirror *= -1;
+    applyMirror(ghost, ghostMirror);
+    setStatus(`${armed.name} · ${ghostMirror < 0 ? 'mirrored' : 'normal'} — F flip · click to place`);
+  } else if (selected) {
+    applyMirror(selected, selected.scale.x < 0 ? 1 : -1);
+    setStatus(`Piece ${selected.scale.x < 0 ? 'mirrored' : 'normal'}`);
   }
 }
 
