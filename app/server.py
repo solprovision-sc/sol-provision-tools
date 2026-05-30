@@ -3012,16 +3012,19 @@ def api_cargo_systems():
 @app.route("/api/cargo/ships")
 def api_cargo_ships():
     """Ships for the ship dropdown. Limited to flyable/in-game ships via the
-    ships_index join (same filter the main /api/ships uses). Includes
-    cargo_scu so the UI can show capacity; cargo-capable ships sort first."""
+    ships_index join (same filter the main /api/ships uses). Cargo capacity is
+    the RSI marketing value (rsi_cargo_scu), falling back to the in-game grid
+    (cargo_scu) when RSI has none; cargo-capable ships sort first."""
     conn = get_db(); p = PATCH or latest_patch(conn)
     rows = conn.execute("""
-        SELECT s.uuid, s.entity_name, s.vehicle_name, s.display_name, s.cargo_scu,
+        SELECT s.uuid, s.entity_name, s.vehicle_name, s.display_name,
+               COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) AS cargo_scu,
                s.size_class, s.role, s.career
           FROM ships s
           JOIN ships_index si ON si.entity_name = s.entity_name
          WHERE s.patch_version = ?
-         ORDER BY (s.cargo_scu IS NULL OR s.cargo_scu = 0) ASC,
+         ORDER BY (COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) IS NULL
+                   OR COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) = 0) ASC,
                   s.display_name, s.vehicle_name
     """, (p,)).fetchall()
     conn.close()
@@ -3227,6 +3230,9 @@ def api_cargo_optimize():
                 (p, ship_uuid)).fetchone()
             if srow:
                 ship = dict(srow)
+                # Capacity = RSI marketing value, falling back to the in-game
+                # grid; this is the cargo_scu the optimizer reads for capacity.
+                ship["cargo_scu"] = ship.get("rsi_cargo_scu") or ship.get("cargo_scu")
 
         nav = _get_nav_graph(conn, p)
         try:
