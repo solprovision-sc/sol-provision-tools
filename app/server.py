@@ -141,6 +141,7 @@ def _ensure_cargo_schema(conn):
     spec = importlib.util.spec_from_file_location("init_cargo_planner_db", init_path)
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
     conn.executescript(mod.SCHEMA)
+    mod.custom_migrations(conn)   # heal tables that pre-date the current schema
     conn.commit()
 
 def get_cargo_db():

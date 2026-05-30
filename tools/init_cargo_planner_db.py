@@ -106,9 +106,34 @@ CREATE INDEX IF NOT EXISTS idx_activity_event   ON activity_log(event_type, time
 # in custom_migrations() rather than ALTER TABLE directly so the run stays
 # idempotent against any prior schema version.
 def custom_migrations(conn: sqlite3.Connection) -> list[str]:
-    """Return a list of human-readable migration descriptions that ran."""
+    """Return a list of human-readable migration descriptions that ran.
+
+    Runs AFTER the CREATE-IF-NOT-EXISTS SCHEMA above, so it only handles tables
+    that already exist in an older shape (which IF NOT EXISTS can't fix)."""
     applied = []
-    # Example for future migrations:
+
+    # A `users` table created before discord_id became the primary key can't be
+    # repaired by CREATE TABLE IF NOT EXISTS. It only caches username/display_name
+    # (safe to rebuild — rows repopulate on next login), so drop & recreate it
+    # with the canonical shape. FK enforcement is toggled off for the swap.
+    ucols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if ucols and "discord_id" not in ucols:
+        conn.commit()  # close any implicit transaction so the PRAGMA takes effect
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.executescript(
+            "DROP TABLE users;"
+            "CREATE TABLE users ("
+            "  discord_id      TEXT PRIMARY KEY,"
+            "  first_seen_utc  TEXT NOT NULL,"
+            "  last_seen_utc   TEXT NOT NULL,"
+            "  username        TEXT,"
+            "  display_name    TEXT"
+            ");"
+        )
+        conn.execute("PRAGMA foreign_keys=ON")
+        applied.append("users table rebuilt with discord_id primary key")
+
+    # Example for future column additions (non-destructive):
     # if add_column_if_missing(conn, 'legs', 'estimated_payout_uec', 'INTEGER'):
     #     applied.append("legs.estimated_payout_uec added")
     return applied
