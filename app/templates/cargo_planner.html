@@ -690,7 +690,7 @@ async function optimizeRoute() {
       pickup: r.pickup, dropoff: r.dropoff,
       scu: Number(leg.quantity_scu || 0),
     });
-  });
+  }));
   if (!moves.length) {
     out.innerHTML = `<div class="cp-route-note cp-warn">Add at least one leg with both a pickup and a dropoff.</div>`;
     return;
