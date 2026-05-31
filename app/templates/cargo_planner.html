@@ -285,7 +285,7 @@ const esc = s => (s == null ? '' : String(s).replace(/[&<>"]/g, c => (
   const [ships, , cargoLocs] = await Promise.all([
     api('/api/cargo/ships'),
     populateSystems(),
-    api('/api/cargo/locations?cargo_only=1'),
+    api('/api/cargo/locations'),
   ]);
   SHIPS = ships; CARGO_LOCS = cargoLocs;
   populateShips();
