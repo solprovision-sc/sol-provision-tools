@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Officer DB Query — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+  .db-layout { display: grid; grid-template-columns: 240px 1fr; gap: 24px; }
+  .db-sidebar { position: sticky; top: 80px; align-self: start; }
+  .db-table-link {
+    display: block; padding: 6px 10px; cursor: pointer;
+    color: var(--text2); font-family: var(--font-mono); font-size: 13px;
+    border-left: 2px solid transparent;
+  }
+  .db-table-link:hover { color: var(--accent); border-left-color: var(--accent); }
+  #sql-input {
+    width: 100%; min-height: 140px; background: var(--bg2);
+    color: var(--text); border: 1px solid var(--border2);
+    font-family: var(--font-mono); font-size: 13px; padding: 12px;
+    border-radius: 4px; resize: vertical;
+  }
+  .db-meta { color: var(--text2); font-size: 12px; margin: 8px 0; }
+  .db-error { color: var(--red); font-family: var(--font-mono); padding: 12px;
+              background: rgba(255,68,68,0.08); border-left: 3px solid var(--red); }
+  .db-results { overflow-x: auto; max-height: 70vh; }
+  .db-results table { width: 100%; border-collapse: collapse; font-size: 12px;
+                      font-family: var(--font-mono); }
+  .db-results th { position: sticky; top: 0; background: var(--bg3);
+                   text-align: left; padding: 8px; border-bottom: 1px solid var(--border2); }
+  .db-results td { padding: 6px 8px; border-bottom: 1px solid var(--border);
+                   max-width: 400px; overflow: hidden; text-overflow: ellipsis;
+                   white-space: nowrap; }
+  .db-results td:hover { white-space: normal; word-break: break-all; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="db-layout">
+  <aside class="db-sidebar">
+    <div class="section-label">Tables</div>
+    {% for t in tables %}
+      <a class="db-table-link" onclick="loadTable('{{ t }}')">{{ t }}</a>
+    {% endfor %}
+  </aside>
+  <main>
+    <h2>SQL Query (read-only)</h2>
+    <textarea id="sql-input" placeholder="SELECT * FROM ships LIMIT 10"></textarea>
+    <div style="margin-top: 8px;">
+      <button class="btn" onclick="runQuery()">Run</button>
+      <span class="db-meta" id="db-meta"></span>
+    </div>
+    <div id="db-output" style="margin-top: 16px;"></div>
+  </main>
+</div>
+{% endblock %}
+
+{% block page_script %}
+function loadTable(name) {
+  document.getElementById('sql-input').value = `SELECT * FROM ${name} LIMIT 100`;
+  runQuery();
+}
+
+async function runQuery() {
+  const sql = document.getElementById('sql-input').value;
+  const out = document.getElementById('db-output');
+  const meta = document.getElementById('db-meta');
+  out.innerHTML = '<div class="loading">Running…</div>';
+  meta.textContent = '';
+
+  try {
+    const res = await fetch('/officer-db/query', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({sql})
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      out.innerHTML = `<div class="db-error">${data.error || 'Error'}</div>`;
+      return;
+    }
+    meta.textContent = `${data.row_count} row${data.row_count === 1 ? '' : 's'}` +
+                       (data.truncated ? ` (truncated at ${data.row_count})` : '') +
+                       ` · ${data.elapsed_ms}ms`;
+    if (data.rows.length === 0) {
+      out.innerHTML = '<div class="db-meta">No rows returned.</div>';
+      return;
+    }
+    let html = '<div class="db-results"><table><thead><tr>';
+    data.columns.forEach(c => html += `<th>${c}</th>`);
+    html += '</tr></thead><tbody>';
+    data.rows.forEach(row => {
+      html += '<tr>';
+      row.forEach(v => html += `<td>${v === null ? '<i style="color:var(--text3)">NULL</i>' : String(v).replace(/</g,'&lt;')}</td>`);
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+    out.innerHTML = html;
+  } catch (err) {
+    out.innerHTML = `<div class="db-error">${err}</div>`;
+  }
+}
+</script>
+{% endblock %}
