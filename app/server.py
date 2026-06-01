@@ -8,8 +8,6 @@ import requests
 import time
 from datetime import timedelta, datetime, timezone
 from functools import wraps
-from app.officer_db import officer_db
-app.register_blueprint(officer_db)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -21,6 +19,9 @@ from firebase_admin import credentials, auth as firebase_auth
 
 # Create flask app
 app = Flask(__name__, template_folder="templates", static_folder="static")
+from officer_db import officer_db
+app.register_blueprint(officer_db)
+
 DB_PATH = os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db")
 PATCH = None
 
