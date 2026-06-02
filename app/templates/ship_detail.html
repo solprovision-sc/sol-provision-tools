@@ -136,9 +136,21 @@
   border-radius: 1px;
   cursor: pointer;
   transition: background 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .pm-seg.on { background: #E8855C; }
 .pm-seg.gated { cursor: not-allowed; opacity: 0.45; }
+/* "H" = heat / overclock segment on coolers + life support (top segment). */
+.pm-seg-h {
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  color: #9A8C64;
+}
+.pm-seg.on .pm-seg-h { color: #2a1a12; }
 .pm-mandatory {
   /* height set inline = mandatory_count × --pm-seg */
   background: #E8855C;
@@ -147,6 +159,11 @@
   transition: background 0.12s, opacity 0.12s;
 }
 .pm-mandatory.off { background: rgba(70,40,30,0.30); }
+/* Locked = non-throttleable categories (quantum): solid block, dimmed icon/label. */
+.pm-col.locked .pm-mandatory { cursor: default; }
+.pm-col.locked .pm-icon { cursor: default; opacity: 0.5; }
+.pm-col.locked .pm-icon:hover { color: #E8855C; }
+.pm-col.locked .pm-level { opacity: 0.5; }
 
 .pm-icon {
   width: 18px;
@@ -2978,11 +2995,28 @@ body::before {
     return list.filter(c => (c.power_draw || 0) > 0);
   }
 
+  // Categories whose components are NOT power-throttleable in game: the whole
+  // power_draw renders as one solid, non-interactive block (SPViewer shows the
+  // quantum drive this way — dimmed icon, "-" header). Their stored power curve
+  // (e.g. Bolon QD: med_start 0, high_start 1) does NOT describe the block size,
+  // so we override the breakdown for them.
+  const SOLID_BLOCK = new Set(['quantum']);
+
+  // Categories whose topmost adjustable segment is the heat / overclock segment,
+  // flagged with an "H" in SPViewer. This is a per-category trait, not derivable
+  // from the power numbers — coolers and shields share an identical curve yet
+  // only coolers (and life support) are marked.
+  const HEAT_MARKED = new Set(['cooler', 'lifesupport']);
+
   // Split a component's power_draw into (mandatory_size, adjustable_count).
-  // Mandatory = the always-on minimum block (high_start − medium_start).
+  // Mandatory = the always-on minimum block (high_start − medium_start), unless
+  // the category is a SOLID_BLOCK (then the entire draw is one mandatory block).
   // Adjustable = remaining segments, individually toggleable above.
-  function powerBarBreakdown(comp) {
+  function powerBarBreakdown(comp, catKey) {
     const draw = Math.round(comp.power_draw || 0);
+    if (SOLID_BLOCK.has(catKey)) {
+      return { mandatory: draw, adjustable: 0 };
+    }
     const med  = Math.round(comp.power_medium_start || 0);
     const hi   = Math.round(comp.power_high_start   || 0);
     const mandatory  = Math.max(0, Math.min(draw, hi - med));
@@ -3005,7 +3039,7 @@ body::before {
 
   // Initialize / preserve cell state when grid is (re-)rendered.
   function ensureCellState(cell) {
-    const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c).adjustable, 0);
+    const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c, cell.cat.key).adjustable, 0);
     const existing = CELL_STATE[cell.key];
     if (existing && existing.compEnabled.length === cell.comps.length
                  && existing.adjLit.length === totalAdj) {
@@ -3043,28 +3077,33 @@ body::before {
       const cat = cell.cat;
       const iconStyle = `-webkit-mask-image: url(/static/img/icons/${cat.icon}); mask-image: url(/static/img/icons/${cat.icon}); -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-position: center; mask-position: center; -webkit-mask-size: contain; mask-size: contain;`;
 
+      const locked = SOLID_BLOCK.has(cat.key);
+
       // Mandatory blocks: one per component, sized by that component's mandatory_size.
       // Stacked top-to-bottom from data perspective; since .pm-bars is column-reverse
       // the bottom of the list renders at the floor.
       const mandHtml = cell.comps.map((comp, i) => {
-        const { mandatory } = powerBarBreakdown(comp);
+        const { mandatory } = powerBarBreakdown(comp, cat.key);
         if (mandatory <= 0) return '';
         // height = mandatory * --pm-seg (set as inline style with calc)
         return `<div class="pm-mandatory" data-comp="${i}" style="height: calc(var(--pm-seg) * ${mandatory});"></div>`;
       }).join('');
 
       // Adjustable segments: total across all components in the cell.
-      const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c).adjustable, 0);
+      const totalAdj = cell.comps.reduce((acc, c) => acc + powerBarBreakdown(c, cat.key).adjustable, 0);
+      // For heat-marked categories (cooler, life support), the topmost adjustable
+      // segment carries an "H". Column-reverse renders the highest index at top.
+      const heatTop = HEAT_MARKED.has(cat.key) ? totalAdj - 1 : -1;
       const adjHtml = Array.from({ length: totalAdj }, (_, j) =>
-        `<div class="pm-seg" data-adj="${j}"></div>`
+        `<div class="pm-seg" data-adj="${j}">${j === heatTop ? '<span class="pm-seg-h">H</span>' : ''}</div>`
       ).join('');
 
       // Column-reverse stack: mandatory first in DOM (anchors bottom), adjustable after (stacks up).
       return `
-        <div class="pm-col" data-cell="${cell.key}" data-cat="${cat.key}" title="${cat.label}">
+        <div class="pm-col${locked ? ' locked' : ''}" data-cell="${cell.key}" data-cat="${cat.key}" title="${cat.label}">
           <div class="pm-bars">${mandHtml}${adjHtml}</div>
           <div class="pm-icon" style="${iconStyle}"></div>
-          <div class="pm-level">100%</div>
+          <div class="pm-level">${locked ? '-' : '100%'}</div>
         </div>`;
     }).join('');
 
@@ -3072,6 +3111,8 @@ body::before {
     root.querySelectorAll('.pm-col').forEach(col => {
       const cellKey = col.dataset.cell;
       const st = CELL_STATE[cellKey];
+      // SOLID_BLOCK categories (quantum) are non-throttleable: render only, no toggles.
+      if (col.classList.contains('locked')) { repaintCell(cellKey); return; }
       // Icon → toggle whole cell (turn all components on or all off).
       col.querySelector('.pm-icon').addEventListener('click', e => {
         e.stopPropagation();
@@ -3135,9 +3176,11 @@ body::before {
       el.classList.toggle('gated', gated);
     });
 
-    // Header text: show component-active count for multi-comp cells, else %.
+    // Header text: solid-block cells (quantum) are non-throttleable → "-".
     const levelEl = col.querySelector('.pm-level');
-    if (st.compEnabled.length > 1) {
+    if (col.classList.contains('locked')) {
+      levelEl.textContent = '-';
+    } else if (st.compEnabled.length > 1) {
       const onCount = st.compEnabled.filter(Boolean).length;
       levelEl.textContent = `${onCount}/${st.compEnabled.length}`;
     } else {
@@ -3153,7 +3196,7 @@ body::before {
     const cell = findCellByKey(col.dataset.cell);
     if (!cell || cell.comps.length !== 1) return 100;
     const comp = cell.comps[0];
-    const { mandatory, adjustable } = powerBarBreakdown(comp);
+    const { mandatory, adjustable } = powerBarBreakdown(comp, cell.cat.key);
     const draw = mandatory + adjustable;
     if (draw <= 0) return 100;
     const lit = (st.compEnabled[0] ? mandatory : 0) +
@@ -3192,7 +3235,7 @@ body::before {
     const st = CELL_STATE[foundCell.key];
     if (!st || !st.compEnabled[foundIdx]) return 0;
 
-    const { mandatory, adjustable } = powerBarBreakdown(comp);
+    const { mandatory, adjustable } = powerBarBreakdown(comp, catKey);
     if (mandatory + adjustable <= 0) return 1;
     const litAdj = st.adjLit.filter(Boolean).length;
     // Approximation: blend power_medium (mandatory-only) and power_high
