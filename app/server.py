@@ -23,6 +23,7 @@ from officer_db import officer_db
 app.register_blueprint(officer_db)
 
 DB_PATH = os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db")
+app.config['DB_PATH'] = DB_PATH  # consumed by the officer_db blueprint
 PATCH = None
 
 # Detect environment. Three cases:
@@ -3556,6 +3557,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true", help="Enable debug mode with auto-reload")
     args = parser.parse_args()
     DB_PATH = args.db; PATCH = args.patch
+    app.config['DB_PATH'] = DB_PATH  # keep blueprint in sync with --db override
     if not Path(DB_PATH).exists(): print(f"ERROR: DB not found: {DB_PATH}"); exit(1)
     ensure_columns(DB_PATH)
     ensure_indexes(DB_PATH)
