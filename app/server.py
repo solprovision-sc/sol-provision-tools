@@ -1,12 +1,12 @@
 # ══════════════════════════════════════════════════════════════════════
 # IMPORTS
 # ══════════════════════════════════════════════════════════════════════
-import os, json, argparse, sqlite3, re
+import os, json, argparse, sqlite3, re, uuid
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, session, redirect
+from flask import Flask, jsonify, request, render_template, session
 import requests
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from functools import wraps
 
 
@@ -19,6 +19,9 @@ from firebase_admin import credentials, auth as firebase_auth
 
 # Create flask app
 app = Flask(__name__, template_folder="templates", static_folder="static")
+from officer_db import officer_db
+app.register_blueprint(officer_db)
+
 DB_PATH = os.environ.get("DATAFORGE_DB", "../../shared/data/dataforge.db")
 PATCH = None
 
@@ -94,32 +97,6 @@ def require_org_member(f):
     return decorated_function
 
 
-def require_officer(f):
-    """Decorator to gate endpoints behind officer rank (rank >= 5).
-
-    Builds on require_org_member's session check, then enforces the rank
-    threshold. The officer dashboard pulls stats across the whole org, so
-    we don't want regular members hitting these endpoints.
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        discord_id = session.get('discord_id')
-        if not discord_id:
-            return jsonify({'error': 'Not authenticated'}), 401
-        rank = session.get('rank')
-        # Defensive: rank may be stored as int or string depending on the
-        # snapshot import. Treat missing/None as 0 so we never grant access
-        # by accident if the column drifts.
-        try:
-            rank_n = int(rank) if rank is not None else 0
-        except (TypeError, ValueError):
-            rank_n = 0
-        if rank_n < 5:
-            return jsonify({'error': 'Officer access required'}), 403
-        return f(*args, **kwargs)
-    return decorated_function
-
-
 
 # ══════════════════════════════════════════════════════════════════════
 # DATABASE HELPERS
@@ -146,128 +123,69 @@ def get_user_db():
     conn.row_factory = sqlite3.Row
     return conn
 
-
-# ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
-# The extractor pipeline replaces dataforge.db wholesale every patch, so the
-# ownership rows have to live in their own file. Default location sits next to
-# dataforge.db so all app-writable state stays in one directory; OWNERSHIP_DB
-# env var overrides for ops flexibility.
-
-OWNERSHIP_SCHEMA = """
-    CREATE TABLE IF NOT EXISTS blueprint_ownership (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        discord_id TEXT NOT NULL,
-        blueprint_uuid TEXT NOT NULL,
-        blueprint_name TEXT NOT NULL,
-        patch_version TEXT NOT NULL,
-        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
-        notes TEXT,
-        UNIQUE(discord_id, blueprint_uuid, patch_version)
-    )
-"""
-
-
-def _resolve_ownership_db_path():
-    """Resolve the ownership DB path. OWNERSHIP_DB env var wins; otherwise it
-    sits next to whatever DB_PATH points at (computed lazily so --db overrides
-    in __main__ still work)."""
-    explicit = os.environ.get('OWNERSHIP_DB')
-    if explicit:
-        return explicit
-    return str(Path(DB_PATH).resolve().parent / 'blueprint_ownership.db')
-
-
-def get_ownership_db():
-    """Connect to blueprint_ownership DB. Auto-creates the table on first run
-    so a fresh deploy doesn't need manual sqlite3-CLI setup."""
-    conn = sqlite3.connect(_resolve_ownership_db_path())
-    conn.row_factory = sqlite3.Row
-    conn.execute(OWNERSHIP_SCHEMA)
-    conn.commit()
-    return conn
-
-
-def get_db_with_ownership():
-    """Open the dataforge connection and ATTACH the ownership DB as `own`.
-
-    Use for endpoints that JOIN crafting_blueprints against blueprint_ownership;
-    simple lookups stick to get_ownership_db() alone. The ownership path comes
-    from our own env config (not user input) so splicing it into the ATTACH
-    statement is safe.
-    """
-    conn = get_db()
-    own_path = _resolve_ownership_db_path().replace("'", "''")
-    conn.execute(f"ATTACH DATABASE '{own_path}' AS own")
-    # CREATE TABLE on the attached side too, so a fresh file is usable in JOINs
-    # immediately. `own.` prefix targets the attached DB.
-    conn.execute(OWNERSHIP_SCHEMA.replace(
-        "CREATE TABLE IF NOT EXISTS blueprint_ownership",
-        "CREATE TABLE IF NOT EXISTS own.blueprint_ownership"
-    ))
-    conn.commit()
-    return conn
-
-
-_OWNERSHIP_MIGRATION_DONE = False
-
-def _migrate_legacy_ownership_rows():
-    """One-time copy of blueprint_ownership rows from dataforge.db (where they
-    used to live) into the new standalone ownership DB. Idempotent — does
-    nothing if the new DB already has rows, so safe to call on every boot.
-
-    Has to run before the extractor replaces dataforge.db; otherwise the source
-    rows are gone. Logged so deployments can confirm the count moved over.
-    """
-    global _OWNERSHIP_MIGRATION_DONE
-    if _OWNERSHIP_MIGRATION_DONE:
-        return
-    _OWNERSHIP_MIGRATION_DONE = True
-    try:
-        own = get_ownership_db()
-        n_existing = own.execute("SELECT COUNT(*) FROM blueprint_ownership").fetchone()[0]
-        if n_existing > 0:
-            own.close()
-            return
-        df = sqlite3.connect(DB_PATH)
-        df.row_factory = sqlite3.Row
-        legacy = df.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='blueprint_ownership'"
-        ).fetchone()
-        if not legacy:
-            df.close()
-            own.close()
-            return
-        rows = df.execute("""
-            SELECT discord_id, blueprint_uuid, blueprint_name, patch_version,
-                   claimed_at, env, notes
-            FROM blueprint_ownership
-        """).fetchall()
-        df.close()
-        copied = 0
-        for r in rows:
-            try:
-                own.execute("""
-                    INSERT INTO blueprint_ownership
-                        (discord_id, blueprint_uuid, blueprint_name,
-                         patch_version, claimed_at, env, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (r['discord_id'], r['blueprint_uuid'], r['blueprint_name'],
-                      r['patch_version'], r['claimed_at'], r['env'], r['notes']))
-                copied += 1
-            except sqlite3.IntegrityError:
-                pass
-        own.commit()
-        own.close()
-        if copied:
-            print(f"  Migrated {copied} blueprint_ownership rows → {_resolve_ownership_db_path()}")
-    except sqlite3.Error as e:
-        # Swallow so a half-set-up local dev env doesn't crash the whole app.
-        print(f"  Ownership legacy migration skipped: {e}")
-
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
+
+
+# ── Cargo planner user DB (saved plans + activity) ────────────────────────────
+_cargo_schema_ready = False
+
+def _resolve_cargo_db_path():
+    """cargo_planner.db lives alongside dataforge.db unless overridden."""
+    return os.environ.get('CARGO_PLANNER_DB') or \
+        str(Path(DB_PATH).resolve().parent / 'cargo_planner.db')
+
+def _ensure_cargo_schema(conn):
+    """Apply the canonical schema from tools/init_cargo_planner_db.py so the
+    server is self-sufficient (no separate init step needed in deploys)."""
+    import importlib.util
+    init_path = Path(__file__).resolve().parent.parent / "tools" / "init_cargo_planner_db.py"
+    spec = importlib.util.spec_from_file_location("init_cargo_planner_db", init_path)
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    conn.executescript(mod.SCHEMA)
+    mod.custom_migrations(conn)   # heal tables that pre-date the current schema
+    conn.commit()
+
+def get_cargo_db():
+    global _cargo_schema_ready
+    conn = sqlite3.connect(_resolve_cargo_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys=ON")
+    if not _cargo_schema_ready:
+        _ensure_cargo_schema(conn)
+        _cargo_schema_ready = True
+    return conn
+
+def _utc_now():
+    return datetime.now(timezone.utc).isoformat()
+
+def _cargo_session_id():
+    sid = session.get('_cargo_sid')
+    if not sid:
+        sid = uuid.uuid4().hex
+        session['_cargo_sid'] = sid
+    return sid
+
+def _cargo_touch_user(conn, discord_id):
+    """Upsert the users row so the activity dashboard has a current name."""
+    now = _utc_now()
+    conn.execute("""
+        INSERT INTO users (discord_id, first_seen_utc, last_seen_utc, username, display_name)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(discord_id) DO UPDATE SET
+            last_seen_utc = excluded.last_seen_utc,
+            username      = COALESCE(excluded.username, users.username),
+            display_name  = COALESCE(excluded.display_name, users.display_name)
+    """, (discord_id, now, now, session.get('username'), session.get('callsign')))
+
+def _cargo_log(conn, discord_id, event_type, details=None):
+    conn.execute("""
+        INSERT INTO activity_log (discord_id, event_type, event_details, timestamp_utc, session_id)
+        VALUES (?, ?, ?, ?, ?)
+    """, (discord_id, event_type,
+          json.dumps(details) if details is not None else None,
+          _utc_now(), _cargo_session_id()))
 
 MFR_MAP = {
     "aegs":"Aegis","anvl":"Anvil","argo":"Argo","cnou":"C.O.","crus":"Crusader",
@@ -543,21 +461,6 @@ def ship_detail(entity_name):
 def crafting():
     return render_template("crafting.html", active_page="/crafting")
 
-@app.route("/officers")
-def officers_page():
-    # Page-level gate: non-officers (rank < 5) get bounced to the dashboard
-    # instead of seeing an empty shell. The API endpoints behind this page
-    # apply the same check via @require_officer.
-    discord_id = session.get('discord_id')
-    rank = session.get('rank')
-    try:
-        rank_n = int(rank) if rank is not None else 0
-    except (TypeError, ValueError):
-        rank_n = 0
-    if not discord_id or rank_n < 5:
-        return redirect('/')
-    return render_template("officers.html", active_page="/officers")
-
 @app.route("/mission-rep")
 def mission_rep():
     return render_template("mission_rep.html", active_page="/mission-rep")
@@ -566,16 +469,18 @@ def mission_rep():
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
-#@app.route("/cargo-planner")
-#def cargo_planner_page():
-#    from flask import send_from_directory
-#    return send_from_directory("templates", "cargo_planner.html")
+@app.route("/cargo-planner")
+def cargo_planner_page():
+    return render_template("cargo_planner.html", active_page="/cargo-planner")
 
 @app.route("/ledger")
 def ledger(): return render_template("ledger.html", active_page="ledger")
 
 @app.route("/item_collection")
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
+
+@app.route("/base-builder")
+def base_builder_page(): return render_template("base_builder.html", active_page="/base-builder")
 
 @app.route("/starmap")
 @app.route("/starmap/<system>")
@@ -1377,8 +1282,84 @@ def get_ship_components(conn, ship_entity, patch):
                t.hydrogen_flow_rate, t.quantum_flow_rate,
                t.health
         {join("item_fuel_nozzles")}""")
-        
-    
+
+    # Life support (declared on the ship's foundry record, backfilled into
+    # ship_hardpoints by dataforge_foundry_loadouts.py).
+    lifesupport = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.power_draw, t.lifesupport_output,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_lifesupport")}""")
+
+    # Salvage components: heads, scraper/buff modifiers, and per-ship filler
+    # stations. All three live in item_salvage with a salvage_type column.
+    # Also catches weapon-mount tractor/towing beams (wep_tractorbeam_*)
+    # which are typed SalvageHead but live under ships/weapons/.
+    salvage = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.salvage_type, t.power_draw,
+               t.salvage_speed_multiplier, t.radius_multiplier, t.extraction_efficiency,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_salvage")}""")
+
+    # EMP devices (Mantis, Hawk, Vanguard Sentinel, Scorpius variant).
+    emp = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.charge_time, t.unleash_time, t.cooldown_time,
+               t.distortion_damage,
+               t.emp_radius, t.min_emp_radius,
+               t.phys_radius, t.min_phys_radius, t.pressure,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_emp")}""")
+
+    # QED — Quantum Enforcement Devices (interdictors).
+    qed = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.base_power_draw_fraction, t.pulse_power_fraction, t.jammer_power_fraction,
+               t.charge_time_secs, t.discharge_time_secs, t.cooldown_time_secs,
+               t.radius_meters, t.max_power_draw,
+               t.active_power_draw_fraction, t.tethering_power_draw_fraction,
+               t.green_zone_check_range,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_qed")}""")
+
+    # Tool arm mounts (tractor + mining arms). Structural — the actual
+    # power-bearing tool installs into the arm's hardpoint. tool_kind
+    # discriminates 'tractor' vs 'mining'.
+    tool_arms = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.tool_kind, t.ignore_warmup_cooldown,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_tool_arms")}""")
+
+    # Ground-vehicle wheels controllers (analog to flight_controllers for ships).
+    wheels_controllers = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.minimum_power_amount,
+               t.em_signature, t.ir_signature, t.health,
+               t.power_draw,
+               t.power_low, t.power_medium, t.power_high,
+               t.power_low_start, t.power_medium_start, t.power_high_start
+        {join("item_wheels_controllers")}""")
 
     return {
         "armor":              armor,
@@ -1388,14 +1369,20 @@ def get_ship_components(conn, ship_entity, patch):
         "quantum_drives":     quantum_drives,
         "fuel_tanks":         fuel_tanks,
         "quantum_fuel_tanks": quantum_fuel_tanks,
-        "external_fuel_tanks": external_fuel_tanks,    
-        "fuel_nozzles":        fuel_nozzles,           
+        "external_fuel_tanks": external_fuel_tanks,
+        "fuel_nozzles":        fuel_nozzles,
         "flight_controllers": flight_controllers,
         "thrusters":          thrusters,
         "weapons":            weapons,
         "missile_racks":      missile_racks,
         "missiles":           missiles,
         "radars":             radars,
+        "lifesupport":        lifesupport,
+        "salvage":            salvage,
+        "emp":                emp,
+        "qed":                qed,
+        "tool_arms":          tool_arms,
+        "wheels_controllers": wheels_controllers,
     }
 
 
@@ -1443,7 +1430,13 @@ def api_ship_detail(entity_name):
     ).fetchall()
 
     hardpoints = {}
-    for hp in hps: hardpoints.setdefault(hp["port_type"], []).append(dict(hp))
+    # Foundry-backfilled rows can have NULL port_type (no per-port type info
+    # in the foundry XML). Bucket those under "misc" so the dict keys stay
+    # str-only — otherwise Flask's sort_keys=True JSON encoder blows up on
+    # str vs None comparison.
+    for hp in hps:
+        key = hp["port_type"] or "misc"
+        hardpoints.setdefault(key, []).append(dict(hp))
     cargo_total = sum(g["scu"] or 0 for g in grids if not g["is_personal"])
     personal    = sum(g["scu"] or 0 for g in grids if g["is_personal"])
 
@@ -2117,30 +2110,6 @@ COALESCE(
         bp["tiers"]         = sorted(f["tiers"])         if f else []
         bp["legality"]      = sorted(f["legality"])      if f else []
 
-    # ── Attach distinct ingredient display names per blueprint ──
-    # Drives the "Inputs" sidebar filter — user selects up to 3 ingredients
-    # and we filter to blueprints that contain ALL of them.
-    ing_rows = db.execute("""
-        SELECT
-            s.blueprint_uuid AS bp,
-            COALESCE(e.display_name, ci.display_name, ci.resource_name) AS display_name
-        FROM crafting_slots s
-        JOIN crafting_ingredients ci ON ci.slot_id = s.id
-        LEFT JOIN entities e
-            ON e.uuid = ci.resource_uuid AND e.patch_version = ci.patch_version
-        WHERE s.patch_version = ?
-          AND COALESCE(e.display_name, ci.display_name, ci.resource_name) IS NOT NULL
-          AND COALESCE(e.display_name, ci.display_name, ci.resource_name) <> ''
-    """, (patch,)).fetchall()
-
-    inputs_by_bp = {}
-    for ir in ing_rows:
-        inputs_by_bp.setdefault(ir["bp"], set()).add(ir["display_name"])
-
-    for bp in results:
-        names = inputs_by_bp.get(bp["uuid"])
-        bp["inputs"] = sorted(names) if names else []
-
     return jsonify(results)
     
     
@@ -2583,10 +2552,7 @@ def api_crafting_mission_detail(mission_name):
 # ─────────────────────────────────────────────────────────────────────────────
 # BLUEPRINT OWNERSHIP
 # ─────────────────────────────────────────────────────────────────────────────
-# Schema lives in its own SQLite file (blueprint_ownership.db, accessed via
-# get_ownership_db() / get_db_with_ownership()) so the extractor pipeline
-# replacing dataforge.db wholesale per patch can't wipe org claim history.
-#
+# Schema (dataforge.db):
 #   blueprint_ownership(id, discord_id, blueprint_uuid, blueprint_name,
 #                       patch_version, claimed_at, env, notes)
 #   UNIQUE(discord_id, blueprint_uuid, patch_version)
@@ -2640,34 +2606,34 @@ def api_crafting_blueprint_claim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    df = get_db()
+    conn = get_db()
     # Pull the blueprint's name + patch from the catalog so the ownership row
     # carries enough context to be queryable without re-joining (and so the
     # NOT NULL columns are satisfied). We always claim against the latest
     # patch — claims are per-recipe, not per-patch from the user's POV.
-    patch = latest_patch(df)
-    bp = df.execute('''
+    patch = latest_patch(conn)
+    bp = conn.execute('''
         SELECT entity_name, output_display, output_name
         FROM crafting_blueprints
         WHERE uuid = ? AND patch_version = ?
     ''', (uuid, patch)).fetchone()
-    df.close()
     if not bp:
+        conn.close()
         return jsonify({'error': 'Blueprint not found'}), 404
     blueprint_name = bp['output_display'] or bp['output_name'] or bp['entity_name']
-
-    own = get_ownership_db()
     try:
-        own.execute('''
+        conn.execute('''
             INSERT INTO blueprint_ownership
                 (discord_id, blueprint_uuid, blueprint_name, patch_version, env)
             VALUES (?, ?, ?, ?, ?)
         ''', (discord_id, uuid, blueprint_name, patch, env))
-        own.commit()
+        conn.commit()
     except sqlite3.IntegrityError:
+        conn.close()
         return jsonify({'error': 'Already claimed by you'}), 409
     finally:
-        try: own.close()
+        # `conn` may already be closed in the IntegrityError branch; that's fine.
+        try: conn.close()
         except Exception: pass
     return jsonify({
         'success': True,
@@ -2689,14 +2655,14 @@ def api_crafting_blueprint_unclaim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    own = get_ownership_db()
-    cur = own.execute('''
+    conn = get_db()
+    cur = conn.execute('''
         DELETE FROM blueprint_ownership
         WHERE blueprint_uuid = ? AND discord_id = ? AND env = ?
     ''', (uuid, discord_id, env))
-    own.commit()
+    conn.commit()
     removed = cur.rowcount
-    own.close()
+    conn.close()
     if removed == 0:
         return jsonify({'error': 'Not claimed by you'}), 404
     return jsonify({'success': True, 'blueprint_uuid': uuid, 'env': env})
@@ -2718,14 +2684,14 @@ def api_crafting_blueprints_ownership():
         return jsonify([])
 
     env = _current_env()
-    own = get_ownership_db()
+    conn = get_db()
     placeholders = ','.join('?' * len(uuids))
-    rows = own.execute(f'''
+    rows = conn.execute(f'''
         SELECT blueprint_uuid, discord_id, claimed_at
         FROM blueprint_ownership
         WHERE blueprint_uuid IN ({placeholders}) AND env = ?
     ''', (*uuids, env)).fetchall()
-    own.close()
+    conn.close()
 
     return jsonify([{
         'blueprint_uuid': r['blueprint_uuid'],
@@ -2741,14 +2707,14 @@ def api_crafting_blueprints_ownership():
 @app.route('/api/crafting/blueprint/<uuid>/owners')
 def api_crafting_blueprint_owners(uuid):
     env = _current_env()
-    own = get_ownership_db()
-    rows = own.execute('''
+    conn = get_db()
+    rows = conn.execute('''
         SELECT discord_id, claimed_at
         FROM blueprint_ownership
         WHERE blueprint_uuid = ? AND env = ?
         ORDER BY claimed_at ASC
     ''', (uuid, env)).fetchall()
-    own.close()
+    conn.close()
 
     discord_ids = [r['discord_id'] for r in rows]
     name_map = _resolve_discord_display_names(discord_ids)
@@ -2775,7 +2741,7 @@ def api_crafting_blueprints_my_claims():
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db_with_ownership()
+    conn = get_db()
     rows = conn.execute('''
         SELECT
             bo.blueprint_uuid,
@@ -2790,7 +2756,7 @@ def api_crafting_blueprints_my_claims():
                 bo.blueprint_name
             ) AS output_display,
             cc.display_path
-        FROM own.blueprint_ownership bo
+        FROM blueprint_ownership bo
         LEFT JOIN crafting_blueprints cb
             ON cb.uuid = bo.blueprint_uuid
             AND cb.patch_version = bo.patch_version
@@ -2807,318 +2773,6 @@ def api_crafting_blueprints_my_claims():
     ''', (discord_id, env)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# OFFICER DASHBOARD
-# ═════════════════════════════════════════════════════════════════════════════
-# Org-wide ownership intelligence. All endpoints are gated by @require_officer
-# (rank >= 5) and pin env='prod' regardless of where the request is served from
-# — officers want a single org-wide picture, not separate dev/prod stats.
-
-OFFICER_OWNERSHIP_ENV = 'prod'
-
-# Mirrors the item_category CASE in /api/crafting/blueprints. Kept as a SQL
-# fragment so the officer queries can reuse the same bucketing without drift.
-ITEM_CATEGORY_CASE = """
-    CASE
-        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'armour'  THEN 'armor'
-        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'ammo'    THEN 'ammo'
-        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'weapons' THEN 'fps_weapons'
-        WHEN c.top_level = 'vehiclegear' AND c.mid_level = 'weapons' THEN 'ship_weapons'
-        WHEN c.top_level = 'vehiclegear'                             THEN 'ship_components'
-        ELSE NULL
-    END
-"""
-
-
-def _officer_blueprints(conn, patch):
-    """Pull the same blueprint set the catalog page shows, tagged with category.
-
-    Mirrors the filters in /api/crafting/blueprints (template exclusions, hidden
-    top levels) so the coverage tile's totals match what users actually see.
-    """
-    placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
-    rows = conn.execute(f"""
-        SELECT
-            b.uuid,
-            COALESCE(
-                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
-                NULLIF(e.display_name, ''),
-                NULLIF(b.output_display, ''),
-                b.output_name,
-                b.entity_name
-            ) AS name,
-            c.sub_level,
-            c.sub_display,
-            c.sub_sub_level,
-            c.sub_sub_display,
-            {ITEM_CATEGORY_CASE} AS item_category
-        FROM crafting_blueprints b
-        LEFT JOIN crafting_categories c ON c.id = b.category_id
-        LEFT JOIN entities e
-            ON e.uuid = b.output_uuid
-           AND e.patch_version = b.patch_version
-        LEFT JOIN item_components ic
-            ON ic.entity_name = b.output_name
-           AND ic.patch_version = b.patch_version
-        WHERE b.patch_version = ?
-          AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
-          AND (c.top_level IS NULL OR c.top_level NOT IN ({placeholders}))
-    """, (patch, *HIDDEN_CRAFTING_TOP_LEVELS)).fetchall()
-    return rows
-
-
-# ── API: Coverage heatmap ─────────────────────────────────────────────────────
-# GET /api/officers/coverage
-# Returns nested ownership coverage: category → sub_level → sub_sub_level →
-# blueprints, with totals + owned counts at every level. Powers the drilldown.
-
-@app.route('/api/officers/coverage')
-@require_officer
-def api_officers_coverage():
-    conn = get_db()
-    patch = latest_patch(conn)
-    bps = _officer_blueprints(conn, patch)
-    conn.close()
-
-    # All claims in prod env, keyed by blueprint_uuid → list of discord_ids.
-    own = get_ownership_db()
-    own_rows = own.execute('''
-        SELECT blueprint_uuid, discord_id
-        FROM blueprint_ownership
-        WHERE env = ?
-    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
-    own.close()
-
-    owners_by_bp = {}
-    for r in own_rows:
-        owners_by_bp.setdefault(r['blueprint_uuid'], []).append(r['discord_id'])
-    name_map = _resolve_discord_display_names(list({d for ds in owners_by_bp.values() for d in ds}))
-
-    # Build the nested tree. Buckets without a category map are dropped (a
-    # blueprint whose top_level isn't one of our 5 buckets — rare but possible).
-    categories = {}
-    for bp in bps:
-        cat = bp['item_category']
-        if not cat:
-            continue
-        cat_node = categories.setdefault(cat, {"totals": {"total": 0, "owned": 0}, "sub_levels": {}})
-        cat_node["totals"]["total"] += 1
-        is_owned = bool(owners_by_bp.get(bp['uuid']))
-        if is_owned:
-            cat_node["totals"]["owned"] += 1
-
-        sub = bp['sub_level'] or '_none'
-        sub_disp = bp['sub_display'] or sub
-        sub_node = cat_node["sub_levels"].setdefault(sub, {
-            "display": sub_disp, "totals": {"total": 0, "owned": 0},
-            "sub_sub_levels": {}, "blueprints": [],
-        })
-        sub_node["totals"]["total"] += 1
-        if is_owned:
-            sub_node["totals"]["owned"] += 1
-
-        owners_list = [
-            {"discord_id": d, "display_name": name_map.get(d) or d}
-            for d in owners_by_bp.get(bp['uuid'], [])
-        ]
-        leaf_bp = {"uuid": bp['uuid'], "name": bp['name'] or bp['uuid'], "owners": owners_list}
-
-        if bp['sub_sub_level']:
-            ss = bp['sub_sub_level']
-            ss_disp = bp['sub_sub_display'] or ss
-            ss_node = sub_node["sub_sub_levels"].setdefault(ss, {
-                "display": ss_disp, "totals": {"total": 0, "owned": 0}, "blueprints": [],
-            })
-            ss_node["totals"]["total"] += 1
-            if is_owned:
-                ss_node["totals"]["owned"] += 1
-            ss_node["blueprints"].append(leaf_bp)
-        else:
-            # Flat taxonomy (e.g. FPS weapons under a single sub_level) —
-            # blueprints attach directly to the sub_level node.
-            sub_node["blueprints"].append(leaf_bp)
-
-    # Compute coverage_pct on every bucket. Done after assembly so we don't
-    # divide by zero on partial groups during the loop.
-    def add_pct(totals):
-        t, o = totals["total"], totals["owned"]
-        totals["coverage_pct"] = (o * 100.0 / t) if t else 0.0
-
-    for cat_node in categories.values():
-        add_pct(cat_node["totals"])
-        for sub_node in cat_node["sub_levels"].values():
-            add_pct(sub_node["totals"])
-            for ss_node in sub_node["sub_sub_levels"].values():
-                add_pct(ss_node["totals"])
-
-    return jsonify({"env": OFFICER_OWNERSHIP_ENV, "patch": patch, "categories": categories})
-
-
-# ── API: Member leaderboard ───────────────────────────────────────────────────
-# GET /api/officers/members
-# Per-member totals + per-category counts, with Discord display names.
-
-@app.route('/api/officers/members')
-@require_officer
-def api_officers_members():
-    conn = get_db()
-    patch = latest_patch(conn)
-    bps = _officer_blueprints(conn, patch)
-    conn.close()
-    bp_cat = {row['uuid']: row['item_category'] for row in bps}
-
-    own = get_ownership_db()
-    own_rows = own.execute('''
-        SELECT blueprint_uuid, discord_id
-        FROM blueprint_ownership
-        WHERE env = ?
-    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
-    own.close()
-
-    # member_id → {total, by_category: {...}}
-    by_member = {}
-    for r in own_rows:
-        did = r['discord_id']
-        cat = bp_cat.get(r['blueprint_uuid'])
-        if not cat:
-            # Ownership row points at a BP we no longer surface (template or
-            # hidden top-level). Skip rather than skew the leaderboard.
-            continue
-        m = by_member.setdefault(did, {"total": 0, "by_category": {}})
-        m["total"] += 1
-        m["by_category"][cat] = m["by_category"].get(cat, 0) + 1
-
-    name_map = _resolve_discord_display_names(list(by_member.keys()))
-    members = [
-        {"discord_id": did, "display_name": name_map.get(did) or did, **stats}
-        for did, stats in by_member.items()
-    ]
-    members.sort(key=lambda m: m["total"], reverse=True)
-    return jsonify({"env": OFFICER_OWNERSHIP_ENV, "patch": patch, "members": members})
-
-
-# ── API: Member's full claim list ─────────────────────────────────────────────
-# GET /api/officers/member/<discord_id>/claims
-# Drilldown for the member-stats tile.
-
-@app.route('/api/officers/member/<discord_id>/claims')
-@require_officer
-def api_officers_member_claims(discord_id):
-    conn = get_db_with_ownership()
-    patch = latest_patch(conn)
-    placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
-    rows = conn.execute(f'''
-        SELECT
-            bo.blueprint_uuid,
-            bo.claimed_at,
-            COALESCE(
-                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
-                NULLIF(e.display_name, ''),
-                NULLIF(b.output_display, ''),
-                b.output_name,
-                bo.blueprint_name
-            ) AS blueprint_name,
-            {ITEM_CATEGORY_CASE} AS item_category,
-            c.sub_display,
-            c.sub_sub_display
-        FROM own.blueprint_ownership bo
-        LEFT JOIN crafting_blueprints b
-            ON b.uuid = bo.blueprint_uuid AND b.patch_version = ?
-        LEFT JOIN crafting_categories c ON c.id = b.category_id
-        LEFT JOIN entities e
-            ON e.uuid = b.output_uuid AND e.patch_version = b.patch_version
-        LEFT JOIN item_components ic
-            ON ic.entity_name = b.output_name AND ic.patch_version = b.patch_version
-        WHERE bo.discord_id = ? AND bo.env = ?
-          AND (c.top_level IS NULL OR c.top_level NOT IN ({placeholders}))
-        ORDER BY bo.claimed_at DESC
-    ''', (patch, discord_id, OFFICER_OWNERSHIP_ENV, *HIDDEN_CRAFTING_TOP_LEVELS)).fetchall()
-    conn.close()
-    return jsonify({"discord_id": discord_id, "claims": [dict(r) for r in rows]})
-
-
-# ── API: Shopping list (merged ingredients for N blueprints) ──────────────────
-# POST /api/officers/shopping-list
-# Body: { "items": [{"uuid": "...", "quantity": 5}, ...] }
-# Walks each blueprint's slots/ingredients and aggregates by resource. Returns
-# resources (cost_type='resource', totals in cSCU) and items (counts) split out,
-# both sorted by total descending.
-
-@app.route('/api/officers/shopping-list', methods=['POST'])
-@require_officer
-def api_officers_shopping_list():
-    body = request.get_json(silent=True) or {}
-    items = body.get('items') or []
-    if not items:
-        return jsonify({"resources": [], "items": []})
-
-    conn = get_db()
-    patch = latest_patch(conn)
-
-    # key = (cost_type, resource_uuid OR resource_name) — uuid is preferred since
-    # CIG sometimes has multiple resource_name spellings that share a uuid.
-    merged = {}
-    for entry in items:
-        uuid = (entry.get('uuid') or '').strip()
-        try:
-            qty = int(entry.get('quantity') or 1)
-        except (TypeError, ValueError):
-            qty = 1
-        if not uuid or qty <= 0:
-            continue
-
-        ing_rows = conn.execute('''
-            SELECT
-                ci.cost_type,
-                ci.resource_uuid,
-                ci.resource_name,
-                COALESCE(e.display_name, ci.display_name, ci.resource_name) AS display_name,
-                ci.quantity
-            FROM crafting_slots s
-            JOIN crafting_ingredients ci ON ci.slot_id = s.id
-            LEFT JOIN entities e
-                ON e.uuid = ci.resource_uuid AND e.patch_version = ci.patch_version
-            WHERE s.blueprint_uuid = ? AND s.patch_version = ?
-        ''', (uuid, patch)).fetchall()
-
-        for ing in ing_rows:
-            key = (ing['cost_type'], ing['resource_uuid'] or ing['resource_name'])
-            if key not in merged:
-                merged[key] = {
-                    "cost_type":    ing['cost_type'],
-                    "resource_uuid": ing['resource_uuid'],
-                    "resource_name": ing['resource_name'],
-                    "display_name": ing['display_name'] or ing['resource_name'] or '—',
-                    "total_qty":    0,
-                }
-            merged[key]["total_qty"] += (ing['quantity'] or 0) * qty
-
-    conn.close()
-
-    resources, plain_items = [], []
-    for m in merged.values():
-        if m["cost_type"] == "resource":
-            # Game stores resource qty in SCU; cards show cSCU (×100). Stick to
-            # cSCU here so officers can compare against in-game shop displays.
-            resources.append({
-                "display_name": m["display_name"],
-                "resource_name": m["resource_name"],
-                "resource_uuid": m["resource_uuid"],
-                "total_qty":   m["total_qty"],
-                "total_cscu":  m["total_qty"] * 100,
-            })
-        else:
-            plain_items.append({
-                "display_name": m["display_name"],
-                "resource_name": m["resource_name"],
-                "resource_uuid": m["resource_uuid"],
-                "total_qty": m["total_qty"],
-            })
-    resources.sort(key=lambda r: r["total_qty"], reverse=True)
-    plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
-    return jsonify({"resources": resources, "items": plain_items})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3304,12 +2958,572 @@ def api_shops_browse():
  
     return jsonify({'items': [dict(r) for r in rows]})
 
+# ══════════════════════════════════════════════════════════════════════
+# CARGO PLANNER — reference data APIs (read-only from dataforge.db)
+# ══════════════════════════════════════════════════════════════════════
+# The cargo planner page lets users plan multi-mission hauling routes. These
+# endpoints feed its dropdowns: ships, quantum drives (with stock default),
+# systems, and locations. Plan persistence lives in cargo_planner.db (added
+# separately). All reference data here is public game data — no auth needed.
 
-# Trigger the one-shot copy of legacy blueprint_ownership rows from the old
-# dataforge.db location into the new standalone DB. Runs at import time so it
-# fires under both `python server.py` and gunicorn; the migration is a no-op
-# once the standalone DB has any rows.
-_migrate_legacy_ownership_rows()
+CARGO_SYSTEMS = [
+    {"code": "STANTON", "name": "Stanton", "star_key": "StantonStar"},
+    {"code": "PYRO",    "name": "Pyro",    "star_key": "PyroStar"},
+    {"code": "NYX",     "name": "Nyx",     "star_key": "NyxStar"},
+]
+_STAR_KEY_TO_SYSTEM = {s["star_key"]: s["code"] for s in CARGO_SYSTEMS}
+
+# Known non-PU / leftover test assets to hide from the planner. 'Ellis3'
+# ("Green") is a stray test planet CIG parented to Stanton's star — not a real
+# Stanton body. Matched by location_key prefix (catches its OMs / children too).
+CARGO_EXCLUDED_KEY_PREFIXES = ("Ellis",)
+
+def _is_excluded_nav_key(key):
+    return bool(key) and any(key.startswith(pre) for pre in CARGO_EXCLUDED_KEY_PREFIXES)
+
+
+def _qd_display_name(entity_name):
+    """Fallback prettifier for a quantum drive entity_name when the component
+    record has no display_name. Drops manufacturer + size tokens, keeping just
+    the model: 'qdrv_acas_s01_foxfire_scitem' → 'Foxfire'."""
+    if not entity_name:
+        return ""
+    parts = entity_name.split("_")
+    model_parts = [
+        p for p in parts
+        if p not in ("qdrv", "scitem")
+        and p not in MFR_MAP
+        and not re.fullmatch(r"s\d{1,2}", p)
+    ]
+    return " ".join(w.capitalize() for w in model_parts) if model_parts else entity_name
+
+
+def _qd_name(comp_name, entity_name):
+    """Prefer the component's localized display_name, but fall back to the
+    entity-parsed name when it's an unresolved placeholder."""
+    if comp_name and "PLACEHOLDER" not in comp_name and "UNINITIALIZED" not in comp_name \
+            and not comp_name.startswith("<="):
+        return comp_name
+    return _qd_display_name(entity_name)
+
+
+@app.route("/api/cargo/systems")
+def api_cargo_systems():
+    return jsonify([{"code": s["code"], "name": s["name"]} for s in CARGO_SYSTEMS])
+
+
+@app.route("/api/cargo/ships")
+def api_cargo_ships():
+    """Ships for the ship dropdown. Limited to flyable/in-game ships via the
+    ships_index join (same filter the main /api/ships uses). Cargo capacity is
+    the RSI marketing value (rsi_cargo_scu), falling back to the in-game grid
+    (cargo_scu) when RSI has none; cargo-capable ships sort first."""
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    rows = conn.execute("""
+        SELECT s.uuid, s.entity_name, s.vehicle_name, s.display_name,
+               COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) AS cargo_scu,
+               s.size_class, s.role, s.career
+          FROM ships s
+          JOIN ships_index si ON si.entity_name = s.entity_name
+         WHERE s.patch_version = ?
+         ORDER BY (COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) IS NULL
+                   OR COALESCE(NULLIF(s.rsi_cargo_scu, 0), s.cargo_scu) = 0) ASC,
+                  s.display_name, s.vehicle_name
+    """, (p,)).fetchall()
+    conn.close()
+    out = []
+    for r in rows:
+        out.append({
+            "uuid":         r["uuid"],
+            "entity_name":  r["entity_name"],
+            "name":         best_name(r["display_name"], r["vehicle_name"] or r["entity_name"]),
+            "cargo_scu":    r["cargo_scu"] or 0,
+            "size_class":   r["size_class"],
+            "role":         clean_role(r["role"]),
+        })
+    return jsonify(out)
+
+
+@app.route("/api/cargo/qdrives")
+def api_cargo_qdrives():
+    """Quantum drives for the QD dropdown.
+
+    With ?ship=<entity_name>: returns only drives that match the ship's
+    quantum-drive hardpoint size, marks the stock drive (is_stock), and sets
+    default_uuid to it. Names come from item_components.display_name (no
+    manufacturer prefix). Without a ship: returns all drives.
+    """
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    ship = request.args.get("ship")
+
+    hp_size = None
+    stock_uuid = None
+    if ship:
+        hp = conn.execute("""
+            SELECT max_size, installed_name
+              FROM ship_hardpoints
+             WHERE patch_version = ? AND ship_entity_name = ?
+               AND port_type = 'quantumdrive'
+             ORDER BY max_size DESC
+             LIMIT 1
+        """, (p, ship)).fetchone()
+        if hp:
+            hp_size = hp["max_size"]
+            if hp["installed_name"]:
+                srow = conn.execute("""
+                    SELECT uuid FROM item_quantum_drives
+                     WHERE patch_version = ? AND LOWER(entity_name) = LOWER(?)
+                """, (p, hp["installed_name"])).fetchone()
+                stock_uuid = srow["uuid"] if srow else None
+
+    sql = """
+        SELECT qd.uuid, qd.entity_name, ic.display_name AS comp_name, ic.size,
+               qd.drive_speed, qd.quantum_fuel_req, qd.jump_range,
+               qd.spool_up_time, qd.cooldown_time, qd.engage_speed
+          FROM item_quantum_drives qd
+          LEFT JOIN item_components ic
+            ON LOWER(ic.entity_name) = LOWER(qd.entity_name)
+           AND ic.patch_version = qd.patch_version
+         WHERE qd.patch_version = ?
+           AND qd.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
+    """
+    params = [p]
+    if hp_size is not None:
+        sql += " AND ic.size = ?"
+        params.append(hp_size)
+    sql += " ORDER BY ic.display_name, qd.entity_name"
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+
+    drives = [{
+        "uuid":             r["uuid"],
+        "entity_name":      r["entity_name"],
+        "name":             _qd_name(r["comp_name"], r["entity_name"]),
+        "size":             r["size"],
+        "is_stock":         (r["uuid"] == stock_uuid),
+        "drive_speed":      r["drive_speed"],
+        "quantum_fuel_req": r["quantum_fuel_req"],
+        "jump_range":       r["jump_range"],
+        "spool_up_time":    r["spool_up_time"],
+        "cooldown_time":    r["cooldown_time"],
+        "engage_speed":     r["engage_speed"],
+    } for r in rows]
+    # Stock drive first, then alphabetical
+    drives.sort(key=lambda d: (not d["is_stock"], d["name"] or ""))
+    return jsonify({"drives": drives, "default_uuid": stock_uuid, "hardpoint_size": hp_size})
+
+
+# Quantum-travel route engine (Layers 1-3, see app/quantum_travel.py,
+# nav_graph.py, route_planner.py). NavGraph is cached per patch — it copies the
+# nav_points rows in at build time and holds no DB handle afterwards.
+_NAV_GRAPH_CACHE = {}
+
+
+def _get_nav_graph(conn, patch):
+    g = _NAV_GRAPH_CACHE.get(patch)
+    if g is None:
+        from helpers.quantum_travel import NavGraph
+        g = NavGraph(conn, patch)
+        _NAV_GRAPH_CACHE[patch] = g
+    return g
+
+
+@app.route("/api/cargo/route", methods=["POST"])
+def api_cargo_route():
+    """Compute QT travel time + fuel for a sequence of origin->dest legs.
+
+    Body: {ship_uuid?, qd_uuid (or quantum_drive_uuid), legs:[{from,to}, ...]}
+    where from/to are nav_points.location_uuid. Returns the Route dict from
+    plan_route (flat legs + time/distance/fuel totals + warnings).
+    """
+    from helpers.quantum_travel import plan_route
+
+    body = request.get_json(silent=True) or {}
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    ship_uuid = body.get("ship_uuid")
+    raw_legs = body.get("legs") or []
+    if not qd_uuid:
+        return jsonify({"error": "qd_uuid is required"}), 400
+
+    segments = [(l.get("from"), l.get("to")) for l in raw_legs
+                if l.get("from") and l.get("to")]
+    if not segments:
+        return jsonify({"error": "at least one leg with from/to is required"}), 400
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return jsonify({"error": "quantum drive not found"}), 404
+        qd = dict(qd_row)
+
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute(
+                "SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+
+        nav = _get_nav_graph(conn, p)
+        try:
+            route = plan_route(segments, ship, qd, nav)
+        except Exception as e:  # unknown nav point, bad geometry, etc.
+            return jsonify({"error": str(e)}), 400
+        return jsonify(route)
+    finally:
+        conn.close()
+
+
+@app.route("/api/cargo/optimize", methods=["POST"])
+def api_cargo_optimize():
+    """Optimise the visiting order of a set of cargo moves to minimise travel.
+
+    Body: {qd_uuid (or quantum_drive_uuid), ship_uuid?, origin_uuid?,
+           objective? ("time"|"distance"|"fuel", default "time"),
+           moves: [{id?, pickup, dropoff, scu}, ...]}
+    pickup/dropoff are nav_points.location_uuid; the caller resolves any
+    "same as current/prev" planner flags into concrete UUIDs before sending
+    (also accepts pickup_uuid/dropoff_uuid/quantity_scu and a `legs` alias).
+    ship_uuid supplies the cargo_scu capacity (omit -> unlimited). Returns the
+    optimize_stack result: feasibility, ordered stops, and the full route.
+    """
+    from helpers.route_optimizer import optimize_stack, OptimizeError
+
+    body = request.get_json(silent=True) or {}
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    ship_uuid = body.get("ship_uuid")
+    origin_uuid = body.get("origin_uuid")
+    objective = body.get("objective") or "time"
+    raw_moves = body.get("moves") or body.get("legs") or []
+    if not qd_uuid:
+        return jsonify({"error": "qd_uuid is required"}), 400
+
+    moves = []
+    for m in raw_moves:
+        pickup = m.get("pickup") or m.get("pickup_uuid")
+        dropoff = m.get("dropoff") or m.get("dropoff_uuid")
+        if not (pickup and dropoff):
+            continue
+        mv = {"pickup": pickup, "dropoff": dropoff,
+              "scu": m.get("scu", m.get("quantity_scu")) or 0}
+        if m.get("id") is not None:
+            mv["id"] = m["id"]
+        moves.append(mv)
+    if not moves:
+        return jsonify({"error": "at least one move with pickup/dropoff is required"}), 400
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return jsonify({"error": "quantum drive not found"}), 404
+        qd = dict(qd_row)
+
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute(
+                "SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+                # Capacity = RSI marketing value, falling back to the in-game
+                # grid; this is the cargo_scu the optimizer reads for capacity.
+                ship["cargo_scu"] = ship.get("rsi_cargo_scu") or ship.get("cargo_scu")
+
+        nav = _get_nav_graph(conn, p)
+        try:
+            result = optimize_stack(moves, ship, qd, nav,
+                                    objective=objective, origin_uuid=origin_uuid)
+        except OptimizeError as e:
+            return jsonify({"error": str(e)}), 400
+        except Exception as e:  # unknown nav point, etc.
+            return jsonify({"error": str(e)}), 400
+        return jsonify(result)
+    finally:
+        conn.close()
+
+
+# Ordering of dropdown-3 groups within a planetary system.
+_GROUP_ORDER = {"planet": 0, "moon": 1, "lagrange": 2, "system": 3}
+
+
+def _build_navpt_hierarchy(conn, patch):
+    """Load all nav_points and return (by_uuid, resolver). resolver(uuid)
+    returns a dict with system, planet/moon names, and the planetary-system +
+    group fields the cascading dropdowns need. Cached per call.
+
+    Hierarchy note: moons parent to their planet (clean), but Lagrange points
+    parent to the star — their planet is derived from the location_key prefix
+    (e.g. 'Stanton1_L1' → planet 'Stanton1')."""
+    by_uuid = {}
+    for r in conn.execute("""
+        SELECT location_uuid, display_name, location_key, kind, parent_uuid
+          FROM nav_points WHERE patch_version = ?
+    """, (patch,)):
+        by_uuid[r["location_uuid"]] = dict(r)
+
+    planet_by_key = {n["location_key"]: n for n in by_uuid.values()
+                     if n["kind"] == "planet"}
+
+    cache = {}
+
+    def resolve(uuid):
+        if uuid in cache:
+            return cache[uuid]
+        system_code = planet = moon = lagrange = None
+        cur = uuid
+        seen = set()
+        while cur and cur not in seen:
+            seen.add(cur)
+            node = by_uuid.get(cur)
+            if not node:
+                break
+            kind = node["kind"]
+            if kind == "star":
+                system_code = _STAR_KEY_TO_SYSTEM.get(node["location_key"])
+            elif kind == "planet" and planet is None:
+                planet = node
+            elif kind == "moon" and moon is None:
+                moon = node
+            elif kind == "lagrange" and lagrange is None:
+                lagrange = node
+            cur = node["parent_uuid"]
+
+        # Planetary system = the planet (directly, or derived for Lagrange points)
+        ps = planet
+        if ps is None and lagrange is not None:
+            base = re.sub(r"_[Ll]\d+$", "", lagrange["location_key"])
+            ps = planet_by_key.get(base)
+
+        # Dropdown-3 group: moon name | "Lagrange Points" | planet name | System-wide
+        if moon is not None:
+            group_label, group_kind = (moon["display_name"] or moon["location_key"]), "moon"
+        elif lagrange is not None:
+            group_label, group_kind = "Lagrange Points", "lagrange"
+        elif planet is not None:
+            group_label, group_kind = (planet["display_name"] or planet["location_key"]), "planet"
+        else:
+            group_label, group_kind = "System-wide", "system"
+
+        result = {
+            "system":      system_code,
+            "planet":      (planet["display_name"] or planet["location_key"]) if planet else None,
+            "moon":        (moon["display_name"] or moon["location_key"]) if moon else None,
+            "ps_name":     (ps["display_name"] or ps["location_key"]) if ps else "System-wide",
+            "ps_key":      ps["location_key"] if ps else "_system",
+            "group_label": group_label,
+            "group_kind":  group_kind,
+        }
+        cache[uuid] = result
+        return result
+
+    return by_uuid, resolve
+
+
+@app.route("/api/cargo/locations")
+def api_cargo_locations():
+    """Locations for the planner dropdowns.
+
+    Query params:
+      system=PYRO     — filter to one system (for the 'current location' list)
+      cargo_only=1    — only cargo-capable nav_points (for pickup/dropoff)
+
+    Each location carries system + parent planet/moon so the UI can group:
+        System → Planet → Moon → Location.
+    """
+    conn = get_db(); p = PATCH or latest_patch(conn)
+    system_filter = (request.args.get("system") or "").upper() or None
+    cargo_only = request.args.get("cargo_only") in ("1", "true", "yes")
+
+    by_uuid, resolve = _build_navpt_hierarchy(conn, p)
+
+    cargo_set = set()
+    if cargo_only:
+        cargo_set = {
+            r["location_uuid"] for r in conn.execute(
+                "SELECT DISTINCT location_uuid FROM nav_point_amenities "
+                "WHERE patch_version = ? AND amenity = 'cargo_lift'", (p,)
+            )
+        }
+    conn.close()
+
+    out = []
+    for uuid, node in by_uuid.items():
+        if cargo_only and uuid not in cargo_set:
+            continue
+        h = resolve(uuid)
+        # Drop leftover test assets (e.g. Ellis 'Green') and anything whose
+        # planetary system resolves to one.
+        if _is_excluded_nav_key(node["location_key"]) or _is_excluded_nav_key(h["ps_key"]):
+            continue
+        if system_filter and h["system"] != system_filter:
+            continue
+        out.append({
+            "location_uuid": uuid,
+            "name":          node["display_name"] or node["location_key"],
+            "kind":          node["kind"],
+            "system":        h["system"],
+            "planet":        h["planet"],         # for pickup/dropoff grouping
+            "moon":          h["moon"],
+            "ps_name":       h["ps_name"],         # cascade: planetary system
+            "ps_key":        h["ps_key"],
+            "group_label":   h["group_label"],     # cascade: dropdown-3 optgroup
+            "group_kind":    h["group_kind"],
+        })
+
+    # Sort so the UI gets ready-made cascade ordering:
+    #   system → planetary system → group (planet/moon/lagrange/system) → name
+    out.sort(key=lambda x: (
+        x["system"] or "zzz",
+        x["ps_name"] or "zzz",
+        _GROUP_ORDER.get(x["group_kind"], 9),
+        x["group_label"] or "",
+        x["name"] or "",
+    ))
+    return jsonify(out)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# CARGO PLANNER — plan persistence + activity (cargo_planner.db)
+# ══════════════════════════════════════════════════════════════════════
+# One auto-saved "active draft" per user, keyed on discord_id (the app's
+# canonical identity). Anonymous users get 401 here and the page falls back
+# to localStorage. Saves use a replace strategy: the draft stack's missions
+# (and their legs, via cascade) are wiped and re-inserted on every save.
+
+@app.route('/api/cargo/plan', methods=['GET'])
+def api_cargo_plan_load():
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    conn = get_cargo_db()
+    try:
+        stack = conn.execute(
+            "SELECT * FROM mission_stacks "
+            "WHERE discord_id=? AND is_active_draft=1 AND is_archived=0",
+            (discord_id,)).fetchone()
+        if not stack:
+            return jsonify({'plan': None})
+        missions = []
+        for m in conn.execute(
+            "SELECT * FROM missions WHERE stack_id=? ORDER BY seq", (stack['stack_id'],)):
+            legs = []
+            for l in conn.execute(
+                "SELECT * FROM legs WHERE mission_id=? ORDER BY seq", (m['mission_id'],)):
+                legs.append({
+                    'pickup_uuid':            l['pickup_location_uuid'],
+                    'dropoff_uuid':           l['dropoff_location_uuid'],
+                    'commodity':              l['commodity'],
+                    'quantity_scu':           l['quantity_scu'],
+                    'pickup_same_as_current': bool(l['pickup_same_as_current']),
+                    'pickup_same_as_prev':    bool(l['pickup_same_as_prev']),
+                    'dropoff_same_as_prev':   bool(l['dropoff_same_as_prev']),
+                })
+            missions.append({'notes': m['notes'], 'legs': legs})
+        plan = {
+            'ship_uuid':             stack['ship_uuid'],
+            'quantum_drive_uuid':    stack['quantum_drive_uuid'],
+            'current_system':        stack['current_system'],
+            'current_location_uuid': stack['current_location_uuid'],
+            'missions':              missions,
+        }
+        _cargo_log(conn, discord_id, 'plan_loaded', {'stack_id': stack['stack_id']})
+        conn.commit()
+        return jsonify({'plan': plan})
+    finally:
+        conn.close()
+
+
+@app.route('/api/cargo/plan', methods=['PUT'])
+def api_cargo_plan_save():
+    discord_id = session.get('discord_id')
+    if not discord_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+    plan = request.get_json(silent=True) or {}
+    conn = get_cargo_db()
+    try:
+        _cargo_touch_user(conn, discord_id)
+        now = _utc_now()
+        row = conn.execute(
+            "SELECT stack_id FROM mission_stacks "
+            "WHERE discord_id=? AND is_active_draft=1 AND is_archived=0",
+            (discord_id,)).fetchone()
+        if row:
+            stack_id = row['stack_id']
+            conn.execute("""
+                UPDATE mission_stacks
+                   SET ship_uuid=?, quantum_drive_uuid=?, current_system=?,
+                       current_location_uuid=?, updated_utc=?
+                 WHERE stack_id=?
+            """, (plan.get('ship_uuid'), plan.get('quantum_drive_uuid'),
+                  plan.get('current_system'), plan.get('current_location_uuid'),
+                  now, stack_id))
+            conn.execute("DELETE FROM missions WHERE stack_id=?", (stack_id,))  # cascades to legs
+        else:
+            cur = conn.execute("""
+                INSERT INTO mission_stacks
+                    (discord_id, name, ship_uuid, quantum_drive_uuid,
+                     current_system, current_location_uuid, is_active_draft,
+                     created_utc, updated_utc)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+            """, (discord_id, plan.get('name'), plan.get('ship_uuid'),
+                  plan.get('quantum_drive_uuid'), plan.get('current_system'),
+                  plan.get('current_location_uuid'), now, now))
+            stack_id = cur.lastrowid
+
+        leg_count = 0
+        for mi, m in enumerate(plan.get('missions') or []):
+            mcur = conn.execute(
+                "INSERT INTO missions (stack_id, seq, notes) VALUES (?, ?, ?)",
+                (stack_id, mi, m.get('notes')))
+            mid = mcur.lastrowid
+            for li, leg in enumerate(m.get('legs') or []):
+                conn.execute("""
+                    INSERT INTO legs
+                        (mission_id, seq, pickup_location_uuid, dropoff_location_uuid,
+                         commodity, quantity_scu,
+                         pickup_same_as_current, pickup_same_as_prev, dropoff_same_as_prev)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (mid, li, leg.get('pickup_uuid'), leg.get('dropoff_uuid'),
+                      leg.get('commodity'), leg.get('quantity_scu'),
+                      1 if leg.get('pickup_same_as_current') else 0,
+                      1 if leg.get('pickup_same_as_prev') else 0,
+                      1 if leg.get('dropoff_same_as_prev') else 0))
+                leg_count += 1
+
+        _cargo_log(conn, discord_id, 'plan_saved',
+                   {'stack_id': stack_id,
+                    'missions': len(plan.get('missions') or []),
+                    'legs': leg_count})
+        conn.commit()
+        return jsonify({'ok': True, 'stack_id': stack_id})
+    finally:
+        conn.close()
+
+
+@app.route('/api/cargo/activity', methods=['POST'])
+def api_cargo_activity():
+    """Lightweight event logger (page visits, etc.). Auth optional — anon
+    visits are recorded with a null discord_id for aggregate usage stats."""
+    discord_id = session.get('discord_id')
+    body = request.get_json(silent=True) or {}
+    event_type = body.get('event_type', 'page_visit')
+    conn = get_cargo_db()
+    try:
+        if discord_id:
+            _cargo_touch_user(conn, discord_id)
+        _cargo_log(conn, discord_id, event_type, body.get('details'))
+        conn.commit()
+        return jsonify({'ok': True})
+    finally:
+        conn.close()
 
 
 # ══════════════════════════════════════════════════════════════════════
