@@ -51,9 +51,9 @@
      --font-body all point to Zalando Sans now; the legacy names are kept so
      templates don't need to be churned. */
   --font-title: 'Orbitron', sans-serif;
-  --font-ui:    'Zalando Sans', sans-serif;
-  --font-mono:  'Zalando Sans', sans-serif;
-  --font-body:  'Zalando Sans', sans-serif;
+  --font-ui:    'univia-pro', sans-serif;
+  --font-mono:  'univia-pro', sans-serif;
+  --font-body:  'univia-pro', sans-serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
