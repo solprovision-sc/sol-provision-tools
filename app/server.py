@@ -461,6 +461,21 @@ def ship_detail(entity_name):
 @app.route("/crafting")
 def crafting():
     return render_template("crafting.html", active_page="/crafting")
+    
+@app.route("/officers")
+def officers_page():
+    # Page-level gate: non-officers (rank < 5) get bounced to the dashboard
+    # instead of seeing an empty shell. The API endpoints behind this page
+    # apply the same check via @require_officer.
+    discord_id = session.get('discord_id')
+    rank = session.get('rank')
+    try:
+        rank_n = int(rank) if rank is not None else 0
+    except (TypeError, ValueError):
+        rank_n = 0
+    if not discord_id or rank_n < 5:
+        return redirect('/')
+    return render_template("officers.html", active_page="/officers")
 
 @app.route("/mission-rep")
 def mission_rep():
@@ -2793,6 +2808,319 @@ def api_crafting_blueprints_my_claims():
     ''', (discord_id, env)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
+    
+    
+# ═════════════════════════════════════════════════════════════════════════════
+# OFFICER DASHBOARD
+# ═════════════════════════════════════════════════════════════════════════════
+# Org-wide ownership intelligence. All endpoints are gated by @require_officer
+# (rank >= 5) and pin env='prod' regardless of where the request is served from
+# — officers want a single org-wide picture, not separate dev/prod stats.
+
+OFFICER_OWNERSHIP_ENV = 'prod'
+
+# Mirrors the item_category CASE in /api/crafting/blueprints. Kept as a SQL
+# fragment so the officer queries can reuse the same bucketing without drift.
+ITEM_CATEGORY_CASE = """
+    CASE
+        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'armour'  THEN 'armor'
+        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'ammo'    THEN 'ammo'
+        WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'weapons' THEN 'fps_weapons'
+        WHEN c.top_level = 'vehiclegear' AND c.mid_level = 'weapons' THEN 'ship_weapons'
+        WHEN c.top_level = 'vehiclegear'                             THEN 'ship_components'
+        ELSE NULL
+    END
+"""
+
+
+def _officer_blueprints(conn, patch):
+    """Pull the same blueprint set the catalog page shows, tagged with category.
+
+    Mirrors the filters in /api/crafting/blueprints (template exclusions, hidden
+    top levels) so the coverage tile's totals match what users actually see.
+    """
+    placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
+    rows = conn.execute(f"""
+        SELECT
+            b.uuid,
+            COALESCE(
+                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+                NULLIF(e.display_name, ''),
+                NULLIF(b.output_display, ''),
+                b.output_name,
+                b.entity_name
+            ) AS name,
+            c.sub_level,
+            c.sub_display,
+            c.sub_sub_level,
+            c.sub_sub_display,
+            {ITEM_CATEGORY_CASE} AS item_category
+        FROM crafting_blueprints b
+        LEFT JOIN crafting_categories c ON c.id = b.category_id
+        LEFT JOIN entities e
+            ON e.uuid = b.output_uuid
+           AND e.patch_version = b.patch_version
+        LEFT JOIN item_components ic
+            ON ic.entity_name = b.output_name
+           AND ic.patch_version = b.patch_version
+        WHERE b.patch_version = ?
+          AND b.entity_name NOT LIKE '%\\_template' ESCAPE '\\'
+          AND (c.top_level IS NULL OR c.top_level NOT IN ({placeholders}))
+    """, (patch, *HIDDEN_CRAFTING_TOP_LEVELS)).fetchall()
+    return rows
+
+
+# ── API: Coverage heatmap ─────────────────────────────────────────────────────
+# GET /api/officers/coverage
+# Returns nested ownership coverage: category → sub_level → sub_sub_level →
+# blueprints, with totals + owned counts at every level. Powers the drilldown.
+
+@app.route('/api/officers/coverage')
+@require_officer
+def api_officers_coverage():
+    conn = get_db()
+    patch = latest_patch(conn)
+    bps = _officer_blueprints(conn, patch)
+    conn.close()
+
+    # All claims in prod env, keyed by blueprint_uuid → list of discord_ids.
+    own = get_ownership_db()
+    own_rows = own.execute('''
+        SELECT blueprint_uuid, discord_id
+        FROM blueprint_ownership
+        WHERE env = ?
+    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
+    own.close()
+
+    owners_by_bp = {}
+    for r in own_rows:
+        owners_by_bp.setdefault(r['blueprint_uuid'], []).append(r['discord_id'])
+    name_map = _resolve_discord_display_names(list({d for ds in owners_by_bp.values() for d in ds}))
+
+    # Build the nested tree. Buckets without a category map are dropped (a
+    # blueprint whose top_level isn't one of our 5 buckets — rare but possible).
+    categories = {}
+    for bp in bps:
+        cat = bp['item_category']
+        if not cat:
+            continue
+        cat_node = categories.setdefault(cat, {"totals": {"total": 0, "owned": 0}, "sub_levels": {}})
+        cat_node["totals"]["total"] += 1
+        is_owned = bool(owners_by_bp.get(bp['uuid']))
+        if is_owned:
+            cat_node["totals"]["owned"] += 1
+
+        sub = bp['sub_level'] or '_none'
+        sub_disp = bp['sub_display'] or sub
+        sub_node = cat_node["sub_levels"].setdefault(sub, {
+            "display": sub_disp, "totals": {"total": 0, "owned": 0},
+            "sub_sub_levels": {}, "blueprints": [],
+        })
+        sub_node["totals"]["total"] += 1
+        if is_owned:
+            sub_node["totals"]["owned"] += 1
+
+        owners_list = [
+            {"discord_id": d, "display_name": name_map.get(d) or d}
+            for d in owners_by_bp.get(bp['uuid'], [])
+        ]
+        leaf_bp = {"uuid": bp['uuid'], "name": bp['name'] or bp['uuid'], "owners": owners_list}
+
+        if bp['sub_sub_level']:
+            ss = bp['sub_sub_level']
+            ss_disp = bp['sub_sub_display'] or ss
+            ss_node = sub_node["sub_sub_levels"].setdefault(ss, {
+                "display": ss_disp, "totals": {"total": 0, "owned": 0}, "blueprints": [],
+            })
+            ss_node["totals"]["total"] += 1
+            if is_owned:
+                ss_node["totals"]["owned"] += 1
+            ss_node["blueprints"].append(leaf_bp)
+        else:
+            # Flat taxonomy (e.g. FPS weapons under a single sub_level) —
+            # blueprints attach directly to the sub_level node.
+            sub_node["blueprints"].append(leaf_bp)
+
+    # Compute coverage_pct on every bucket. Done after assembly so we don't
+    # divide by zero on partial groups during the loop.
+    def add_pct(totals):
+        t, o = totals["total"], totals["owned"]
+        totals["coverage_pct"] = (o * 100.0 / t) if t else 0.0
+
+    for cat_node in categories.values():
+        add_pct(cat_node["totals"])
+        for sub_node in cat_node["sub_levels"].values():
+            add_pct(sub_node["totals"])
+            for ss_node in sub_node["sub_sub_levels"].values():
+                add_pct(ss_node["totals"])
+
+    return jsonify({"env": OFFICER_OWNERSHIP_ENV, "patch": patch, "categories": categories})
+
+
+# ── API: Member leaderboard ───────────────────────────────────────────────────
+# GET /api/officers/members
+# Per-member totals + per-category counts, with Discord display names.
+
+@app.route('/api/officers/members')
+@require_officer
+def api_officers_members():
+    conn = get_db()
+    patch = latest_patch(conn)
+    bps = _officer_blueprints(conn, patch)
+    conn.close()
+    bp_cat = {row['uuid']: row['item_category'] for row in bps}
+
+    own = get_ownership_db()
+    own_rows = own.execute('''
+        SELECT blueprint_uuid, discord_id
+        FROM blueprint_ownership
+        WHERE env = ?
+    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
+    own.close()
+
+    # member_id → {total, by_category: {...}}
+    by_member = {}
+    for r in own_rows:
+        did = r['discord_id']
+        cat = bp_cat.get(r['blueprint_uuid'])
+        if not cat:
+            # Ownership row points at a BP we no longer surface (template or
+            # hidden top-level). Skip rather than skew the leaderboard.
+            continue
+        m = by_member.setdefault(did, {"total": 0, "by_category": {}})
+        m["total"] += 1
+        m["by_category"][cat] = m["by_category"].get(cat, 0) + 1
+
+    name_map = _resolve_discord_display_names(list(by_member.keys()))
+    members = [
+        {"discord_id": did, "display_name": name_map.get(did) or did, **stats}
+        for did, stats in by_member.items()
+    ]
+    members.sort(key=lambda m: m["total"], reverse=True)
+    return jsonify({"env": OFFICER_OWNERSHIP_ENV, "patch": patch, "members": members})
+
+
+# ── API: Member's full claim list ─────────────────────────────────────────────
+# GET /api/officers/member/<discord_id>/claims
+# Drilldown for the member-stats tile.
+
+@app.route('/api/officers/member/<discord_id>/claims')
+@require_officer
+def api_officers_member_claims(discord_id):
+    conn = get_db_with_ownership()
+    patch = latest_patch(conn)
+    placeholders = ",".join("?" for _ in HIDDEN_CRAFTING_TOP_LEVELS) or "''"
+    rows = conn.execute(f'''
+        SELECT
+            bo.blueprint_uuid,
+            bo.claimed_at,
+            COALESCE(
+                NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+                NULLIF(e.display_name, ''),
+                NULLIF(b.output_display, ''),
+                b.output_name,
+                bo.blueprint_name
+            ) AS blueprint_name,
+            {ITEM_CATEGORY_CASE} AS item_category,
+            c.sub_display,
+            c.sub_sub_display
+        FROM own.blueprint_ownership bo
+        LEFT JOIN crafting_blueprints b
+            ON b.uuid = bo.blueprint_uuid AND b.patch_version = ?
+        LEFT JOIN crafting_categories c ON c.id = b.category_id
+        LEFT JOIN entities e
+            ON e.uuid = b.output_uuid AND e.patch_version = b.patch_version
+        LEFT JOIN item_components ic
+            ON ic.entity_name = b.output_name AND ic.patch_version = b.patch_version
+        WHERE bo.discord_id = ? AND bo.env = ?
+          AND (c.top_level IS NULL OR c.top_level NOT IN ({placeholders}))
+        ORDER BY bo.claimed_at DESC
+    ''', (patch, discord_id, OFFICER_OWNERSHIP_ENV, *HIDDEN_CRAFTING_TOP_LEVELS)).fetchall()
+    conn.close()
+    return jsonify({"discord_id": discord_id, "claims": [dict(r) for r in rows]})
+
+
+# ── API: Shopping list (merged ingredients for N blueprints) ──────────────────
+# POST /api/officers/shopping-list
+# Body: { "items": [{"uuid": "...", "quantity": 5}, ...] }
+# Walks each blueprint's slots/ingredients and aggregates by resource. Returns
+# resources (cost_type='resource', totals in cSCU) and items (counts) split out,
+# both sorted by total descending.
+
+@app.route('/api/officers/shopping-list', methods=['POST'])
+@require_officer
+def api_officers_shopping_list():
+    body = request.get_json(silent=True) or {}
+    items = body.get('items') or []
+    if not items:
+        return jsonify({"resources": [], "items": []})
+
+    conn = get_db()
+    patch = latest_patch(conn)
+
+    # key = (cost_type, resource_uuid OR resource_name) — uuid is preferred since
+    # CIG sometimes has multiple resource_name spellings that share a uuid.
+    merged = {}
+    for entry in items:
+        uuid = (entry.get('uuid') or '').strip()
+        try:
+            qty = int(entry.get('quantity') or 1)
+        except (TypeError, ValueError):
+            qty = 1
+        if not uuid or qty <= 0:
+            continue
+
+        ing_rows = conn.execute('''
+            SELECT
+                ci.cost_type,
+                ci.resource_uuid,
+                ci.resource_name,
+                COALESCE(e.display_name, ci.display_name, ci.resource_name) AS display_name,
+                ci.quantity
+            FROM crafting_slots s
+            JOIN crafting_ingredients ci ON ci.slot_id = s.id
+            LEFT JOIN entities e
+                ON e.uuid = ci.resource_uuid AND e.patch_version = ci.patch_version
+            WHERE s.blueprint_uuid = ? AND s.patch_version = ?
+        ''', (uuid, patch)).fetchall()
+
+        for ing in ing_rows:
+            key = (ing['cost_type'], ing['resource_uuid'] or ing['resource_name'])
+            if key not in merged:
+                merged[key] = {
+                    "cost_type":    ing['cost_type'],
+                    "resource_uuid": ing['resource_uuid'],
+                    "resource_name": ing['resource_name'],
+                    "display_name": ing['display_name'] or ing['resource_name'] or '—',
+                    "total_qty":    0,
+                }
+            merged[key]["total_qty"] += (ing['quantity'] or 0) * qty
+
+    conn.close()
+
+    resources, plain_items = [], []
+    for m in merged.values():
+        if m["cost_type"] == "resource":
+            # Game stores resource qty in SCU; cards show cSCU (×100). Stick to
+            # cSCU here so officers can compare against in-game shop displays.
+            resources.append({
+                "display_name": m["display_name"],
+                "resource_name": m["resource_name"],
+                "resource_uuid": m["resource_uuid"],
+                "total_qty":   m["total_qty"],
+                "total_cscu":  m["total_qty"] * 100,
+            })
+        else:
+            plain_items.append({
+                "display_name": m["display_name"],
+                "resource_name": m["resource_name"],
+                "resource_uuid": m["resource_uuid"],
+                "total_qty": m["total_qty"],
+            })
+    resources.sort(key=lambda r: r["total_qty"], reverse=True)
+    plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
+    return jsonify({"resources": resources, "items": plain_items})
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
