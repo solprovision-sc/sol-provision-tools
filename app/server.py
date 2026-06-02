@@ -1961,6 +1961,9 @@ def api_crafting_blueprints():
 -- further down the chain (or our ship-name override on b.output_display) can win.
 COALESCE(
     NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+    -- ic2: fallback for blueprints with no output_name (e.g. fuel nozzles),
+    -- keyed on the item entity derived from the bp's own entity_name.
+    NULLIF(NULLIF(NULLIF(NULLIF(ic2.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
     NULLIF(e.display_name, ''),
     NULLIF(b.output_display, ''),
     b.output_name,
@@ -1977,8 +1980,8 @@ COALESCE(
             c.sub_sub_display,
             -- Component size + type, surfaced on the card for ship components/weapons.
             -- item_components is the canonical source (same table ship_detail reads).
-            ic.size AS item_size,
-            ic.item_type AS item_type,
+            COALESCE(ic.size, ic2.size) AS item_size,
+            COALESCE(ic.item_type, ic2.item_type) AS item_type,
             -- High-level item bucket for the new sidebar filter.
             CASE
                 WHEN c.top_level = 'fpsgear'     AND c.mid_level = 'armour'  THEN 'armor'
@@ -2004,6 +2007,14 @@ COALESCE(
         LEFT JOIN item_components ic
             ON ic.entity_name = b.output_name
            AND ic.patch_version = b.patch_version
+        -- Fallback: some blueprints (fuel nozzles) carry no output_name and a
+        -- dangling output_uuid, so neither ic nor entities resolve a name. The
+        -- item entity is recoverable from the bp's entity_name by stripping the
+        -- 'bp_craft_' prefix (e.g. bp_craft_nozzle_fuelgiver_grin_nozzlefast →
+        -- nozzle_fuelgiver_grin_nozzlefast → "Norfield").
+        LEFT JOIN item_components ic2
+            ON ic2.entity_name = REPLACE(b.entity_name, 'bp_craft_', '')
+           AND ic2.patch_version = b.patch_version
         LEFT JOIN mission_stats ms
             ON ms.blueprint_uuid = b.uuid
            AND ms.patch_version = b.patch_version
@@ -2025,7 +2036,7 @@ COALESCE(
     if sub_level:
         query += " AND c.sub_level = ?"
         params.append(sub_level)
-    query += " ORDER BY COALESCE(e.display_name, b.output_display, b.output_name, b.entity_name) ASC"
+    query += " ORDER BY COALESCE(ic.display_name, ic2.display_name, e.display_name, b.output_display, b.output_name, b.entity_name) ASC"
     rows = db.execute(query, params).fetchall()
     
     # Apply localization lookup for blueprints without proper display names
@@ -2135,6 +2146,9 @@ def api_crafting_blueprint_detail(uuid):
 -- further down the chain (or our ship-name override on b.output_display) can win.
 COALESCE(
     NULLIF(NULLIF(NULLIF(NULLIF(ic.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
+    -- ic2: fallback for blueprints with no output_name (e.g. fuel nozzles),
+    -- keyed on the item entity derived from the bp's own entity_name.
+    NULLIF(NULLIF(NULLIF(NULLIF(ic2.display_name, ''), '<= PLACEHOLDER =>'), 'PLACEHOLDER'), '@LOC_PLACEHOLDER'),
     NULLIF(e.display_name, ''),
     NULLIF(b.output_display, ''),
     b.output_name,
@@ -2158,6 +2172,11 @@ COALESCE(
         LEFT JOIN item_components ic
             ON ic.entity_name = b.output_name
            AND ic.patch_version = b.patch_version
+        -- Fallback for blueprints with no output_name (fuel nozzles); see the
+        -- matching note in /api/crafting/blueprints.
+        LEFT JOIN item_components ic2
+            ON ic2.entity_name = REPLACE(b.entity_name, 'bp_craft_', '')
+           AND ic2.patch_version = b.patch_version
         WHERE b.uuid = ? AND b.patch_version = ?
     """, (uuid, patch)).fetchone()
 
