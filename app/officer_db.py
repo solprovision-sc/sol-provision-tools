@@ -1,6 +1,7 @@
 """Read-only SQL query interface for officers. Auth is handled by nginx."""
 from flask import Blueprint, render_template, request, jsonify, current_app
 import sqlite3
+import os
 import time
 
 officer_db = Blueprint('officer_db', __name__)
@@ -12,7 +13,8 @@ ALLOWED_PREFIXES = ('SELECT', 'WITH', 'EXPLAIN')
 
 def get_readonly_conn():
     """Open dataforge.db in true read-only mode."""
-    db_path = current_app.config['DB_PATH']  # adjust key if yours differs
+    db_path = (current_app.config.get('DB_PATH')
+               or os.environ.get('DATAFORGE_DB', '../../shared/data/dataforge.db'))
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     conn.execute("PRAGMA query_only = ON")
     conn.row_factory = sqlite3.Row
@@ -51,6 +53,32 @@ def page():
     except Exception:
         current_app.logger.exception("officer_db: failed to list tables")
     return render_template('officer_db.html', tables=tables)
+
+
+@officer_db.route('/officer-db/columns', methods=['GET'])
+def columns():
+    """Return the column list for a single table (used by the query builder)."""
+    table = request.args.get('table', '')
+    try:
+        with get_readonly_conn() as conn:
+            # Validate the table name against the real schema with a bound
+            # parameter BEFORE interpolating it into PRAGMA (which can't be
+            # parameterized). This blocks identifier injection.
+            cur = conn.execute(
+                "SELECT name FROM sqlite_master "
+                "WHERE type IN ('table','view') AND name=?",
+                (table,)
+            )
+            if not cur.fetchone():
+                return jsonify({'error': 'Unknown table'}), 400
+            safe = table.replace('"', '""')
+            cur = conn.execute(f'PRAGMA table_info("{safe}")')
+            cols = [{'name': r['name'], 'type': r['type'] or ''}
+                    for r in cur.fetchall()]
+        return jsonify({'table': table, 'columns': cols})
+    except Exception:
+        current_app.logger.exception("officer_db: failed to list columns")
+        return jsonify({'error': 'Internal error'}), 500
 
 
 @officer_db.route('/officer-db/query', methods=['POST'])
