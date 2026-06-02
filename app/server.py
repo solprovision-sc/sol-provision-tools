@@ -96,6 +96,31 @@ def require_org_member(f):
         
         return f(*args, **kwargs)
     return decorated_function
+    
+def require_officer(f):
+    """Decorator to gate endpoints behind officer rank (rank >= 5).
+
+    Builds on require_org_member's session check, then enforces the rank
+    threshold. The officer dashboard pulls stats across the whole org, so
+    we don't want regular members hitting these endpoints.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        discord_id = session.get('discord_id')
+        if not discord_id:
+            return jsonify({'error': 'Not authenticated'}), 401
+        rank = session.get('rank')
+        # Defensive: rank may be stored as int or string depending on the
+        # snapshot import. Treat missing/None as 0 so we never grant access
+        # by accident if the column drifts.
+        try:
+            rank_n = int(rank) if rank is not None else 0
+        except (TypeError, ValueError):
+            rank_n = 0
+        if rank_n < 5:
+            return jsonify({'error': 'Officer access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 
