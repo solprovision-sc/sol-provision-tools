@@ -33,11 +33,11 @@ function matParams(name) {
 // ── three.js setup ─────────────────────────────────────────────────────────────
 let scene, camera, renderer, controls, loader;
 let groundPlane, gridHelper;
-let armed = null;     // {id, dims} currently selected from palette
-let ghost = null;     // preview mesh following the cursor
-let selected = null;  // a placed object selected for deletion
+let armed = null;      // piece currently selected from palette
+let ghost = null;      // preview mesh following the cursor
+let selected = null;   // a placed object selected for deletion
 const placed = [];
-const modelCache = new Map();  // id -> Promise<THREE.Group>
+const modelCache = new Map();   // id -> Promise<THREE.Group>
 let snapStep = 1;
 let ghostRotation = 0;
 let ghostElevation = 0;   // persists between placements so you can lay a whole upper floor
@@ -45,10 +45,21 @@ let ghostMirror = 1;      // 1 = normal, -1 = mirrored on local X
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-let manifest = [];
 
-const viewport = document.getElementById('viewport');
-const statusEl = document.getElementById('builder-status');
+// ── Palette state (full 2,614-piece catalog) ──────────────────────────────────
+let allPieces = [];
+const pieceById = new Map();
+const filterState = { q: '', kit: '', cats: new Set(), modular: true };
+const MAX_RENDER = 500;   // cap rendered list to keep DOM responsive
+
+const viewport       = document.getElementById('viewport');
+const statusEl       = document.getElementById('builder-status');
+const palEl          = document.getElementById('palette');
+const piecesCountEl  = document.getElementById('bb-piece-count');
+const searchEl       = document.getElementById('bb-search');
+const kitSelEl       = document.getElementById('bb-kit');
+const modularChkEl   = document.getElementById('bb-modular');
+const catChipsEl     = document.getElementById('bb-cats');
 
 init();
 
@@ -113,28 +124,118 @@ async function init() {
   animate();
 }
 
+// ── Manifest + palette ─────────────────────────────────────────────────────────
 async function loadManifest() {
-  manifest = await (await fetch(ASSET_BASE + 'manifest.json')).json();
-  const byCat = {};
-  for (const p of manifest) (byCat[p.category] ??= []).push(p);
-  const pal = document.getElementById('palette');
-  pal.innerHTML = '';
-  for (const cat of Object.keys(byCat).sort()) {
-    const h = document.createElement('div');
-    h.className = 'pal-cat';
-    h.textContent = cat;
-    pal.appendChild(h);
-    for (const p of byCat[cat]) {
-      const el = document.createElement('button');
-      el.className = 'pal-item';
-      el.dataset.id = p.id;
-      el.innerHTML = `<span class="pal-name">${p.name}</span>
-        <span class="pal-dim">${p.size[0]}×${p.size[1]}×${p.size[2]} m</span>`;
-      el.onclick = () => armPiece(p, el);
-      pal.appendChild(el);
+  const t0 = performance.now();
+  allPieces = await (await fetch(ASSET_BASE + 'manifest.json')).json();
+  allPieces.forEach(p => pieceById.set(p.id, p));
+  initKitFilter();
+  renderCatChips();
+  bindFilters();
+  renderPalette();
+  const ms = (performance.now() - t0).toFixed(0);
+  setStatus(`${allPieces.length.toLocaleString()} pieces loaded in ${ms} ms. Pick one to begin.`);
+}
+
+function initKitFilter() {
+  const counts = new Map();
+  allPieces.forEach(p => counts.set(p.kit, (counts.get(p.kit) || 0) + 1));
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  kitSelEl.innerHTML = `<option value="">All kits (${allPieces.length.toLocaleString()})</option>` +
+    sorted.map(([k, n]) => `<option value="${escapeAttr(k)}">${escapeHtml(k)} (${n})</option>`).join('');
+}
+
+function renderCatChips() {
+  // Chip counts honour the modular toggle so the numbers match what you'd see.
+  const base = filterState.modular ? allPieces.filter(p => p.modular) : allPieces;
+  const counts = new Map();
+  base.forEach(p => counts.set(p.category, (counts.get(p.category) || 0) + 1));
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  catChipsEl.innerHTML = sorted.map(([c, n]) =>
+    `<button class="bb-chip ${filterState.cats.has(c) ? 'active' : ''}" data-cat="${escapeAttr(c)}">${escapeHtml(c)}<span class="chip-n">${n}</span></button>`
+  ).join('');
+}
+
+function bindFilters() {
+  searchEl.addEventListener('input', () => {
+    filterState.q = searchEl.value;
+    renderPalette();
+  });
+  kitSelEl.addEventListener('change', () => {
+    filterState.kit = kitSelEl.value;
+    renderPalette();
+  });
+  modularChkEl.addEventListener('change', () => {
+    filterState.modular = modularChkEl.checked;
+    renderCatChips();
+    renderPalette();
+  });
+  catChipsEl.addEventListener('click', (e) => {
+    const chip = e.target.closest('.bb-chip');
+    if (!chip) return;
+    const cat = chip.dataset.cat;
+    if (filterState.cats.has(cat)) filterState.cats.delete(cat);
+    else filterState.cats.add(cat);
+    chip.classList.toggle('active');
+    renderPalette();
+  });
+  palEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('.pal-item');
+    if (!btn) return;
+    const p = pieceById.get(btn.dataset.id);
+    if (p) armPiece(p);
+  });
+}
+
+function applyFilters() {
+  const q = filterState.q.trim().toLowerCase();
+  return allPieces.filter(p => {
+    if (filterState.modular && !p.modular) return false;
+    if (filterState.kit && p.kit !== filterState.kit) return false;
+    if (filterState.cats.size > 0 && !filterState.cats.has(p.category)) return false;
+    if (q) {
+      const hay = `${p.name} ${p.kit} ${p.id}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderPalette() {
+  const r = applyFilters();
+  piecesCountEl.textContent = `${r.length.toLocaleString()} of ${allPieces.length.toLocaleString()} pieces`;
+  if (r.length === 0) {
+    palEl.innerHTML = `<div class="pal-truncate">No pieces match these filters.</div>`;
+    return;
+  }
+  const groups = new Map();
+  for (const p of r) {
+    if (!groups.has(p.kit)) groups.set(p.kit, []);
+    groups.get(p.kit).push(p);
+  }
+  const kits = [...groups.keys()].sort();
+  const parts = [];
+  let rendered = 0;
+  for (const k of kits) {
+    if (rendered >= MAX_RENDER) break;
+    const items = groups.get(k);
+    parts.push(`<div class="pal-cat"><span>${escapeHtml(k)}</span><span class="pal-cat-n">${items.length}</span></div>`);
+    for (const p of items) {
+      if (rendered >= MAX_RENDER) break;
+      const sz = p.size.map(x => x < 10 ? x.toFixed(1) : Math.round(x).toString()).join('×');
+      parts.push(
+        `<button class="pal-item" data-id="${escapeAttr(p.id)}">` +
+        `<span class="pal-name">${escapeHtml(p.name)}</span>` +
+        `<span class="pal-dim">${sz} m · ${escapeHtml(p.category)}</span>` +
+        `</button>`
+      );
+      rendered++;
     }
   }
-  setStatus(`${manifest.length} pieces loaded. Pick one, then click the grid to place.`);
+  if (rendered < r.length) {
+    parts.push(`<div class="pal-truncate">Showing ${rendered.toLocaleString()} of ${r.length.toLocaleString()}.<br>Refine the search or pick a kit.</div>`);
+  }
+  palEl.innerHTML = parts.join('');
 }
 
 // ── GLB loading + recolour ──────────────────────────────────────────────────────
@@ -165,9 +266,10 @@ function loadModel(p) {
   return modelCache.get(p.id);
 }
 
-async function armPiece(p, el) {
+async function armPiece(p) {
   document.querySelectorAll('.pal-item.active').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
+  const el = document.querySelector(`.pal-item[data-id="${CSS.escape(p.id)}"]`);
+  if (el) el.classList.add('active');
   armed = p;
   ghostRotation = 0;
   ghostMirror = 1;
@@ -269,6 +371,8 @@ function deselect() {
 }
 
 function onKey(e) {
+  // Don't hijack typing in the search input.
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
   if (e.key === 'r' || e.key === 'R') {
     ghostRotation += Math.PI / 2;
     if (ghost) ghost.rotation.y = ghostRotation;
@@ -344,3 +448,9 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
+
+// ── Small DOM helpers ──────────────────────────────────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function escapeAttr(s) { return escapeHtml(s); }
