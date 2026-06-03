@@ -96,6 +96,31 @@ def require_org_member(f):
         
         return f(*args, **kwargs)
     return decorated_function
+    
+def require_officer(f):
+    """Decorator to gate endpoints behind officer rank (rank >= 5).
+
+    Builds on require_org_member's session check, then enforces the rank
+    threshold. The officer dashboard pulls stats across the whole org, so
+    we don't want regular members hitting these endpoints.
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        discord_id = session.get('discord_id')
+        if not discord_id:
+            return jsonify({'error': 'Not authenticated'}), 401
+        rank = session.get('rank')
+        # Defensive: rank may be stored as int or string depending on the
+        # snapshot import. Treat missing/None as 0 so we never grant access
+        # by accident if the column drifts.
+        try:
+            rank_n = int(rank) if rank is not None else 0
+        except (TypeError, ValueError):
+            rank_n = 0
+        if rank_n < 5:
+            return jsonify({'error': 'Officer access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 
@@ -123,6 +148,124 @@ def get_user_db():
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
+    
+# ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
+# The extractor pipeline replaces dataforge.db wholesale every patch, so the
+# ownership rows have to live in their own file. Default location sits next to
+# dataforge.db so all app-writable state stays in one directory; OWNERSHIP_DB
+# env var overrides for ops flexibility.
+
+OWNERSHIP_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS blueprint_ownership (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        discord_id TEXT NOT NULL,
+        blueprint_uuid TEXT NOT NULL,
+        blueprint_name TEXT NOT NULL,
+        patch_version TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
+        notes TEXT,
+        UNIQUE(discord_id, blueprint_uuid, patch_version)
+    )
+"""
+
+
+def _resolve_ownership_db_path():
+    """Resolve the ownership DB path. OWNERSHIP_DB env var wins; otherwise it
+    sits next to whatever DB_PATH points at (computed lazily so --db overrides
+    in __main__ still work)."""
+    explicit = os.environ.get('OWNERSHIP_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'blueprint_ownership.db')
+
+
+def get_ownership_db():
+    """Connect to blueprint_ownership DB. Auto-creates the table on first run
+    so a fresh deploy doesn't need manual sqlite3-CLI setup."""
+    conn = sqlite3.connect(_resolve_ownership_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute(OWNERSHIP_SCHEMA)
+    conn.commit()
+    return conn
+
+
+def get_db_with_ownership():
+    """Open the dataforge connection and ATTACH the ownership DB as `own`.
+
+    Use for endpoints that JOIN crafting_blueprints against blueprint_ownership;
+    simple lookups stick to get_ownership_db() alone. The ownership path comes
+    from our own env config (not user input) so splicing it into the ATTACH
+    statement is safe.
+    """
+    conn = get_db()
+    own_path = _resolve_ownership_db_path().replace("'", "''")
+    conn.execute(f"ATTACH DATABASE '{own_path}' AS own")
+    # CREATE TABLE on the attached side too, so a fresh file is usable in JOINs
+    # immediately. `own.` prefix targets the attached DB.
+    conn.execute(OWNERSHIP_SCHEMA.replace(
+        "CREATE TABLE IF NOT EXISTS blueprint_ownership",
+        "CREATE TABLE IF NOT EXISTS own.blueprint_ownership"
+    ))
+    conn.commit()
+    return conn
+
+
+_OWNERSHIP_MIGRATION_DONE = False
+
+def _migrate_legacy_ownership_rows():
+    """One-time copy of blueprint_ownership rows from dataforge.db (where they
+    used to live) into the new standalone ownership DB. Idempotent — does
+    nothing if the new DB already has rows, so safe to call on every boot.
+
+    Has to run before the extractor replaces dataforge.db; otherwise the source
+    rows are gone. Logged so deployments can confirm the count moved over.
+    """
+    global _OWNERSHIP_MIGRATION_DONE
+    if _OWNERSHIP_MIGRATION_DONE:
+        return
+    _OWNERSHIP_MIGRATION_DONE = True
+    try:
+        own = get_ownership_db()
+        n_existing = own.execute("SELECT COUNT(*) FROM blueprint_ownership").fetchone()[0]
+        if n_existing > 0:
+            own.close()
+            return
+        df = sqlite3.connect(DB_PATH)
+        df.row_factory = sqlite3.Row
+        legacy = df.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='blueprint_ownership'"
+        ).fetchone()
+        if not legacy:
+            df.close()
+            own.close()
+            return
+        rows = df.execute("""
+            SELECT discord_id, blueprint_uuid, blueprint_name, patch_version,
+                   claimed_at, env, notes
+            FROM blueprint_ownership
+        """).fetchall()
+        df.close()
+        copied = 0
+        for r in rows:
+            try:
+                own.execute("""
+                    INSERT INTO blueprint_ownership
+                        (discord_id, blueprint_uuid, blueprint_name,
+                         patch_version, claimed_at, env, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (r['discord_id'], r['blueprint_uuid'], r['blueprint_name'],
+                      r['patch_version'], r['claimed_at'], r['env'], r['notes']))
+                copied += 1
+            except sqlite3.IntegrityError:
+                pass
+        own.commit()
+        own.close()
+        if copied:
+            print(f"  Migrated {copied} blueprint_ownership rows → {_resolve_ownership_db_path()}")
+    except sqlite3.Error as e:
+        # Swallow so a half-set-up local dev env doesn't crash the whole app.
+        print(f"  Ownership legacy migration skipped: {e}")
 
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
