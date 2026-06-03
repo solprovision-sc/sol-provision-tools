@@ -2784,7 +2784,11 @@ def api_crafting_blueprint_claim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
+    # The catalog lookup runs on dataforge.db, but the claim is written to the
+    # standalone ownership DB (attached as `own`) so it survives the patch
+    # extractions that replace dataforge.db — this is what lets claims persist
+    # across patches the way they do in-game.
+    conn = get_db_with_ownership()
     # Pull the blueprint's name + patch from the catalog so the ownership row
     # carries enough context to be queryable without re-joining (and so the
     # NOT NULL columns are satisfied). We always claim against the latest
@@ -2801,7 +2805,7 @@ def api_crafting_blueprint_claim(uuid):
     blueprint_name = bp['output_display'] or bp['output_name'] or bp['entity_name']
     try:
         conn.execute('''
-            INSERT INTO blueprint_ownership
+            INSERT INTO own.blueprint_ownership
                 (discord_id, blueprint_uuid, blueprint_name, patch_version, env)
             VALUES (?, ?, ?, ?, ?)
         ''', (discord_id, uuid, blueprint_name, patch, env))
@@ -2833,7 +2837,8 @@ def api_crafting_blueprint_unclaim(uuid):
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
+    # Persistent ownership DB — see api_crafting_blueprints_ownership.
+    conn = get_ownership_db()
     cur = conn.execute('''
         DELETE FROM blueprint_ownership
         WHERE blueprint_uuid = ? AND discord_id = ? AND env = ?
@@ -2862,7 +2867,10 @@ def api_crafting_blueprints_ownership():
         return jsonify([])
 
     env = _current_env()
-    conn = get_db()
+    # Ownership lives in the standalone blueprint_ownership.db, which survives
+    # patch extractions (dataforge.db is replaced wholesale on each import).
+    # Reading it here is what lets claimed blueprints persist across patches.
+    conn = get_ownership_db()
     placeholders = ','.join('?' * len(uuids))
     rows = conn.execute(f'''
         SELECT blueprint_uuid, discord_id, claimed_at
@@ -2885,7 +2893,8 @@ def api_crafting_blueprints_ownership():
 @app.route('/api/crafting/blueprint/<uuid>/owners')
 def api_crafting_blueprint_owners(uuid):
     env = _current_env()
-    conn = get_db()
+    # Persistent ownership DB — see api_crafting_blueprints_ownership.
+    conn = get_ownership_db()
     rows = conn.execute('''
         SELECT discord_id, claimed_at
         FROM blueprint_ownership
@@ -2919,7 +2928,12 @@ def api_crafting_blueprints_my_claims():
     # No need for auth check - decorator handles it
     
     env = _current_env()
-    conn = get_db()
+    # Persistent ownership DB (attached as `own`) so claims survive patch
+    # extractions. Display details are resolved against the current catalog
+    # patch rather than the patch the claim was filed under — a claim made in
+    # an older patch must still render with the latest name/category.
+    conn = get_db_with_ownership()
+    patch = latest_patch(conn)
     rows = conn.execute('''
         SELECT
             bo.blueprint_uuid,
@@ -2934,10 +2948,10 @@ def api_crafting_blueprints_my_claims():
                 bo.blueprint_name
             ) AS output_display,
             cc.display_path
-        FROM blueprint_ownership bo
+        FROM own.blueprint_ownership bo
         LEFT JOIN crafting_blueprints cb
             ON cb.uuid = bo.blueprint_uuid
-            AND cb.patch_version = bo.patch_version
+            AND cb.patch_version = ?
         LEFT JOIN crafting_categories cc
             ON cc.id = cb.category_id
         LEFT JOIN entities e
@@ -2948,7 +2962,7 @@ def api_crafting_blueprints_my_claims():
             AND ic.patch_version = cb.patch_version
         WHERE bo.discord_id = ? AND bo.env = ?
         ORDER BY bo.claimed_at DESC
-    ''', (discord_id, env)).fetchall()
+    ''', (patch, discord_id, env)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
     
