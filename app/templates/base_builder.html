@@ -39,6 +39,78 @@
     color: var(--text2);
     margin-top: 4px;
   }
+  /* ── Filter controls ── */
+  .bb-controls {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .bb-controls input[type="search"],
+  .bb-controls select {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    padding: 6px 9px;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  .bb-controls input[type="search"]:focus,
+  .bb-controls select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .bb-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: var(--text2);
+    text-transform: uppercase;
+    cursor: pointer;
+    user-select: none;
+  }
+  .bb-toggle input { accent-color: var(--accent); cursor: pointer; }
+
+  .bb-cat-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    max-height: 110px;
+    overflow-y: auto;
+  }
+  .bb-chip {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--font-ui);
+    font-size: 9px;
+    letter-spacing: 1px;
+    padding: 3px 7px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.12s;
+  }
+  .bb-chip:hover { color: var(--text); border-color: var(--border2); }
+  .bb-chip.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .bb-chip .chip-n {
+    color: var(--text3);
+    font-family: var(--font-mono);
+    margin-left: 4px;
+  }
+  .bb-chip.active .chip-n { color: var(--accent); }
+
   #palette {
     flex: 1;
     overflow-y: auto;
@@ -47,12 +119,32 @@
   .pal-cat {
     font-family: var(--font-ui);
     font-size: 9px;
-    letter-spacing: 2.5px;
+    letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--accent);
-    margin: 16px 8px 6px;
+    margin: 14px 8px 6px;
     padding-bottom: 4px;
     border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .pal-cat-n {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 1px;
+  }
+  .pal-truncate {
+    margin: 16px 8px 6px;
+    padding: 10px 12px;
+    border: 1px dashed var(--border2);
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    color: var(--text2);
+    text-align: center;
+    font-family: var(--font-ui);
+    line-height: 1.5;
   }
   .pal-item {
     display: flex;
@@ -138,8 +230,20 @@
   <aside class="bb-palette">
     <div class="bb-palette-head">
       <h2>Building Sets</h2>
-      <p>Star Citizen 4.8 · curated prototype</p>
+      <p id="bb-piece-count">Loading…</p>
     </div>
+
+    <div class="bb-controls">
+      <input id="bb-search" type="search" placeholder="Search name / kit / path…" autocomplete="off" />
+      <select id="bb-kit"><option value="">All kits</option></select>
+      <label class="bb-toggle">
+        <input type="checkbox" id="bb-modular" checked />
+        <span>Modular only</span>
+      </label>
+    </div>
+
+    <div class="bb-cat-chips" id="bb-cats"></div>
+
     <div id="palette"></div>
   </aside>
 
