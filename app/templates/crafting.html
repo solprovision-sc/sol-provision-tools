@@ -739,14 +739,7 @@ const activeFilters = {
   mission_type: new Set(),   // Mercenary | Hauling | ...
   faction:      new Set(),   // Red Wind Linehaul | ...
   difficulty:   new Set(),   // Intro | VE | E | M | H | VH | S
-  ownership:    new Set(),   // owned | not_owned (logged-in users only)
-  inputs:       new Set(),   // ingredient display_names (up to MAX_INPUTS, AND semantics)
 };
-
-// Max ingredients selectable in the Inputs filter. Selecting N requires every
-// matching blueprint to contain all N ingredients — selection order is irrelevant
-// since membership is tested as a set.
-const MAX_INPUTS = 3;
 
 // item_category → facet name. Drives both sidebar rendering and applyFilters.
 // Each listed category gets a collapsible sub-filter group built from the same
@@ -974,7 +967,7 @@ async function loadOwnershipForAll() {
   ownershipByBp = new Map();
   const uuids = allBlueprints.map(bp => bp.uuid).filter(Boolean);
   const myId = currentUser && currentUser.discord_id;
-  const CHUNK = 50;
+  const CHUNK = 200;
   for (let i = 0; i < uuids.length; i += CHUNK) {
     const slice = uuids.slice(i, i + CHUNK);
     let rows;
@@ -998,25 +991,6 @@ function refreshOwnershipUI() {
     const uuid = card.dataset.uuid;
     paintOwnershipForCard(card, uuid);
   });
-  refreshOwnershipFilterCounts();
-}
-
-// Update just the Owned / Not Owned counts in the sidebar. Cheaper than
-// rebuilding the whole sidebar, and we don't want to drop the user's expanded
-// filter-group state in the process.
-function refreshOwnershipFilterCounts() {
-  const owned = countOwnership("owned");
-  const notOwned = countOwnership("not_owned");
-  document.querySelectorAll('.filter-check[data-facet="ownership"]').forEach(row => {
-    const val = row.dataset.value;
-    const cnt = row.querySelector(".fc-count");
-    if (cnt) cnt.textContent = val === "owned" ? owned : notOwned;
-  });
-  // Re-filter if the ownership filter is what the user is filtering on —
-  // otherwise a freshly-claimed BP wouldn't move into/out of the visible set.
-  if (activeFilters.ownership.size > 0) {
-    applyFilters();
-  }
 }
 
 function paintOwnershipForCard(card, uuid) {
@@ -1062,20 +1036,6 @@ function countMid(mid) {
 }
 function countFacet(field, value) {
   return allBlueprints.filter(bp => (bp[field] || []).includes(value)).length;
-}
-// Count blueprints the current user owns (or doesn't own). Driven by
-// ownershipByBp.ownedByMe, which is populated async by loadOwnershipForAll —
-// before that resolves (or for logged-out visitors), owned reads as 0 and
-// not_owned reads as the full catalog. refreshOwnershipFilterCounts() rewrites
-// the numbers in place once data lands.
-function countOwnership(value) {
-  let owned = 0;
-  allBlueprints.forEach(bp => {
-    if (ownershipByBp.get(bp.uuid)?.ownedByMe) owned += 1;
-  });
-  if (value === "owned")     return owned;
-  if (value === "not_owned") return allBlueprints.length - owned;
-  return 0;
 }
 // Count blueprints in a category matching a taxonomy key.
 //   key = "<sub_level>"             → matches all variants under that type
@@ -1129,17 +1089,6 @@ function distinctFacet(field) {
   return [...s];
 }
 
-// Distinct ingredient display names across all blueprints, alpha sorted
-// (case-insensitive) for stable display in the Inputs filter.
-function distinctInputs() {
-  const s = new Set();
-  allBlueprints.forEach(bp => (bp.inputs || []).forEach(v => s.add(v)));
-  return [...s].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
-}
-function countInput(name) {
-  return allBlueprints.filter(bp => (bp.inputs || []).includes(name)).length;
-}
-
 function checkboxRow(facet, value, label, count) {
   return `
     <label class="filter-check" data-facet="${facet}" data-value="${escapeHtml(value)}">
@@ -1160,16 +1109,9 @@ function collapsibleGroup(title, innerHtml, collapsed) {
 function buildSidebar() {
   const tree = document.getElementById("filter-tree");
 
-  // OWNERSHIP — top of the sidebar so users hit it before everything else.
-  // Renders for logged-out visitors too; their counts read 0 owned / N not-owned
-  // which is the correct truth (no Discord identity → owns nothing yet).
-  let html = `<div class="filter-head">Ownership</div>`;
-  html += checkboxRow("ownership", "owned",     "Owned",     countOwnership("owned"));
-  html += checkboxRow("ownership", "not_owned", "Not Owned", countOwnership("not_owned"));
-
   // ITEMS — flat checkboxes, except Ship Components which expands into a
   // collapsible group of component-type sub-filters.
-  html += `<div class="filter-head">Items</div>`;
+  let html = `<div class="filter-head">Items</div>`;
   ITEM_CATEGORIES.forEach(([cat, label]) => {
     if (countItem(cat) === 0) return;
     if (cat === "ship_components") {
@@ -1222,13 +1164,6 @@ function buildSidebar() {
     .map(v => checkboxRow("difficulty", v, DIFFICULTY_LABELS[v] || v, countFacet("tiers", v))).join("");
   html += collapsibleGroup("Difficulty", diffRows, true);
 
-  // INPUTS — distinct ingredient names across all blueprints. AND semantics
-  // (selecting N requires every match to contain all N), max MAX_INPUTS picks.
-  html += `<div class="filter-head">Inputs</div>`;
-  const inputRows = distinctInputs()
-    .map(v => checkboxRow("inputs", v, v, countInput(v))).join("");
-  html += collapsibleGroup(`Ingredients (max ${MAX_INPUTS})`, inputRows, true);
-
   tree.innerHTML = html;
 
   // Collapse toggles
@@ -1242,29 +1177,10 @@ function buildSidebar() {
       const facet = row.dataset.facet;
       const value = row.dataset.value;
       const set = activeFilters[facet];
-      // Inputs is capped — block any check past MAX_INPUTS rather than
-      // silently dropping the selection.
-      if (facet === "inputs" && input.checked && set.size >= MAX_INPUTS) {
-        input.checked = false;
-        return;
-      }
       if (input.checked) { set.add(value); row.classList.add("checked"); }
       else               { set.delete(value); row.classList.remove("checked"); }
-      if (facet === "inputs") refreshInputsCap();
       applyFilters();
     });
-  });
-  refreshInputsCap();
-}
-
-// Disable unchecked Inputs checkboxes once the cap is hit so the limit is
-// visible in the UI rather than only failing silently on click.
-function refreshInputsCap() {
-  const tree = document.getElementById("filter-tree");
-  if (!tree) return;
-  const atCap = activeFilters.inputs.size >= MAX_INPUTS;
-  tree.querySelectorAll('.filter-check[data-facet="inputs"] input').forEach(input => {
-    if (!input.checked) input.disabled = atCap;
   });
 }
 
@@ -1291,10 +1207,6 @@ async function toggleClaim(uuid, btn) {
     document.querySelectorAll(`.bp-card[data-uuid="${CSS.escape(uuid)}"]`).forEach(card =>
       paintOwnershipForCard(card, uuid)
     );
-    // Keep the Ownership filter counts in sync; also re-applies the filter so
-    // a freshly-claimed/unclaimed BP slides out of the visible set when the
-    // user has Owned-only or Not-Owned-only active.
-    refreshOwnershipFilterCounts();
   } catch (e) {
     alert("Network error — try again.");
     btn.disabled = false;
@@ -1355,9 +1267,7 @@ function anyFilterActive() {
     || activeFilters.legality.size > 0
     || activeFilters.mission_type.size > 0
     || activeFilters.faction.size > 0
-    || activeFilters.difficulty.size > 0
-    || activeFilters.ownership.size > 0
-    || activeFilters.inputs.size > 0;
+    || activeFilters.difficulty.size > 0;
 }
 
 function showFilterPrompt() {
@@ -1403,22 +1313,6 @@ function applyFilters() {
     if (!passesFacet(activeFilters.mission_type, bp.mission_types  || [])) return false;
     if (!passesFacet(activeFilters.faction,      bp.factions       || [])) return false;
     if (!passesFacet(activeFilters.difficulty,   bp.tiers          || [])) return false;
-    // Ownership — checked against ownershipByBp (populated async after load).
-    // Selecting both Owned + Not Owned matches everything, same as no filter.
-    if (activeFilters.ownership.size > 0) {
-      const isOwned = !!ownershipByBp.get(bp.uuid)?.ownedByMe;
-      const want = isOwned ? "owned" : "not_owned";
-      if (!activeFilters.ownership.has(want)) return false;
-    }
-    // Inputs — AND semantics. Every selected ingredient must appear in the
-    // blueprint's inputs list. Order of selection is irrelevant because we
-    // test set membership, not sequence.
-    if (activeFilters.inputs.size > 0) {
-      const bpInputs = new Set(bp.inputs || []);
-      for (const wanted of activeFilters.inputs) {
-        if (!bpInputs.has(wanted)) return false;
-      }
-    }
     return true;
   });
   filteredBPs.sort((a, b) => {
@@ -2012,10 +1906,9 @@ document.getElementById("filter-search").addEventListener("input", e => {
 document.getElementById("filter-clear").addEventListener("click", () => {
   activeFilters.search = "";
   document.getElementById("filter-search").value = "";
-  ["item","component","ship_weapon","fps_weapon","armor","ammo","legality","mission_type","faction","difficulty","inputs"].forEach(f => activeFilters[f].clear());
+  ["item","component","ship_weapon","fps_weapon","armor","ammo","legality","mission_type","faction","difficulty"].forEach(f => activeFilters[f].clear());
   document.querySelectorAll("#filter-tree input[type=checkbox]").forEach(cb => {
     cb.checked = false;
-    cb.disabled = false;
     cb.closest(".filter-check").classList.remove("checked");
   });
   applyFilters();

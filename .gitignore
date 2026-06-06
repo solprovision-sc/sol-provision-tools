@@ -1,3 +1,9 @@
+# local server batch
+run_local.bat
+
+# Claude files
+.claude/*
+
 # Database — deployed separately via SCP
 *.db
 *.db-shm
