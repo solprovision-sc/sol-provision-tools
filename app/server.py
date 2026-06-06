@@ -2273,12 +2273,32 @@ COALESCE(
         f["legality"].add("Lawful" if fr["lawful"] == 1
                           else "Unlawful" if fr["lawful"] == 0 else "Unknown")
 
+    # ── Attach ingredient inputs (powers the "Ingredients" sidebar filter) ──
+    # Distinct ingredient display names per blueprint, resolved the same way the
+    # detail endpoint does (entity name → stored display → resource name) so the
+    # filter labels match the chips shown on each card.
+    input_rows = db.execute("""
+        SELECT
+            ci.blueprint_uuid AS bp,
+            COALESCE(e.display_name, ci.display_name, ci.resource_name) AS name
+        FROM crafting_ingredients ci
+        LEFT JOIN entities e
+            ON e.uuid = ci.resource_uuid AND e.patch_version = ci.patch_version
+        WHERE ci.patch_version = ?
+    """, (patch,)).fetchall()
+
+    inputs_by_bp = {}
+    for ir in input_rows:
+        if ir["name"]:
+            inputs_by_bp.setdefault(ir["bp"], set()).add(ir["name"])
+
     for bp in results:
         f = facets.get(bp["uuid"])
         bp["mission_types"] = sorted(f["mission_types"]) if f else []
         bp["factions"]      = sorted(f["factions"])      if f else []
         bp["tiers"]         = sorted(f["tiers"])         if f else []
         bp["legality"]      = sorted(f["legality"])      if f else []
+        bp["inputs"]        = sorted(inputs_by_bp.get(bp["uuid"], ()))
 
     return jsonify(results)
     
