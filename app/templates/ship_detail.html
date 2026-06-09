@@ -40,7 +40,9 @@
 }
 
 .sidebar::-webkit-scrollbar { width: 4px; }
+
 .sidebar::-webkit-scrollbar-track { background: #1a1512; }
+
 .sidebar::-webkit-scrollbar-thumb { background: rgba(126,38,25,0.4); }
 
 /* Ship Identity */
@@ -52,7 +54,7 @@
 .s-back {
   font-size: 8px; 
   letter-spacing: 2px; 
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase; 
   margin-bottom: 12px; 
   cursor: pointer;
@@ -68,7 +70,7 @@
 .s-mfr { 
   font-size: 8px; 
   letter-spacing: 2.5px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase; 
   margin-bottom: 4px; 
 }
@@ -93,7 +95,7 @@
 .sb-lbl-header {
   font-size: 8px;
   letter-spacing: 2px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
   margin-bottom: 6px;
   padding-bottom: 4px;
@@ -107,21 +109,24 @@
    - Container (.pm-grid) flexes to the tallest column.
    - Mandatory blocks sized by mandatory_count × --pm-seg, one per component.
    - Adjustable segments stack above, each individually toggleable. */
+
 .pm-grid {
   --pm-seg: 18px;
   display: grid;
   /* grid-template-columns set dynamically by renderPowerGrid; fall back to 8 */
   grid-template-columns: repeat(8, 1fr);
-  gap: 4px;
+  gap: var(--space-1);;
   margin-bottom: 8px;
   align-items: end;     /* bottoms aligned; shorter columns sit at the floor */
 }
+
 .pm-col {
   display: flex;
   flex-direction: column;
   align-items: center;
   user-select: none;
 }
+
 .pm-bars {
   display: flex;
   flex-direction: column-reverse;   /* mandatory anchors at the bottom; adjustable adds upward */
@@ -130,6 +135,7 @@
   align-items: stretch;
   padding-bottom: 4px;
 }
+
 .pm-seg {
   height: var(--pm-seg);
   background: rgba(126,38,25,0.18);
@@ -140,17 +146,22 @@
   align-items: center;
   justify-content: center;
 }
+
 .pm-seg.on { background: #E8855C; }
+
 .pm-seg.gated { cursor: not-allowed; opacity: 0.45; }
+
 /* "H" = heat / overclock segment on coolers + life support (top segment). */
 .pm-seg-h {
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
   pointer-events: none;
-  color: #9A8C64;
+  color: var(--khaki);
 }
+
 .pm-seg.on .pm-seg-h { color: #2a1a12; }
+
 .pm-mandatory {
   /* height set inline = mandatory_count × --pm-seg */
   background: #E8855C;
@@ -158,11 +169,16 @@
   cursor: pointer;
   transition: background 0.12s, opacity 0.12s;
 }
+
 .pm-mandatory.off { background: rgba(70,40,30,0.30); }
+
 /* Locked = non-throttleable categories (quantum): solid block, dimmed icon/label. */
 .pm-col.locked .pm-mandatory { cursor: default; }
+
 .pm-col.locked .pm-icon { cursor: default; opacity: 0.5; }
+
 .pm-col.locked .pm-icon:hover { color: #E8855C; }
+
 .pm-col.locked .pm-level { opacity: 0.5; }
 
 .pm-icon {
@@ -176,29 +192,36 @@
   cursor: pointer;
   transition: color 0.12s, opacity 0.12s;
 }
+
 .pm-col.off .pm-icon { color: #6a4d3c; opacity: 0.55; }
+
 .pm-icon:hover { color: #ffb892; }
 
 .pm-level {
   font-size: 7px;
   letter-spacing: 1px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
   margin-top: 2px;
   line-height: 1;
   text-align: center;
 }
+
 .pm-col.off .pm-level { color: #5a4f3d; }
 
 /* ── Meta stats panel ──────────────────────────────────────────────── */
 .ms-panel { display: flex; flex-direction: column; gap: 2px; }
+
 .ms-row {
   display: flex;
   padding: 5px 0;
   border-bottom: 1px solid rgba(126,38,25,0.10);
 }
+
 .ms-row:last-child { border-bottom: none; }
+
 .ms-row-pair { gap: 8px; }
+
 .ms-cell {
   display: flex;
   align-items: baseline;
@@ -206,8 +229,11 @@
   flex: 1 1 0;
   min-width: 0;
 }
+
 .ms-cell.ms-right  { justify-content: flex-end; }
+
 .ms-cell.ms-full   { width: 100%; flex: 1 1 100%; }
+
 .ms-num {
   font-family: 'Orbitron', sans-serif;
   font-weight: 700;
@@ -215,20 +241,24 @@
   color: #fff;
   white-space: nowrap;
 }
+
 .ms-num.gap { color: #6a4d3c; font-weight: 400; }
+
 .ms-unit {
   font-size: 8px;
   letter-spacing: 1px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
 }
+
 .ms-sub {
   font-size: 9px;
   letter-spacing: 1px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
   margin-right: 4px;
 }
+
 .ms-icon-w, .ms-icon-m, .ms-icon-s, .ms-icon-p, .ms-icon-c, .ms-icon-q {
   width: 12px; height: 12px;
   background: #E8855C;
@@ -237,11 +267,17 @@
   -webkit-mask-repeat: no-repeat;mask-repeat: no-repeat;
   flex-shrink: 0;
 }
+
 .ms-icon-w { -webkit-mask-image: url(/static/img/icons/ItemWeapons.svg); mask-image: url(/static/img/icons/ItemWeapons.svg); }
+
 .ms-icon-m { -webkit-mask-image: url(/static/img/icons/ItemMissile.svg); mask-image: url(/static/img/icons/ItemMissile.svg); }
+
 .ms-icon-s { -webkit-mask-image: url(/static/img/icons/ItemShields.svg); mask-image: url(/static/img/icons/ItemShields.svg); }
+
 .ms-icon-p { -webkit-mask-image: url(/static/img/icons/ItemPowerPlant.svg); mask-image: url(/static/img/icons/ItemPowerPlant.svg); }
+
 .ms-icon-c { -webkit-mask-image: url(/static/img/icons/ItemCooler.svg); mask-image: url(/static/img/icons/ItemCooler.svg); }
+
 .ms-icon-q { -webkit-mask-image: url(/static/img/icons/ItemQuantumDrive.svg); mask-image: url(/static/img/icons/ItemQuantumDrive.svg); }
 
 .sb-row {
@@ -257,18 +293,20 @@
 .sb-lbl { 
   font-size: 9px; 
   letter-spacing: 1px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase; 
 }
 
 .sb-val { 
   font-size: 12px; 
-  color: #CBB8AA; 
+  color: var(--sand); 
   letter-spacing: 0.5px; 
 }
 
 .sb-val.hi { color: #E8855C; }
+
 .sb-val.ok { color: #5aad7a; }
+
 .sb-val.gap { color: #b06020; font-size: 10px; }
 
 /* Ship Volume Visualization */
@@ -280,12 +318,12 @@
 
 .sb-volume-label {
   font-size: 9px;
-  color: #9A8C64;
+  color: var(--khaki);
   letter-spacing: 1px;
 }
 
 .sb-volume-label span {
-  color: #CBB8AA;
+  color: var(--sand);
   font-weight: 600;
 }
 
@@ -303,7 +341,7 @@
 .nav-lbl {
   font-size: 8px; 
   letter-spacing: 2px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase;
   margin-bottom: 6px; 
   padding-bottom: 5px; 
@@ -313,7 +351,7 @@
 .nav-a {
   font-size: 10px; 
   letter-spacing: 1px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   padding: 5px 8px;
   cursor: pointer; 
   border-left: 2px solid transparent;
@@ -324,7 +362,7 @@
 }
 
 .nav-a:hover { 
-  color: #CBB8AA; 
+  color: var(--sand); 
   border-left-color: #7E2619; 
   background: rgba(126,38,25,0.05); 
 }
@@ -342,7 +380,7 @@
   letter-spacing: 1.5px;
   padding: 2px 7px; 
   border: 1px solid rgba(126,38,25,0.22); 
-  color: #CBB8AA;
+  color: var(--sand);
   text-transform: uppercase;
 }
 
@@ -385,13 +423,13 @@
   font-weight: 700; 
   font-size: 11px;
   letter-spacing: 3px; 
-  color: #CBB8AA; 
+  color: var(--sand); 
   text-transform: uppercase;
 }
 
 .sec-note { 
   font-size: 9px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   margin-left: auto; 
   letter-spacing: 0.5px; 
 }
@@ -410,7 +448,7 @@
 .loading-text { 
   font-size: 11px; 
   letter-spacing: 3px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase; 
 }
 
@@ -452,7 +490,7 @@
 .sil-label { 
   font-size: 9px; 
   letter-spacing: 2px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase; 
 }
 
@@ -493,7 +531,7 @@
 .st-lbl { 
   font-size: 8px; 
   letter-spacing: 1.5px; 
-  color: #CBB8AA; 
+  color: var(--sand); 
   text-transform: uppercase; 
   margin-bottom: 5px; 
 }
@@ -512,7 +550,7 @@
   font-family: 'Orbitron', sans-serif; 
   font-size: 18px; 
   font-weight: 700;
-  color: #CBB8AA; 
+  color: var(--sand); 
   letter-spacing: 1px; 
   line-height: 1;
 }
@@ -523,7 +561,7 @@
 
 .st-unit { 
   font-size: 10px; 
-  color: #CBB8AA; 
+  color: var(--sand); 
   letter-spacing: 1px; 
 }
 
@@ -540,20 +578,20 @@
 .grid2 { 
   display: grid; 
   grid-template-columns: 1fr 1fr; 
-  gap: 12px; 
+  gap: var(--space-3); 
 }
 
 .grid2-column-first { 
   display: grid; 
   grid-template-columns: 1fr 1fr; 
-  gap: 12px; 
+  gap: var(--space-3); 
   grid-auto-flow: column; 
 }
 
 .grid3 { 
   display: grid; 
   grid-template-columns: 1fr 1fr 1fr; 
-  gap: 12px; 
+  gap: var(--space-3); 
 }
 
 .spacer { 
@@ -563,16 +601,16 @@
 /* ── PANELS ────────────────────────────────────────────────────────────── */
 
 .panel { 
-  background: #231e1a; 
-  border: 1px solid rgba(126,38,25,0.22); 
+  background: var(--ink-800); 
+  border: 1px solid var(--rust-700); 
   padding: 14px 16px; 
 }
 
 .panel-title {
-  font-family: 'Orbitron', sans-serif; 
-  font-size: 8px; 
-  letter-spacing: 2px; 
-  color: #9A8C64;
+  font-family: var(--font-body); 
+  font-size: var(--text-base); 
+  letter-spacing: var(--track-label); 
+  color: var(--khaki);
   text-transform: uppercase; 
   margin-bottom: 10px; 
   padding-bottom: 6px;
@@ -594,18 +632,19 @@
 
 .dr-l { 
   font-size: 11px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   letter-spacing: 0.5px; 
 }
 
 .dr-v { 
   font-size: 12px; 
-  color: #CBB8AA; 
+  color: var(--sand); 
   text-align: right; 
   letter-spacing: 0.5px; 
 }
 
 .dr-v.pos { color: #5aad7a; }
+
 .dr-v.neg { color: #d07070; }
 
 .dr-v.gap-val { 
@@ -641,7 +680,7 @@
 
 .gap-text { 
   font-size: 11px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   letter-spacing: 0.5px; 
   line-height: 1.6; 
 }
@@ -676,7 +715,7 @@
 .cp-name { 
   font-size: 8px; 
   letter-spacing: 1.5px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   text-transform: uppercase; 
   margin-bottom: 4px; 
 }
@@ -691,12 +730,12 @@
 
 .cp-scu span { 
   font-size: 10px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
 }
 
 .cp-dims { 
   font-size: 10px; 
-  color: #9A8C64; 
+  color: var(--khaki); 
   margin-top: 5px; 
   letter-spacing: 0.5px; 
 }
@@ -728,11 +767,11 @@
 }
 
 .loadout-card-hdr {
-  font-family: 'Orbitron', sans-serif;
+  font-family: var(--font-body);
   font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 2px;
-  color: #9A8C64;
+  font-size: var(--text-sm);
+  letter-spacing: var(--track-label);
+  color: var(--khaki);
   text-transform: uppercase;
 }
 
@@ -740,7 +779,7 @@
 .comp-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 /* Individual Component Card (inner black card) */
@@ -774,16 +813,16 @@
 .comp-hdr-h {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 4px 6px;
   background: rgba(0,0,0,0.3);
   border-bottom: 1px solid rgba(126,38,25,0.2);
 }
 
 .comp-icon-h {
-  width: 36px;
-  height: 36px;
-  background: rgba(126,38,25,0.15);
+  width: 30px;
+  height: 30px;
+  background: rgba(126,38,25,0.05);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -800,7 +839,7 @@
 
 .comp-size-h {
   font-size: 11px;
-  color: #9A8C64;
+  color: var(--khaki);
   letter-spacing: 1px;
   border: 1px solid #9A8C64;
   padding: 2px;
@@ -810,19 +849,19 @@
 .comp-name-h {
   font-size: 13px;
   font-weight: 600;
-  color: #CBB8AA;
+  color: var(--sand);
   letter-spacing: 0.5px;
 }
 
 .comp-name-text-h {
-      color: #fff;
-      font-size: 1.5em;
+      color: var(--white);
+      font-size: 16px;
       font-weight: 600;
 }
 
 .comp-grade-h {
   font-size: 10px;
-  color: #9A8C64;
+  color: var(--khaki);
   opacity: 0.8;
   margin-left: auto;
 }
@@ -843,20 +882,22 @@
 .comp-stats-h {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-2);
   padding: 4px 6px;
   border-bottom: 1px solid rgba(126,38,25,0.2);
 }
 
 .comp-stat-h {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);;
 }
 
 .stat-icon-h {
-  font-size: 12px;
-  color: #9A8C64;
+  font-size: var(--text-xs);
+  color: var(--khaki);
   opacity: 0.7;
   width: 12px;
   height: 12px;
@@ -866,21 +907,117 @@
 }
 
 .stat-val-h {
-  font-size: 13px;
-  color: #CBB8AA;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--sand);
   font-weight: 500;
 }
 
 .comp-stat-text-h {
-  font-size: 14px;
-  color: #9A8C64;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--khaki);
   margin-left: auto;
 }
 
 .comp-stat-text-h .param-sep {
   color: #7E2619;
-  margin: 0 2px;
+  margin: 0 1px;
 }
+
+/* Weapon loadout tree: hardpoint -> mount -> weapon (parent/child cards) */
+.wpn-list { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.wpn-group { display: flex; flex-direction: column; gap: 6px; }
+
+.wpn-children {
+  margin-left: 22px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(126,38,25,0.40);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+/* mount/turret (container) cards: header-only, dimmed a touch vs weapon cards */
+.wpn-mount-card .comp-hdr-h,
+
+.wpn-turret-card .comp-hdr-h { border-bottom: none; }
+
+.wpn-mount-card, .wpn-turret-card { background: #100d0b; }
+
+.wpn-tag {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--khaki);
+  border: 1px solid rgba(126,38,25,0.45);
+  border-radius: 2px;
+  padding: 1px 5px;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+.wpn-tag.gimbal { color: #6FB3C9; border-color: rgba(111,179,201,0.4); }
+
+.wpn-tag.fixed  { color: #C99A6F; border-color: rgba(201,154,111,0.4); }
+
+.wpn-lock { margin-left: 8px; font-size: 12px; opacity: 0.65; line-height: 1; }
+
+.wpn-dps { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 700;
+           color: #E8855C; white-space: nowrap; }
+
+/* Hardpoint categories (Weapons / Turrets / EMP / QED / Mining / … ) — each is
+   its own loadout-card; absent ones show "N/A" inline-right in the card title. */
+.hp-cat-body { display: flex; flex-direction: column; gap: 8px; }
+
+.hp-na-inline {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-style: italic;
+  letter-spacing: 1px;
+  color: #6b6253;
+}
+
+/* Multiplier badge next to a missile/bomb name (×2, ×8 …) */
+.hp-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--khaki);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+
+/* Clickable armament cards (editable slots) */
+.arm-swappable { cursor: pointer; transition: border-color .12s, background .12s; }
+.arm-swappable:hover {
+  border-color: var(--terracotta) !important;
+  background: rgba(232,133,92,0.06) !important;
+}
+
+/* Armament swap modal — option tables */
+.arm-opt-list { max-height: 60vh; overflow-y: auto; }
+.arm-tbl-title {
+  font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--khaki);
+  margin: 12px 0 5px;
+}
+.arm-tbl-title:first-child { margin-top: 0; }
+.arm-table { width: 100%; border-collapse: collapse; }
+.arm-table thead th {
+  text-align: left; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--khaki); font-weight: 600; padding: 4px 8px;
+  border-bottom: 1px solid rgba(126,38,25,0.35);
+}
+.arm-table tbody td { padding: 6px 8px; font-size: 13px; color: #d8c7b8;
+  border-bottom: 1px solid rgba(126,38,25,0.15); }
+.arm-row { cursor: pointer; }
+.arm-row:hover td { background: rgba(232,133,92,0.08); }
+.arm-row.is-current td { background: rgba(232,133,92,0.12); }
+.arm-c-size { font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--khaki); width: 48px; }
+.arm-c-type { color: var(--khaki); text-transform: capitalize; white-space: nowrap; width: 90px; }
+.arm-opt-empty { padding: 12px 8px; color: #6b6253; font-style: italic; }
 
 /* Action Buttons (top right of loadout header) */
 .comp-actions-top {
@@ -889,6 +1026,7 @@
 }
 
 .btn-quick-sel-sm,
+
 .btn-reset-sm {
   padding: 2px 8px;
   font-size: 8px;
@@ -919,7 +1057,7 @@
 .btn-reset-sm {
   background: transparent;
   border: 1px solid rgba(154,140,100,0.3);
-  color: #9A8C64;
+  color: var(--khaki);
 }
 
 .btn-reset-sm:hover:not(:disabled) {
@@ -952,7 +1090,7 @@
   left: 50%;
   transform: translateX(-50%);
   background: #1a1512;
-  color: #CBB8AA;
+  color: var(--sand);
   padding: 4px 8px;
   font-size: 9px;
   letter-spacing: 1px;
@@ -967,6 +1105,7 @@
 }
 
 .tooltip-wrapper:hover .tooltip,
+
 .tooltip-wrapper-inline:hover .tooltip {
   opacity: 1;
 }
@@ -975,7 +1114,7 @@
 .icon-lg {
   width: 32px;
   height: 32px;
-  background-color: #E8855C;
+  background-color: var(--sun-600);
   mask-size: contain;
   -webkit-mask-size: contain;
 }
@@ -999,7 +1138,7 @@
 .icon-xs {
   width: 12px;
   height: 12px;
-  background-color: #9A8C64;
+  background-color: var(--khaki);
   mask-size: contain;
   -webkit-mask-size: contain;
 }
@@ -1069,6 +1208,41 @@
   -webkit-mask: url(/static/img/icons/ItemMissile.svg) no-repeat center;
 }
 
+.icon-missiles {
+  mask: url(/static/img/icons/ItemMissiles.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemMissiles.svg) no-repeat center;
+}
+
+.icon-emp {
+  mask: url(/static/img/icons/ItemEMP.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemEMP.svg) no-repeat center;
+}
+
+.icon-qed {
+  mask: url(/static/img/icons/ItemQED.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemQED.svg) no-repeat center;
+}
+
+.icon-mining {
+  mask: url(/static/img/icons/ItemMining.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemMining.svg) no-repeat center;
+}
+
+.icon-salvage {
+  mask: url(/static/img/icons/ItemSalvage.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemSalvage.svg) no-repeat center;
+}
+
+.icon-refuel {
+  mask: url(/static/img/icons/ItemTank.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemTank.svg) no-repeat center;
+}
+
+.icon-utility {
+  mask: url(/static/img/icons/ItemTractorBeam.svg) no-repeat center;
+  -webkit-mask: url(/static/img/icons/ItemTractorBeam.svg) no-repeat center;
+}
+
 .icon-cargo {
   mask: url(/static/img/icons/3D_cargo_boxes.svg) no-repeat center;
   -webkit-mask: url(/static/img/icons/3D_cargo_boxes.svg) no-repeat center;
@@ -1088,12 +1262,13 @@
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 1px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
   margin-bottom: 12px;
 }
 
 .qt-input-row,
+
 .qt-fuel-row {
    display: flex;
   justify-content: space-between;
@@ -1109,14 +1284,14 @@
 
 .qt-label {
   font-size: 12px;
-  color: #9A8C64;
+  color: var(--khaki);
   letter-spacing: 0.5px;
 }
 
 .qt-input {
   background: #1a1512;
   border: 1px solid rgba(126,38,25,0.3);
-  color: #CBB8AA;
+  color: var(--sand);
   padding: 4px 8px;
   font-size: 11px;
   width: 50px;
@@ -1131,7 +1306,7 @@
 
 .qt-fuel-display {
   font-size: 14px;
-  color: #CBB8AA;
+  color: var(--sand);
   letter-spacing: 0.5px;
 }
 
@@ -1177,7 +1352,7 @@
 .qt-results {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--space-3);
   padding-top: 8px;
   border-top: 1px solid rgba(126,38,25,0.2);
 }
@@ -1185,13 +1360,13 @@
 .qt-result-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);;
 }
 
 .qt-result-label {
   font-size: 8px;
   letter-spacing: 1px;
-  color: #9A8C64;
+  color: var(--khaki);
   text-transform: uppercase;
 }
 
@@ -1205,13 +1380,13 @@
 
 .qt-result-unit {
   font-size: 10px;
-  color: #9A8C64;
+  color: var(--khaki);
   margin-left: 4px;
 }
 
 .stat-label-h {
   font-size: 10px;
-  color: #9A8C64;
+  color: var(--khaki);
   margin-right: 4px;
 }
 
@@ -1254,13 +1429,18 @@
 }
 
 .sb-face.sb-front  { transform-origin: center; }
+
 .sb-face.sb-back   { transform-origin: center; }
+
 .sb-face.sb-right  { transform-origin: center; }
+
 .sb-face.sb-left   { transform-origin: center; }
+
 .sb-face.sb-top    { 
   transform-origin: center;
   background: linear-gradient(135deg, rgba(126,38,25,0.25) 0%, rgba(126,38,25,0.1) 100%);
 }
+
 .sb-face.sb-bottom { transform-origin: center; }
 
 /* Dimension Labels */
@@ -1279,13 +1459,13 @@
 .sb-dim-title {
   font-size: 10px;
   letter-spacing: 1px;
-  color: #9A8C64;  /* This is already your khaki/gold color - keep it or change it */
+  color: var(--khaki);  /* This is already your khaki/gold color - keep it or change it */
   text-transform: uppercase;
 }
 
 .sb-dim-value {
   font-size: 14px;
-  color: #CBB8AA;  /* This is already your parchment color - change if you want */
+  color: var(--sand);  /* This is already your parchment color - change if you want */
   font-weight: 600;
   letter-spacing: 0.5px;
 }
@@ -1382,11 +1562,12 @@ body::before {
 
 .modal-filters {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   margin-bottom: 16px;
 }
 
 .modal-filters input,
+
 .modal-filters select {
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1421,6 +1602,7 @@ body::before {
 
 /* Force consistent box model */
 #component-table thead th,
+
 #component-table tbody td {
   box-sizing: border-box;
   padding: 12px 8px;
@@ -1466,7 +1648,7 @@ body::before {
   border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--space-3);
 }
 
 /* Component Preview Section */
@@ -1539,20 +1721,20 @@ body::before {
 .preview-stat-label {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #9A8C64;
+  color: var(--khaki);
 }
 
 .preview-stat-val {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: #CBB8AA;
+  color: var(--sand);
   font-weight: 600;
 }
 
 /* Add styling for units in preview */
 .preview-stat-val .stat-unit {
   font-size: 10px;
-  color: #9A8C64;
+  color: var(--khaki);
   font-weight: 400;
   margin-left: 2px;
 }
@@ -1826,11 +2008,8 @@ body::before {
    	  <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Vehicle Loadout</div></div>
         <div class="grid2-column-first" style="margin-bottom:12px">
           <div class="panel">
-            <div class="panel-title">Weapons</div>
-				<div class="loadout-card">
-					<span class="dr-l">Weapon 1</span>
-					<div id="weapons-content"></div>
-				</div>
+            <div class="panel-title">Armament &amp; Industrial</div>
+				<div id="weapons-content"></div>
 		  </div>
 		  <div class="panel">
             <div class="panel-title">Components</div>
@@ -1923,6 +2102,25 @@ body::before {
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeSwapModal()">Cancel</button>
       <button class="btn" id="modal-apply-btn" onclick="applyComponentSwap()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Armament & Industrial swap modal (weapons / mounts / missiles) -->
+<div id="armament-swap-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="arm-modal-title">Select Item</h3>
+      <button class="modal-close" onclick="closeArmamentSwap()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-filters">
+        <input type="text" id="arm-modal-search" placeholder="Search..." oninput="renderArmamentOptions()" />
+      </div>
+      <div id="arm-modal-list" class="arm-opt-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeArmamentSwap()">Cancel</button>
     </div>
   </div>
 </div>
@@ -2819,15 +3017,22 @@ body::before {
       'radar': 'Radar',
       'weapons': 'Weapon',
       'turret': 'Turret',
-      'missile': 'Missile Rack',
-	  'flightcontroller': 'Flight Controller'
+      'missile': 'Missile',
+	  'missiles': 'Missile Rack',
+	  'flightcontroller': 'Flight Controller',
+      'emp': 'EMP',
+      'qed': 'Quantum Interdiction',
+      'mining': 'Mining',
+      'salvage': 'Salvage',
+      'refuel': 'Refueling',
+      'utility': 'Utility'
     };
     
     const tooltipLabel = label || labels[type] || type;
     
     return `
       <div class="comp-icon-h tooltip-wrapper">
-        <div class="icon-lg icon-${type}"></div>
+        <div class="icon-md icon-${type}"></div>
         <span class="tooltip">${tooltipLabel}</span>
       </div>`;
   }
@@ -4190,59 +4395,441 @@ body::before {
   }
 
   // ── Weapons ──────────────────────────────────────────────────────────────────
-  function populateWeapons(ship) {
-    const { weapons, missile_racks, missiles } = ship.components;
-    let html = '';
+  // DPS = summed ammo damage × pellet count × (fire rate / 60). Mirrors the
+  // meta-stats math; returns null when ammo/rate data is missing.
+  // Sum every damage channel on an ammo/missile record.
+  function sumDmg(o) {
+    if (!o) return 0;
+    return (o.dmg_physical||0)+(o.dmg_energy||0)+(o.dmg_distortion||0)
+         + (o.dmg_thermal||0)+(o.dmg_biochemical||0)+(o.dmg_stun||0);
+  }
 
-    if (!weapons.length && !missile_racks.length && !missiles.length) {
-      html = `<div class="gap-block">
-        <div class="gap-title">No Direct Weapon Hardpoints</div>
-        <div class="gap-text">Weapons on this vessel may be mounted on turret sub-entities. Turret child weapon port relationships require a second query level not yet implemented.</div>
-      </div>`;
+  // Pick the firing mode that actually has a rate. Some weapons (e.g. the
+  // Omnisky cannons) list a rate-less "Sequence" mode first; the real
+  // Single/Rapid mode is later, so fire_modes[0] would yield no DPS.
+  function pickFireMode(w) {
+    const fms = (w && w.fire_modes) || [];
+    return fms.find(fm => (fm.fire_rate || 0) > 0) || fms[0] || {};
+  }
+
+  function weaponDps(w) {
+    if (!w || !w.ammo) return null;
+    const shot = sumDmg(w.ammo);
+    if (!shot) return null;
+    const fm = pickFireMode(w);
+    const rate = fm.fire_rate || 0;
+    if (!rate) return null;
+    return shot * (fm.pellet_count || 1) * (rate / 60);
+  }
+
+  // Damage of one trigger pull (per-shot × pellets) — for max-magazine damage.
+  function weaponPerShot(w) {
+    if (!w || !w.ammo) return null;
+    const shot = sumDmg(w.ammo);
+    if (!shot) return null;
+    const fm = pickFireMode(w);
+    return shot * (fm.pellet_count || 1);
+  }
+
+  // Slot registry — maps a rendered clickable card to its node + swap context so
+  // the modal can fetch options and apply the choice. Rebuilt every render.
+  let armamentSlots = {};
+  let armamentSlotSeq = 0;
+  function regSlot(node, mode, param) {
+    const id = 'arm' + (armamentSlotSeq++);
+    armamentSlots[id] = { node, mode, param };
+    return id;
+  }
+  // Closes the class attr and adds the click hook when the slot is editable.
+  function swapAttrs(id) {
+    return id ? ` arm-swappable" onclick="openArmamentSwap('${id}')"` : '"';
+  }
+
+  // Recursive render of one weapon-group node (hardpoint → mount → weapon).
+  // parentMount = the enclosing mount/turret node (a weapon swaps inside it).
+  function weaponNodeHtml(node, parentMount) {
+    const item = node.item || {};
+    const lock = node.editable ? '' : `<span class="wpn-lock" title="Non-editable">🔒</span>`;
+    let card = '';
+    if (node.kind === 'weapon') {
+      const name    = item.display_name || item.entity_name || node.installed_name;
+      const count   = node.count || 1;            // entities in this slot (≥1)
+      const dpsEach = (item.dps != null) ? item.dps : weaponDps(item);
+      const dps     = dpsEach != null ? dpsEach * count : null;
+      let maxDmg;
+      if (item.max_dmg != null) maxDmg = item.max_dmg * count;
+      else { const ps = weaponPerShot(item); maxDmg = (ps != null && item.max_ammo_load) ? ps * item.max_ammo_load * count : null; }
+      const cnt  = count > 1 ? `<span class="hp-count">×${count}</span>` : '';
+      const info = [];
+      if (item.max_ammo_load) info.push(`${fmt(item.max_ammo_load, 0)} ammo`);
+      if (maxDmg != null)     info.push(`${fmt(maxDmg, 0)} dmg max`);
+      const id = regSlot(node, parentMount ? 'mount' : 'port',
+                         parentMount ? parentMount.installed_name : node.port_name);
+      card = `
+        <div class="comp-card-h wpn-card${swapAttrs(id)}>
+          <div class="comp-hdr-h">
+            ${iconPrimary('weapons')}
+            <div class="comp-title-h">
+              <div class="comp-size-h">S${item.size || node.max_size || '?'}</div>
+              <div class="comp-name-h"><span class="comp-name-text-h">${name}</span>${cnt}</div>
+            </div>
+            ${dps != null ? `<div class="comp-hp-h">${fmt(dps, 0)} dps</div>` : ''}
+          </div>
+          <div class="comp-stats-h">
+            <div class="comp-stat-h">${iconStat('power-cons')}<span class="stat-val-h">${fmt(item.power_draw, 1) || '—'}</span></div>
+            ${info.length ? `<div class="comp-stat-text-h">${info.join('<span class="param-sep">&bull;</span>')}</div>` : ''}
+          </div>
+        </div>`;
+    } else if (node.kind === 'mount') {
+      const name = item.display_name || item.entity_name || node.installed_name;
+      const cls  = item.mount_type === 'fixed' ? 'fixed' : 'gimbal';
+      const lbl  = item.mount_type === 'fixed' ? 'Fixed' : 'Gimbal';
+      const dual = (item.weapon_port_count || 1) > 1 ? ` ×${item.weapon_port_count}` : '';
+      const id   = node.editable ? regSlot(node, 'port', node.port_name) : null;
+      card = `
+        <div class="comp-card-h wpn-mount-card${swapAttrs(id)}>
+          <div class="comp-hdr-h">
+            ${iconPrimary('turret', 'Weapon Mount')}
+            <div class="comp-title-h">
+              <div class="comp-size-h">S${item.size || node.max_size || '?'}</div>
+              <div class="comp-name-h"><span class="comp-name-text-h">${name}${dual}</span>
+                <span class="wpn-tag ${cls}">${lbl}</span></div>
+            </div>
+            ${lock}
+          </div>
+        </div>`;
     } else {
-      if (weapons.length) {
-        html += `<div class="cg-title">Weapons</div>`;
-        weapons.forEach((w, i) => {
-          const fm = w.fire_modes && w.fire_modes[0];
-          html += `<div class="slot">
-            <div class="slot-hdr">
-              <span class="slot-port">Weapon Port ${String(i+1).padStart(2,'0')}</span>
-              ${w.size ? `<span class="sz-badge">S${w.size}</span>` : ''}
-              ${w.grade ? `<span class="gr-badge">${w.grade}</span>` : ''}
-              ${w.item_sub_type ? `<span class="sub-badge">${w.item_sub_type}</span>` : ''}
+      // turret / unknown container (e.g. a manned turret holding mounts)
+      const name = item.display_name || node.installed_name || node.port_name;
+      const lbl  = node.kind === 'turret' ? 'Turret' : 'Mount';
+      const id   = node.editable ? regSlot(node, 'port', node.port_name) : null;
+      card = `
+        <div class="comp-card-h wpn-turret-card${swapAttrs(id)}>
+          <div class="comp-hdr-h">
+            ${iconPrimary('turret', lbl)}
+            <div class="comp-title-h">
+              <div class="comp-size-h">S${node.max_size || item.size || '?'}</div>
+              <div class="comp-name-h"><span class="comp-name-text-h">${name}</span>
+                <span class="wpn-tag">${lbl}</span></div>
             </div>
-            <div class="slot-body">
-              <div class="slot-name">${w.display_name || w.entity_name}</div>
-              <div class="slot-stats">
-                ${fm ? `<div class="ss-item"><div class="ss-lbl">Fire Rate</div><div class="ss-val key">${fmt(fm.fire_rate, 0, 'RPM') || 'data gap'}</div></div>` : ''}
-                ${fm ? `<div class="ss-item"><div class="ss-lbl">Mode</div><div class="ss-val">${fm.fire_mode_type || 'data gap'}</div></div>` : ''}
-                <div class="ss-item"><div class="ss-lbl">Max Ammo</div><div class="ss-val ${w.max_ammo_load ? '' : 'gap-val'}">${w.max_ammo_load || 'data gap'}</div></div>
+            ${lock}
+          </div>
+        </div>`;
+    }
+    const pm = (node.kind === 'mount' || node.kind === 'turret') ? node : parentMount;
+    const kids = (node.children && node.children.length)
+      ? `<div class="wpn-children">${node.children.map(c => weaponNodeHtml(c, pm)).join('')}</div>` : '';
+    return card + kids;
+  }
+
+  // Generic non-weapon hardpoint card with a category icon, optional terracotta
+  // headline (opts.primary), an optional name tag (opts.tag) and a stat line
+  // (opts.stats = array of strings). Used by the per-category renderers below.
+  function hpStatCard(it, iconKey, opts) {
+    opts = opts || {};
+    const name = it.display_name || it.entity_name || 'Unknown';
+    const size = (it.size != null && it.size !== '') ? `S${it.size}` : '';
+    const stats = (opts.stats || []).filter(Boolean);
+    return `<div class="comp-card-h">
+      <div class="comp-hdr-h">
+        ${iconPrimary(iconKey)}
+        <div class="comp-title-h">
+          ${size ? `<div class="comp-size-h">${size}</div>` : ''}
+          <div class="comp-name-h"><span class="comp-name-text-h">${name}</span>${opts.tag || ''}</div>
+        </div>
+        ${opts.primary ? `<div class="comp-hp-h">${opts.primary}</div>` : ''}
+      </div>
+      ${stats.length ? `<div class="comp-stats-h"><div class="comp-stat-text-h">${stats.join('<span class="param-sep">&bull;</span>')}</div></div>` : ''}
+    </div>`;
+  }
+
+  // ── Per-category card renderers (own icon + relevant stats) ───────────────────
+  function empCards(list) {
+    return (list || []).map(it => hpStatCard(it, 'emp', {
+      primary: it.emp_radius ? `${fmt(it.emp_radius, 0)} m` : null,
+      stats: [
+        it.charge_time ? `${fmt(it.charge_time, 1)} s charge` : null,
+        it.distortion_damage ? `${fmt(it.distortion_damage, 0)} distortion` : null,
+        it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null,
+      ],
+    })).join('');
+  }
+  function qedCards(list) {
+    return (list || []).map(it => hpStatCard(it, 'qed', {
+      primary: it.radius_meters ? `${fmt(it.radius_meters, 0)} m` : null,
+      stats: [
+        it.charge_time_secs ? `${fmt(it.charge_time_secs, 1)} s charge` : null,
+        it.cooldown_time_secs ? `${fmt(it.cooldown_time_secs, 1)} s cd` : null,
+      ],
+    })).join('');
+  }
+  function salvageCards(list) {
+    return (list || []).map(it => {
+      const t = it.salvage_type && it.salvage_type !== 'UNDEFINED' ? it.salvage_type : null;
+      return hpStatCard(it, 'salvage', {
+        tag: t ? `<span class="wpn-tag">${t}</span>` : '',
+        primary: it.extraction_efficiency != null ? `${fmt(it.extraction_efficiency * 100, 0)}%` : null,
+        stats: [
+          it.salvage_speed_multiplier != null ? `${fmt(it.salvage_speed_multiplier, 2)}× speed` : null,
+          it.radius_multiplier != null ? `${fmt(it.radius_multiplier, 2)}× radius` : null,
+          it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null,
+        ],
+      });
+    }).join('');
+  }
+  function miningCards(list) {
+    return (list || []).map(it => hpStatCard(it, 'mining', {
+      stats: [ it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null,
+               it.overheat_temperature ? `${fmt(it.overheat_temperature, 0)}° overheat` : null ],
+    })).join('');
+  }
+  function refuelCards(list) {
+    return (list || []).map(it => hpStatCard(it, 'refuel', {
+      primary: it.hydrogen_flow_rate ? `${fmt(it.hydrogen_flow_rate, 1)} H₂/s` : null,
+      stats: [ it.quantum_flow_rate ? `${fmt(it.quantum_flow_rate, 1)} Qt/s` : null ],
+    })).join('');
+  }
+  function utilityCards(list) {
+    return (list || []).map(it => hpStatCard(it, 'utility', {
+      tag: it.tool_kind ? `<span class="wpn-tag">${it.tool_kind}</span>` : '',
+      stats: [ it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null ],
+    })).join('');
+  }
+
+  // Reset the Armament & Industrial cards to the ship's stock loadout — restore
+  // the pristine components snapshot, then re-render (undoes any swaps).
+  function resetArmament() {
+    if (window.__currentShip && window.__armamentOriginal) {
+      window.__currentShip.components = JSON.parse(JSON.stringify(window.__armamentOriginal));
+      populateWeapons(window.__currentShip);
+    }
+  }
+
+  // SPViewer-style weapons/hardpoints area: a fixed list of categories, each
+  // rendered as its own loadout-card; absent categories show "N/A" inline-right.
+  function populateWeapons(ship) {
+    const c  = ship.components || {};
+    // Capture a pristine snapshot once per ship (for RESET); reset the click
+    // registry — swaps mutate ship.components nodes in place and re-render.
+    if (window.__armOrigShip !== ENTITY_NAME) {
+      window.__armamentOriginal = JSON.parse(JSON.stringify(c));
+      window.__armOrigShip = ENTITY_NAME;
+    }
+    armamentSlots = {};
+    armamentSlotSeq = 0;
+    const tg = c.turret_groups || {};
+    const ta = c.tool_arms || [];
+    const mining  = (c.mining_lasers || []).concat(ta.filter(t => (t.tool_kind || '').toLowerCase() === 'mining'));
+    const utility = (ta.filter(t => (t.tool_kind || '').toLowerCase() === 'tractor'));
+
+    // Missiles & Bombs: each missile/bomb is nested under its parent rack, with
+    // a ×N count when the rack carries multiples of the same type.
+    const missileHtml = () => {
+      const groups = c.missile_groups || [];
+      if (!groups.length) return '';
+      return groups.map(g => {
+        const rack  = g.rack || {};
+        const isBombRack = g.missiles.some(mc => ((mc.missile || {}).ordnance_type || '').toLowerCase() === 'bomb');
+        const rname = rack.display_name || g.installed_name || (isBombRack ? 'Bomb Rack' : 'Missile Rack');
+        const rsize = (g.size != null && g.size !== '') ? `S${g.size}`
+                    : (rack.size != null ? `S${rack.size}` : '');
+        const parent = `<div class="comp-card-h wpn-mount-card">
+          <div class="comp-hdr-h">
+            ${iconPrimary('missiles', isBombRack ? 'Bomb Rack' : 'Missile Rack')}
+            <div class="comp-title-h">
+              ${rsize ? `<div class="comp-size-h">${rsize}</div>` : ''}
+              <div class="comp-name-h"><span class="comp-name-text-h">${rname}</span>
+                <span class="wpn-tag">${isBombRack ? 'Bombs' : 'Rack'}</span></div>
+            </div>
+          </div>
+        </div>`;
+        const kids = g.missiles.map(mc => {
+          const m     = mc.missile || {};
+          const mname = m.display_name || m.entity_name || 'Missile';
+          const msize = (m.size != null && m.size !== '') ? `S${m.size}` : '';
+          const cnt   = mc.count > 1 ? `<span class="hp-count">×${mc.count}</span>` : '';
+          const isBomb = (m.ordnance_type || '').toLowerCase() === 'bomb' || m.is_dumbfire;
+          const typeTag = isBomb
+            ? `<span class="wpn-tag">Bomb</span>`
+            : (m.tracking_signal_type ? `<span class="wpn-tag">${m.tracking_signal_type}</span>` : '');
+          // Total damage = per-unit damage × count (now populated for missiles & bombs).
+          const dmgEach = sumDmg(m);
+          const total   = dmgEach ? dmgEach * mc.count : null;
+          // Secondary: guided missiles → lock range + speed; bombs → blast radius.
+          const info = [];
+          if (!isBomb && m.lock_range_max) info.push(`${fmt(m.lock_range_min || 0, 0)}–${fmt(m.lock_range_max, 0)} m range`);
+          if (m.blast_radius_max)          info.push(`${fmt(m.blast_radius_max, 0)} m blast`);
+          if (m.linear_speed)              info.push(`${fmt(m.linear_speed, 0)} m/s`);
+          const id = (m.size != null) ? regSlot(mc, 'missile_size', m.size) : null;
+          return `<div class="comp-card-h wpn-card${swapAttrs(id)}>
+            <div class="comp-hdr-h">
+              ${iconPrimary('missile')}
+              <div class="comp-title-h">
+                ${msize ? `<div class="comp-size-h">${msize}</div>` : ''}
+                <div class="comp-name-h"><span class="comp-name-text-h">${mname}</span>${cnt}${typeTag}</div>
               </div>
+              ${total != null ? `<div class="comp-hp-h">${fmt(total, 0)} dmg</div>` : ''}
             </div>
+            ${info.length ? `<div class="comp-stats-h"><div class="comp-stat-text-h">${info.join('<span class="param-sep">&bull;</span>')}</div></div>` : ''}
           </div>`;
-        });
+        }).join('');
+        return `<div class="wpn-group">${parent}<div class="wpn-children">${kids}</div></div>`;
+      }).join('');
+    };
+
+    const cats = [
+      { label: 'Weapons',          groups: c.weapon_groups || [] },
+      { label: 'Manned Turrets',   groups: tg.manned || [] },
+      { label: 'Remote Turrets',   groups: tg.remote || [] },
+      { label: 'PDC Turrets',      groups: tg.pdc || [] },
+      { label: 'Missiles & Bombs', render: missileHtml },
+      { label: 'EMP',              render: () => empCards(c.emp || []) },
+      { label: 'QED',              render: () => qedCards(c.qed || []) },
+      { label: 'Mining',           render: () => miningCards(mining) },
+      { label: 'Salvage',          render: () => salvageCards(c.salvage || []) },
+      { label: 'Refueling',        render: () => refuelCards(c.fuel_nozzles || []) },
+      { label: 'Utility',          render: () =>
+          (c.utility_turrets || []).map(g => `<div class="wpn-group">${weaponNodeHtml(g)}</div>`).join('')
+          + utilityCards(utility) },
+    ];
+
+    // Each category renders as its own loadout-card (mirroring the Components
+    // panel). When a ship has no hardpoint for a category, the card collapses to
+    // just its title with "N/A - No Hardpoint" right-aligned inline.
+    let html = '';
+    for (const cat of cats) {
+      const groups = cat.groups || [];
+      const items  = cat.items  || [];
+      let body = '';
+      if (cat.render) {
+        body = cat.render();
+      } else {
+        if (groups.length) {
+          body += `<div class="wpn-list">` +
+            groups.map(g => `<div class="wpn-group">${weaponNodeHtml(g)}</div>`).join('') + `</div>`;
+        }
+        if (items.length) body += items.map(it => hpStatCard(it, 'turret', {})).join('');
       }
-      if (missile_racks.length) {
-        html += `<div class="cg-title">Missile Racks</div>`;
-        missile_racks.forEach((r, i) => {
-          html += `<div class="slot">
-            <div class="slot-hdr">
-              <span class="slot-port">Missile Rack ${String(i+1).padStart(2,'0')}</span>
-              ${r.size ? `<span class="sz-badge">S${r.size}</span>` : ''}
-            </div>
-            <div class="slot-body">
-              <div class="slot-name">${r.display_name || r.entity_name}</div>
-              <div class="slot-stats">
-                <div class="ss-item"><div class="ss-lbl">Launch Delay</div>
-                <div class="ss-val ${r.launch_delay ? '' : 'gap-val'}">${fmt(r.launch_delay, 2, 's') || 'data gap'}</div></div>
-              </div>
-            </div>
-          </div>`;
-        });
-      }
+      const present = !!body;
+      html += `
+        <div class="loadout-card">
+          <div class="loadout-hdr-row">
+            <div class="loadout-card-hdr">${cat.label}</div>
+            ${present
+              ? `<div class="comp-actions-top"><button class="btn-reset-sm" onclick="resetArmament()">RESET</button></div>`
+              : `<div class="hp-na-inline">N/A - No Hardpoint</div>`}
+          </div>
+          ${present ? `<div class="hp-cat-body">${body}</div>` : ''}
+        </div>`;
     }
 
     document.getElementById('weapons-content').innerHTML = html;
+  }
+
+  // ── Armament swap modal ───────────────────────────────────────────────────────
+  let armPendingSlot = null;
+  let armOptions = [];
+  let armCurrentName = '';
+
+  async function openArmamentSwap(slotId) {
+    const slot = armamentSlots[slotId];
+    if (!slot) return;
+    armPendingSlot = slotId;
+    const { mode, param, node } = slot;
+    const qs = mode === 'mount'        ? `mount=${encodeURIComponent(param)}`
+             : mode === 'missile_size' ? `missile_size=${encodeURIComponent(param)}`
+             :                           `port=${encodeURIComponent(param)}`;
+    armCurrentName = (mode === 'missile_size' ? ((node.missile || {}).entity_name)
+                                              : node.installed_name) || '';
+    const modal = document.getElementById('armament-swap-modal');
+    document.getElementById('arm-modal-search').value = '';
+    document.getElementById('arm-modal-title').textContent = 'Loading…';
+    document.getElementById('arm-modal-list').innerHTML = '<div class="arm-opt-empty">Loading…</div>';
+    modal.style.display = 'flex';
+    try {
+      const r = await fetch(`/api/ship/${ENTITY_NAME}/port_options?${qs}`);
+      const data = await r.json();
+      armOptions = data.options || [];
+      const ttl = mode === 'mount' ? 'Select Weapon'
+                : mode === 'missile_size' ? 'Select Missile / Bomb' : 'Select Mount / Weapon';
+      document.getElementById('arm-modal-title').textContent = `${ttl} (${armOptions.length})`;
+      renderArmamentOptions();
+    } catch (e) {
+      document.getElementById('arm-modal-list').innerHTML =
+        '<div class="arm-opt-empty">Failed to load options.</div>';
+    }
+  }
+
+  // The "Type" column value for an option row.
+  function armOptType(o) {
+    if (o.kind === 'mount') return o.mount_type || 'mount';
+    if (o.kind === 'rack')  return 'rack';
+    if (o.kind === 'bomb')  return 'bomb';
+    if (o.kind === 'missile') return o.tracking_signal_type || 'missile';
+    return o.item_sub_type || o.item_type || 'weapon';   // weapon / mining
+  }
+
+  function armTable(rows) {
+    if (!rows.length) return '<div class="arm-opt-empty">None compatible.</div>';
+    const body = rows.map(o => {
+      const i   = armOptions.indexOf(o);
+      const cur = (o.entity_name || '').toLowerCase() === armCurrentName.toLowerCase() ? ' is-current' : '';
+      return `<tr class="arm-row${cur}" onclick="applyArmamentSwap(${i})">
+        <td class="arm-c-size">${o.size != null ? 'S' + o.size : '—'}</td>
+        <td class="arm-c-name">${o.display_name || o.entity_name}</td>
+        <td class="arm-c-type">${armOptType(o)}</td>
+      </tr>`;
+    }).join('');
+    return `<table class="arm-table"><thead><tr><th>Size</th><th>Name</th><th>Type</th></tr></thead>`
+         + `<tbody>${body}</tbody></table>`;
+  }
+
+  function renderArmamentOptions() {
+    const q = (document.getElementById('arm-modal-search').value || '').toLowerCase();
+    const list = q ? armOptions.filter(o => (o.display_name || '').toLowerCase().includes(q)) : armOptions;
+    const slot = armamentSlots[armPendingSlot] || {};
+    const wrap = document.getElementById('arm-modal-list');
+    if (slot.mode === 'port') {
+      // Parent hardpoint: mounts table on top, weapons table below.
+      const mounts  = list.filter(o => o.kind === 'mount' || o.kind === 'rack');
+      const weapons = list.filter(o => o.kind === 'weapon' || o.kind === 'mining');
+      wrap.innerHTML = `<div class="arm-tbl-title">Mounts</div>${armTable(mounts)}`
+                     + `<div class="arm-tbl-title">Weapons</div>${armTable(weapons)}`;
+    } else {
+      // Mount child slot / missile rack: single table.
+      wrap.innerHTML = armTable(list);
+    }
+  }
+
+  function applyArmamentSwap(optIndex) {
+    const slot = armamentSlots[armPendingSlot];
+    const opt  = armOptions[optIndex];
+    if (!slot || !opt) return;
+    const { mode, node } = slot;
+    if (mode === 'missile_size') {
+      node.missile = Object.assign({}, opt);                 // swap the missile/bomb
+    } else if (opt.kind === 'mount' || opt.kind === 'rack') {
+      node.kind = opt.kind === 'mount' ? 'mount' : node.kind;
+      node.installed_name = opt.entity_name;
+      node.item = { entity_name: opt.entity_name, display_name: opt.display_name, size: opt.size,
+                    mount_type: opt.mount_type, sub_type: opt.sub_type,
+                    weapon_port_count: opt.weapon_port_count };
+      // keep existing children (the installed weapon stays in the new mount)
+    } else {                                                  // weapon / mining
+      node.kind = 'weapon';
+      node.installed_name = opt.entity_name;
+      node.item = { entity_name: opt.entity_name, display_name: opt.display_name, size: opt.size,
+                    power_draw: opt.power_draw, dps: opt.dps, max_dmg: opt.max_dmg,
+                    max_ammo_load: opt.max_ammo_load };
+      node.children = [];
+    }
+    closeArmamentSwap();
+    if (window.__currentShip) populateWeapons(window.__currentShip);
+  }
+
+  function closeArmamentSwap() {
+    document.getElementById('armament-swap-modal').style.display = 'none';
+    armPendingSlot = null; armOptions = [];
   }
 
   // ── Hardpoints ───────────────────────────────────────────────────────────────

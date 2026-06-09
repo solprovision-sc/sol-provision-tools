@@ -272,6 +272,12 @@ def latest_patch(conn):
     return row["patch_version"] if row else "4.6"
 
 
+def is_placeholder(name):
+    """CIG ships unfinished items with a '<= PLACEHOLDER =>' display name; these
+    should never surface in the UI. Matches any name containing 'placeholder'."""
+    return bool(name) and "placeholder" in str(name).lower()
+
+
 # ── Cargo planner user DB (saved plans + activity) ────────────────────────────
 _cargo_schema_ready = False
 
@@ -1239,7 +1245,8 @@ def get_ship_components(conn, ship_entity, patch):
     Returns a dict keyed by component category.
     """
     def q(sql):
-        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()]
+        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()
+                if not is_placeholder(dict(r).get("display_name"))]
 
     # Reusable join fragment — all component queries share this structure
     def join(tbl):
@@ -1362,10 +1369,10 @@ def get_ship_components(conn, ship_entity, patch):
         {join("item_weapons")}
         ORDER BY ic.size DESC, ic.entity_name""")
 
-    weapons = []
-    for w in weapons_base:
-        weapon = dict(w)
-        fire_modes = [dict(r) for r in conn.execute("""
+    def _enrich_weapon(weapon):
+        """Attach fire modes + the linked AmmoParams damage block to a weapon dict
+        so the client can compute DPS = total damage × pellet_count × fire_rate."""
+        weapon["fire_modes"] = [dict(r) for r in conn.execute("""
             SELECT fire_mode_type, fire_rate, heat_per_shot, heat_per_second,
                    ammo_type, pellet_count, ammo_cost,
                    spread_min, spread_max, spread_attack, spread_decay,
@@ -1378,10 +1385,6 @@ def get_ship_components(conn, ship_entity, patch):
             )
             ORDER BY fire_mode_type
         """, (weapon["entity_name"], patch)).fetchall()]
-        weapon["fire_modes"] = fire_modes
-
-        # Attach the AmmoParams damage block (single row, by UUID lookup) so
-        # the client can compute DPS = total damage × pellet_count × fire_rate.
         ammo = None
         if weapon.get("ammo_uuid"):
             ar = conn.execute("""
@@ -1394,8 +1397,135 @@ def get_ship_components(conn, ship_entity, patch):
             if ar:
                 ammo = dict(ar)
         weapon["ammo"] = ammo
+        return weapon
 
-        weapons.append(weapon)
+    weapons = [_enrich_weapon(dict(w)) for w in weapons_base]
+
+    # ── Hierarchical weapon groups: hardpoint → mount → weapon ────────────────
+    # The flat `weapons` list above loses the hardpoint/mount structure. Walk
+    # ship_hardpoints (parent_port chains) so the UI can render each weapon
+    # hardpoint, its installed mount (fixed/gimbal, from item_weapon_mounts), and
+    # the nested weapon(s). Roots that contain no weapon/mount are dropped
+    # (e.g. pure missile racks — handled by their own column).
+    hp_rows = [dict(r) for r in conn.execute("""
+        SELECT port_name, parent_port, min_size, max_size, flags, installed_name, port_type
+        FROM ship_hardpoints
+        WHERE ship_entity_name = :ship AND patch_version = :patch
+    """, {"ship": ship_entity, "patch": patch}).fetchall()]
+
+    children_map = {}
+    for r in hp_rows:
+        children_map.setdefault((r["parent_port"] or "").lower(), []).append(r)
+
+    mount_map = {dict(r)["entity_name"].lower(): dict(r) for r in conn.execute(
+        "SELECT * FROM item_weapon_mounts WHERE patch_version = ?", (patch,)).fetchall()}
+    weapon_map = {w["entity_name"].lower(): w for w in weapons}
+    comp_map = {r["entity_name"].lower(): dict(r) for r in conn.execute("""
+        SELECT DISTINCT ic.entity_name, ic.display_name, ic.size,
+               ic.item_type, ic.item_sub_type
+        FROM ship_hardpoints sh
+        JOIN item_components ic
+          ON LOWER(ic.entity_name) = LOWER(sh.installed_name)
+         AND ic.patch_version = :patch
+        WHERE sh.ship_entity_name = :ship AND sh.patch_version = :patch
+    """, {"ship": ship_entity, "patch": patch}).fetchall()}
+
+    def _has_weapon(node):
+        return (node["kind"] in ("weapon", "mount")
+                or any(_has_weapon(ch) for ch in node["children"]))
+
+    def _build_node(hp):
+        name  = hp["installed_name"]
+        lname = (name or "").lower()
+        kind, item = "empty", None
+        if lname in mount_map:
+            kind, item = "mount", mount_map[lname]
+        elif lname in weapon_map:
+            kind, item = "weapon", weapon_map[lname]
+        elif lname in comp_map:
+            item = comp_map[lname]
+            it = (item.get("item_type") or "").lower()
+            kind = ("turret"  if "turret"  in it else
+                    "missile" if "missile" in it else "other")
+        elif name:
+            kind, item = "unknown", {"entity_name": name, "display_name": name}
+        # ship_hardpoints links children to parents by port NAME, which is not
+        # unique across the tree: a ship's matching top/bottom turrets both use
+        # e.g. hardpoint_weapon_left → hardpoint_class_2, so a namesake parent
+        # would otherwise pull in every twin's guns. Dedup children by their own
+        # port_name (each physical slot appears once per parent).
+        # (Proper fix = unique parent paths in the extractor; tracked as follow-up.)
+        seen_ports, child_rows = set(), []
+        for ch in children_map.get((hp["port_name"] or "").lower(), []):
+            key = (ch["port_name"] or "").lower()
+            if key in seen_ports:
+                continue
+            seen_ports.add(key)
+            child_rows.append(ch)
+        children = [_build_node(ch) for ch in child_rows]
+        # Drop non-weapon child subtrees (MFD screens, seats, etc.).
+        children = [c for c in children if _has_weapon(c)]
+        return {
+            "port_name":      hp["port_name"],
+            "port_type":      hp["port_type"],
+            "min_size":       hp["min_size"],
+            "max_size":       hp["max_size"],
+            "flags":          hp["flags"],
+            "editable":       "uneditable" not in (hp["flags"] or "").lower(),
+            "installed_name": name,
+            "kind":           kind,
+            "item":           item,
+            "children":       children,
+        }
+
+    def _flatten(nodes):
+        # Promote weapon subtrees out of empty container ports (rooms/seats) so
+        # each group root is a real turret / mount / weapon, not an empty wrapper.
+        out = []
+        for n in nodes:
+            if n["kind"] == "empty":
+                out.extend(_flatten(n["children"]))
+            else:
+                out.append(n)
+        return out
+
+    tops = [_build_node(r) for r in hp_rows if not (r["parent_port"] or "")]
+    weaponish = _flatten([n for n in tops if _has_weapon(n)])
+
+    # CIG reuses port_type='turret' for pilot gimbal mounts, so weapon-bearing
+    # tops are a mix of pilot weapons and crewed turrets. Partition them:
+    #   port_type 'turretbase'    → crewed turret (Manned/Remote/PDC)
+    #   port_type 'utilityturret' → utility turret
+    #   everything else           → pilot Weapons
+    def _turret_class(n):
+        # item_sub_type is null on turret items and crew seats aren't linked to
+        # the turret port in ship_hardpoints, so the only signal is the port /
+        # item name. Best-effort (user-accepted): keyword match, else default to
+        # manned — most non-remote/non-PDC crewed turrets in SC are occupiable.
+        nm = ((n["port_name"] or "") + " " + (n["installed_name"] or "")).lower()
+        if "pdc" in nm or "point_defense" in nm or "pointdefense" in nm:
+            return "pdc"
+        if "remote" in nm or "unmanned" in nm:
+            return "remote"
+        return "manned"
+
+    weapon_groups = []
+    turret_groups = {"manned": [], "remote": [], "pdc": []}
+    utility_turrets = []
+    for n in weaponish:
+        pt = (n.get("port_type") or "").lower()
+        if pt == "turretbase":
+            turret_groups[_turret_class(n)].append(n)
+        elif pt == "utilityturret":
+            utility_turrets.append(n)
+        else:
+            weapon_groups.append(n)
+
+    _wsort = lambda n: (-(n["max_size"] or 0), n["port_name"] or "")
+    weapon_groups.sort(key=_wsort)
+    utility_turrets.sort(key=_wsort)
+    for _b in turret_groups.values():
+        _b.sort(key=_wsort)
 
     # Missile racks with their missile type looked up from item_missiles
     missile_racks = q(f"""
@@ -1415,8 +1545,41 @@ def get_ship_components(conn, ship_entity, patch):
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
                t.linear_speed, t.fuel_tank_size,
                t.lock_range_max, t.lock_range_min,
-               t.lock_time, t.locking_angle, t.tracking_signal_type
+               t.lock_time, t.locking_angle, t.tracking_signal_type,
+               t.ordnance_type, t.is_dumbfire,
+               t.blast_radius_min, t.blast_radius_max, t.phys_radius_max
         {join("item_missiles")}""")
+
+    # Missiles nested under their parent rack. Each missilelauncher port installs
+    # a rack; the rack's child *_attach ports each hold one missile, so identical
+    # missiles under a rack collapse into one row with a count (×2, ×8, …).
+    _rack_by_name = {r["entity_name"].lower(): r for r in missile_racks}
+    _missile_by_name = {m["entity_name"].lower(): m for m in missiles}
+    missile_groups = []
+    for r in hp_rows:
+        if (r["port_type"] or "").lower() not in ("missilelauncher", "bomblauncher"):
+            continue
+        counts, order = {}, []
+        for ch in children_map.get((r["port_name"] or "").lower(), []):
+            mi = _missile_by_name.get((ch["installed_name"] or "").lower())
+            if not mi:
+                continue
+            key = mi["entity_name"].lower()
+            if key not in counts:
+                counts[key] = {"missile": mi, "count": 0}
+                order.append(key)
+            counts[key]["count"] += 1
+        if not order:
+            continue
+        rack_item = _rack_by_name.get((r["installed_name"] or "").lower())
+        missile_groups.append({
+            "port_name":      r["port_name"],
+            "size":           r["max_size"],
+            "installed_name": r["installed_name"],
+            "rack":           rack_item,
+            "missiles":       [counts[k] for k in order],
+        })
+    missile_groups.sort(key=lambda g: (-(g["size"] or 0), g["port_name"] or ""))
 
     radars = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
@@ -1509,6 +1672,14 @@ def get_ship_components(conn, ship_entity, patch):
                t.power_low_start, t.power_medium_start, t.power_high_start
         {join("item_tool_arms")}""")
 
+    # Mining lasers / heads (Prospector, MOLE, Golem, handheld). Only ic.*
+    # columns are selected so this is robust to the item_mining_lasers schema.
+    mining_lasers = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               t.max_ammo_load, t.overheat_temperature
+        {join("item_mining_lasers")}""")
+
     # Ground-vehicle wheels controllers (analog to flight_controllers for ships).
     wheels_controllers = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
@@ -1533,13 +1704,18 @@ def get_ship_components(conn, ship_entity, patch):
         "flight_controllers": flight_controllers,
         "thrusters":          thrusters,
         "weapons":            weapons,
+        "weapon_groups":      weapon_groups,
+        "turret_groups":      turret_groups,
+        "utility_turrets":    utility_turrets,
         "missile_racks":      missile_racks,
         "missiles":           missiles,
+        "missile_groups":     missile_groups,
         "radars":             radars,
         "lifesupport":        lifesupport,
         "salvage":            salvage,
         "emp":                emp,
         "qed":                qed,
+        "mining_lasers":      mining_lasers,
         "tool_arms":          tool_arms,
         "wheels_controllers": wheels_controllers,
     }
@@ -1827,6 +2003,10 @@ def get_compatible_components():
             stats['em_signature'] = comp.get('em_signature', 0)
             stats['power_draw'] = comp.get('power_draw', 0)
         
+        # Skip unfinished placeholder items
+        if is_placeholder(display_name):
+            continue
+
         # Build simplified response
         component = {
             'uuid': comp.get('uuid'),
@@ -1850,6 +2030,176 @@ def get_compatible_components():
         'count': len(components),
         'components': components
     })
+
+
+@app.route("/api/ship/<entity_name>/port_options")
+def api_port_options(entity_name):
+    """Items installable on a weapon/mount slot, by the SC port-tag rule:
+       size ∈ [min,max]  AND  (item_type, item_sub_type) ∈ port accepted_types
+       AND  item tags satisfy the port's required_tags.
+
+    Modes (one of):
+      ?mount=<entity>        → weapons that fit inside that mount (its child slot)
+      ?missile_size=<n>      → missiles/bombs that fit a rack slot of size n
+      ?port=<port_name>      → mounts/weapons/racks that fit a top hardpoint
+    """
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+    port         = request.args.get("port")
+    mount        = request.args.get("mount")
+    missile_size = request.args.get("missile_size", type=int)
+
+    def _tag_ok(item_tags, required_tag):
+        # Port requires a tag (e.g. "$ANVL_Hornet_Base"); item must carry it.
+        if not required_tag:
+            return True
+        need = required_tag.lstrip("$").lower()
+        toks = {t.lstrip("$").lower() for t in (item_tags or "").split()}
+        return need in toks
+
+    def _item_required_ok(item_tags, port_tags):
+        # Reverse direction: a "$"-prefixed tag on the item is *required* — the
+        # port must provide it via port_tags. Bespoke mounts (e.g. $MISC_Starfarer_Base)
+        # only fit ports that advertise that family tag.
+        need = {t.lstrip("$").lower() for t in (item_tags or "").split() if t.startswith("$")}
+        if not need:
+            return True
+        have = {t.lstrip("$").lower() for t in (port_tags or "").split()}
+        return need <= have
+
+    def weapons_by(item_type, smin, smax, subtypes=None, mount_usable=True):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT uuid, entity_name, display_name, size, item_type, item_sub_type, "
+            "       grade_letter, class, tags "
+            "FROM item_components WHERE patch_version=? AND item_type=? "
+            "  AND size BETWEEN ? AND ?", (p, item_type, smin or 0, smax or 99)).fetchall()]
+        if mount_usable and item_type == "WeaponGun":
+            rows = [r for r in rows if "weaponmountusable" in (r.get("tags") or "").lower()]
+        if subtypes:
+            subs = {s.lower() for s in subtypes if s}
+            if subs:
+                rows = [r for r in rows if (r.get("item_sub_type") or "").lower() in subs]
+        kind = "mining" if item_type == "WeaponMining" else "weapon"
+        for r in rows:
+            r["kind"] = kind
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+            _enrich_weapon_stats(r)
+        return rows
+
+    def _enrich_weapon_stats(r):
+        # Precompute dps / max_dmg / power_draw so a swapped weapon card renders
+        # correct numbers without the full ammo/fire-mode structures client-side.
+        w = conn.execute(
+            "SELECT power_draw, max_ammo_load, ammo_uuid FROM item_weapons "
+            "WHERE uuid=? AND patch_version=?", (r["uuid"], p)).fetchone()
+        if not w:
+            return
+        r["power_draw"] = w["power_draw"]
+        r["max_ammo_load"] = w["max_ammo_load"]
+        a = conn.execute(
+            "SELECT dmg_physical,dmg_energy,dmg_distortion,dmg_thermal,dmg_biochemical,dmg_stun "
+            "FROM item_ammo WHERE uuid=? AND patch_version=?", (w["ammo_uuid"], p)).fetchone() if w["ammo_uuid"] else None
+        shot = sum((a[k] or 0) for k in a.keys()) if a else 0
+        fm = conn.execute(
+            "SELECT fire_rate, pellet_count FROM item_weapon_fire_modes "
+            "WHERE uuid=? AND patch_version=? AND fire_rate IS NOT NULL AND fire_rate>0 "
+            "ORDER BY fire_rate DESC LIMIT 1", (r["uuid"], p)).fetchone()
+        if shot and fm and fm["fire_rate"]:
+            pellet = fm["pellet_count"] or 1
+            r["dps"] = round(shot * pellet * (fm["fire_rate"] / 60.0))
+            if w["max_ammo_load"]:
+                r["max_dmg"] = round(shot * pellet * w["max_ammo_load"])
+
+    def mounts_by(smin, smax, subtypes=None, required_tag=None):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT entity_name, display_name, size, mount_type, sub_type, "
+            "       weapon_port_count, weapon_min_size, weapon_max_size, "
+            "       primary_port_type, tags "
+            "FROM item_weapon_mounts WHERE patch_version=? AND size BETWEEN ? AND ?",
+            (p, smin or 0, smax or 99)).fetchall()]
+        if subtypes:
+            subs = {s.lower() for s in subtypes if s}
+            if subs:
+                rows = [r for r in rows if (r.get("sub_type") or "").lower() in subs]
+        rows = [r for r in rows if _tag_ok(r.get("tags"), required_tag)]
+        for r in rows:
+            r["kind"] = "mount"
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+        return rows
+
+    def missiles_by(size):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT ic.entity_name, ic.display_name, ic.size, ic.item_sub_type, "
+            "       m.ordnance_type, m.is_dumbfire, m.tracking_signal_type, "
+            "       m.dmg_physical, m.dmg_energy, m.dmg_distortion, m.dmg_thermal, "
+            "       m.dmg_biochemical, m.dmg_stun, m.blast_radius_min, m.blast_radius_max, "
+            "       m.lock_range_min, m.lock_range_max, m.linear_speed "
+            "FROM item_missiles m JOIN item_components ic "
+            "  ON ic.uuid=m.uuid AND ic.patch_version=m.patch_version "
+            "WHERE m.patch_version=? AND ic.size=?", (p, size)).fetchall()]
+        for r in rows:
+            r["kind"] = "bomb" if (r.get("ordnance_type") or "").lower() == "bomb" else "missile"
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+        return rows
+
+    options, ctx = [], {}
+
+    if mount:
+        m = conn.execute(
+            "SELECT primary_port_type, weapon_min_size, weapon_max_size "
+            "FROM item_weapon_mounts WHERE LOWER(entity_name)=LOWER(?) AND patch_version=?",
+            (mount, p)).fetchone()
+        if m:
+            ppt = (m["primary_port_type"] or "WeaponGun")
+            ctx = {"mode": "weapon_in_mount", "primary_port_type": ppt,
+                   "size_range": [m["weapon_min_size"], m["weapon_max_size"]]}
+            options = weapons_by(ppt if ppt in ("WeaponGun", "WeaponMining") else "WeaponGun",
+                                 m["weapon_min_size"], m["weapon_max_size"])
+    elif missile_size is not None:
+        ctx = {"mode": "missile_in_rack", "size": missile_size}
+        options = missiles_by(missile_size)
+    elif port:
+        hp = conn.execute(
+            "SELECT accepted_types, required_tags, port_tags, min_size, max_size "
+            "FROM ship_hardpoints WHERE ship_entity_name=? AND port_name=? AND patch_version=?",
+            (entity_name, port, p)).fetchone()
+        if hp:
+            smin, smax = hp["min_size"], hp["max_size"]
+            req = hp["required_tags"]
+            ctx = {"mode": "hardpoint", "accepted_types": hp["accepted_types"],
+                   "required_tags": req, "size_range": [smin, smax]}
+            # accepted_types = 'Turret:Gun,GunTurret|WeaponGun:Gun'
+            for chunk in (hp["accepted_types"] or "").split("|"):
+                if not chunk:
+                    continue
+                typ, _, subs_raw = chunk.partition(":")
+                subs = [s for s in subs_raw.split(",") if s]
+                typ_l = typ.lower()
+                if typ_l in ("turret", "turretbase", "utilityturret"):
+                    options += mounts_by(smin, smax, subs, req)
+                elif typ_l == "weapongun":
+                    options += weapons_by("WeaponGun", smin, smax, subs)
+                elif typ_l in ("missilelauncher", "bomblauncher"):
+                    options += [dict(r, kind="rack") for r in conn.execute(
+                        "SELECT ic.entity_name, ic.display_name, ic.size, ic.item_sub_type, ic.tags "
+                        "FROM item_missile_racks mr JOIN item_components ic "
+                        "  ON ic.uuid=mr.uuid AND ic.patch_version=mr.patch_version "
+                        "WHERE mr.patch_version=? AND ic.size BETWEEN ? AND ?",
+                        (p, smin or 0, smax or 99)).fetchall()]
+                # Module / FlightController / etc. — not weapon-relevant, skipped
+
+            # Reverse tag gate: drop bespoke items the port can't satisfy.
+            options = [o for o in options if _item_required_ok(o.get("tags"), hp["port_tags"])]
+
+    # de-dup by entity_name, keep stable order; drop placeholders; sort size→name
+    seen, uniq = set(), []
+    for o in options:
+        k = (o.get("entity_name") or "").lower()
+        if k and k not in seen and not is_placeholder(o.get("display_name")):
+            seen.add(k); uniq.append(o)
+    uniq.sort(key=lambda o: (o.get("size") or 0, (o.get("display_name") or "")))
+    return jsonify({"entity_name": entity_name, "patch_version": p,
+                    "context": ctx, "count": len(uniq), "options": uniq})
 
 
 @app.route("/api/compare/components")

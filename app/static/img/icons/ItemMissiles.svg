@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Missile rack: three missiles mounted on a rail. Single-color silhouette
+     so it works as a CSS mask (tinted via .icon-md background-color). -->
+<svg version="1.1" baseProfile="tiny" xmlns="http://www.w3.org/2000/svg"
+     x="0px" y="0px" viewBox="0 0 64 64" overflow="visible" xml:space="preserve">
+  <g fill="#FFFFFF">
+    <!-- mounting rail / pylon -->
+    <rect x="5" y="47" width="54" height="8" rx="2"/>
+    <!-- missile 1 -->
+    <polygon points="15,7 10.5,18 19.5,18"/>
+    <rect x="10.5" y="17" width="9" height="30" rx="2.5"/>
+    <polygon points="10.5,39 6,47 10.5,47"/>
+    <polygon points="19.5,39 24,47 19.5,47"/>
+    <!-- missile 2 -->
+    <polygon points="32,7 27.5,18 36.5,18"/>
+    <rect x="27.5" y="17" width="9" height="30" rx="2.5"/>
+    <polygon points="27.5,39 23,47 27.5,47"/>
+    <polygon points="36.5,39 41,47 36.5,47"/>
+    <!-- missile 3 -->
+    <polygon points="49,7 44.5,18 53.5,18"/>
+    <rect x="44.5" y="17" width="9" height="30" rx="2.5"/>
+    <polygon points="44.5,39 40,47 44.5,47"/>
+    <polygon points="53.5,39 58,47 53.5,47"/>
+  </g>
+</svg>
