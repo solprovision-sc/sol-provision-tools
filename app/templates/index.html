@@ -38,6 +38,7 @@
     text-align: center;
     margin-bottom: 56px;
   }
+  
   .hero-title {
     font-family: var(--font-ui);
     font-weight: 900;
@@ -47,16 +48,19 @@
     text-transform: uppercase;
     margin-bottom: 10px;
   }
+  
   .hero-title em {
     color: #7E2619;
     font-style: normal;
   }
+  
   .hero-sub {
     font-size: 11px;
     letter-spacing: 3px;
     color: #9A8C64;
     text-transform: uppercase;
   }
+  
   .hero-divider {
     width: 120px;
     height: 1px;
@@ -85,6 +89,7 @@
     text-decoration: none;
     display: block;
   }
+  
   .hero-card::before {
     content: '';
     position: absolute;
@@ -93,6 +98,7 @@
     background: #7E2619;
     transition: background 0.25s;
   }
+  
   .hero-card::after {
     content: '';
     position: absolute;
@@ -101,14 +107,28 @@
     opacity: 0;
     transition: opacity 0.3s;
   }
+  
   .hero-card:hover {
     border-color: rgba(126,38,25,0.6);
     transform: translateY(-4px);
   }
-  .hero-card:hover::before { background: #E8855C; }
-  .hero-card:hover::after { opacity: 1; }
-  .hero-card:hover .card-arrow { opacity: 1; transform: translateX(4px); }
-  .hero-card:hover .card-number { opacity: 0.15; }
+  
+  .hero-card:hover::before {
+    background: #E8855C;
+	}
+  
+  .hero-card:hover::after {
+    opacity: 1;
+	}
+  
+  .hero-card:hover .card-arrow {
+    opacity: 1;
+	transform: translateX(4px);
+	}
+  
+  .hero-card:hover .card-number {
+    opacity: 0.15;
+	}
 
   /* corner accents */
   .card-corner {
@@ -118,6 +138,7 @@
     border-top: 2px solid #7E2619;
     border-right: 2px solid #7E2619;
   }
+  
   .card-corner-bl {
     position: absolute;
     bottom: 0; left: 0;
@@ -127,7 +148,10 @@
   }
 
   /* card body */
-  .card-body { padding: 32px 28px 28px; }
+  .card-body { 
+    padding: 32px 28px 28px;
+	}
+  
   .card-eyebrow {
     font-size: 8px;
     letter-spacing: 2.5px;
@@ -138,12 +162,14 @@
     align-items: center;
     gap: 8px;
   }
+  
   .card-eyebrow::before {
     content: '';
     display: inline-block;
     width: 16px; height: 1px;
     background: #7E2619;
   }
+  
   .card-name {
     font-family: var(--font-ui);
     font-weight: 900;
@@ -154,6 +180,7 @@
     margin-bottom: 16px;
     line-height: 1.2;
   }
+  
   .card-desc {
     font-size: 11px;
     color: #9A8C64;
@@ -170,6 +197,7 @@
     border-top: 1px solid rgba(126,38,25,0.22);
     margin-top: 8px;
   }
+  
   .card-cta {
     font-family: var(--font-ui);
     font-size: 8px;
@@ -177,6 +205,7 @@
     color: #E8855C;
     text-transform: uppercase;
   }
+  
   .card-arrow {
     font-size: 14px;
     color: #E8855C;
@@ -208,14 +237,17 @@
     width: 100%;
     max-width: 1200px;
   }
+  
   .rule-line {
     flex: 1;
     height: 1px;
     background: linear-gradient(90deg, transparent, rgba(126,38,25,0.22));
   }
+  
   .rule-line.right {
     background: linear-gradient(270deg, transparent, rgba(126,38,25,0.22));
   }
+  
   .rule-text {
     font-size: 8px;
     letter-spacing: 2px;
@@ -237,6 +269,7 @@
     opacity: 1;
     transition: opacity 0.3s;
   }
+  
   #authOverlay.hidden {
     opacity: 0;
     pointer-events: none;
@@ -251,6 +284,7 @@
     width: 450px;
     text-align: center;
   }
+  
   .auth-panel h2 {
     font-family: var(--font-ui);
     font-weight: 900;
@@ -262,6 +296,7 @@
     border-bottom: 1px solid rgba(126,38,25,0.22);
     padding-bottom: 10px;
   }
+  
   .auth-status {
     font-size: 10px;
     color: #9A8C64;
@@ -269,6 +304,7 @@
     margin-bottom: 20px;
     min-height: 15px;
   }
+  
   .discord-btn {
     background: #5865F2;
     color: #fff;
@@ -283,9 +319,11 @@
     margin-bottom: 10px;
     transition: background 0.2s;
   }
+  
   .discord-btn:hover {
     background: #4752C4;
   }
+  
   .auth-footer {
     font-size: 9px;
     color: #9A8C64;

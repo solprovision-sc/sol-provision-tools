@@ -1,60 +1,236 @@
-/* ── Sol Provision Ship Database — Brand Theme 2954 ────────────────────── */
-/* Brand palette: Orbitron type, crimson/terracotta/tan on deep black       */
+/* ──   Sol Provision Website — Brand Refresh 2956   ────────────────────── */
+/* ============================================================
+   SOL PROVISION — Colors & Type
+   Provisions for the Soul
+   A tactical/industrial speakeasy brand (Star Citizen org).
+   Dark-first. Warm desert-rust palette. Orbitron display.
+   ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Zalando+Sans:wght@300;400;500;600;700;800&display=swap');
+/* ----------  FONTS  ---------- */
+@font-face {
+  font-family: "Orbitron";
+  src: url("../fonts/Orbitron-latin.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-400-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-500-latin.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-600-latin.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-700-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
-  /* ── Backgrounds (keep cold/dark for ops feel) ── */
-  --bg:        #06080a;
-  --bg2:       #0a0c0e;
-  --bg3:       #0e1012;
-  --panel:     #0c0e11;
+  /* ----------  RAW BRAND PALETTE (from branding guide)  ---------- */
+  --rust:        #7E2619; /* primary — deep brick rust */
+  --khaki:       #9A8C64; /* secondary — aged olive gold */
+  --terracotta:  #E8855C; /* accent — warm sun glow */
+  --sand:        #CBB8AA; /* light warm neutral / parchment */
+  --charcoal:    #393635; /* dark surface */
+  --graymauve:   #5C5356; /* mid neutral */
+  --fieldtan:    #6B6250; /* NEW mid-tone — bridges khaki & charcoal */
+  --black:       #000000;
+  --white:       #FFFFFF;
 
-  /* ── Borders (warm-tinted dark) ── */
-  --border:    #2a1f1a;
-  --border2:   #3a2820;
+  /* ----------  DERIVED TONAL SCALES  ---------- */
+  /* Warm neutral / ink ramp (dark → light) */
+  --ink-900: #0c0b0b;
+  --ink-850: #131110;
+  --ink-800: #1a1817;
+  --ink-700: #242120;
+  --ink-600: #2e2b2a;
+  --ink-500: #393635; /* = charcoal */
+  --ink-450: #6b6250; /* = field tan (new mid-tone) */
+  --ink-400: #5c5356; /* = graymauve */
+  --ink-300: #7d7570;
+  --ink-200: #a59b92;
+  --ink-100: #cbb8aa; /* = sand */
+  --ink-050: #e8ddd2; /* light parchment */
+  --ink-000: #f5efe7; /* warm white */
 
-  /* ── Brand Accent: Crimson ── */
-  --accent:    #c0392b;          /* primary crimson — #7E2619 brightened for dark bg */
-  --accent2:   #9a2d20;          /* deeper crimson */
-  --accent-dim:#1a0a08;          /* crimson tint for backgrounds */
-  --accent-glow: rgba(192,57,43,0.15);
+  /* Rust ramp */
+  --rust-700: #5a1a11;
+  --rust-600: #6c2014;
+  --rust-500: #7e2619; /* base */
+  --rust-400: #9a3422;
+  --rust-300: #b8472f;
 
-  /* ── Brand Secondary: Tan/Gold ── */
-  --gold:      #c9a96e;          /* brand tan #9A8C64 brightened */
-  --gold-bright:#e8c98a;         /* highlight gold */
-  --gold-dim:  #1e1508;          /* tan tint for backgrounds */
+  /* Terracotta / sun ramp */
+  --sun-600: #c96a42;
+  --sun-500: #e8855c; /* base */
+  --sun-400: #ef9d79;
+  --sun-300: #f5b89c;
 
-  /* ── Brand Tertiary: Terracotta ── */
-  --terra:     #c8724a;          /* brand terracotta #E8855C toned */
-  --terra-dim: #1a0d08;
+  /* ----------  SEMANTIC: SURFACES (dark-first)  ---------- */
+  --bg-base:      var(--ink-900);   /* page background */
+  --bg-surface:   var(--ink-800);   /* primary panels */
+  --bg-elevated:  var(--ink-700);   /* cards, raised */
+  --bg-overlay:   var(--ink-600);   /* menus, popovers */
+  --bg-tint:      var(--ink-450);   /* warm raised tint (field tan) */
+  --bg-inset:     var(--ink-850);   /* wells, inputs */
+  --bg-hover:     rgba(255,255,255,0.05);
+  --bg-active:    rgba(255,255,255,0.09);
 
-  /* ── Status colors (functional, keep readable) ── */
-  --green:     #5aaa7a;          /* desaturated, warm-leaning green */
-  --green-dim: #0a1a10;
-  --red:       #cc3322;          /* on-brand red, close to crimson */
-  --purple:    #9977cc;
-  --purple-dim:#120a22;
-  --orange:    #c8724a;          /* reuse terracotta for orange */
-  --orange-dim:#1a0d08;
+  /* ----------  SEMANTIC: FOREGROUND  ---------- */
+  --fg1: var(--ink-000);  /* primary text — warm white */
+  --fg2: var(--ink-100);  /* secondary text — sand */
+  --fg3: var(--ink-200);  /* tertiary / captions */
+  --fg-muted: var(--ink-300); /* disabled, placeholder */
+  --fg-inverse: var(--ink-900); /* on light/bright surfaces */
 
-  /* ── Text: white + warm tones ── */
-  --text:      #ede8e0;          /* warm off-white */
-  --text2:     #a89880;          /* warm mid-grey/tan */
-  --text3:     #5a4a3a;          /* warm dark grey */
-  --text-gold: #c9a96e;          /* alias for convenience */
-  --text-crimson: #c0392b;
+  /* ----------  SEMANTIC: BRAND / INTERACTIVE  ---------- */
+  --brand:          var(--rust-500);
+  --brand-hover:    var(--rust-400);
+  --brand-active:   var(--rust-600);
+  --accent:         var(--terracotta);
+  --accent-hover:   var(--sun-400);
+  --gold:           var(--khaki);
+  --tan:            var(--fieldtan);  /* new warm mid-tone */
+  --on-brand:       var(--ink-000);
 
-  /* ── Typography: Zalando Sans throughout, Orbitron reserved for card titles ──
-     --font-title is the new opt-in variable for elements that should keep
-     Orbitron (currently just .bp-card-name). --font-ui / --font-mono /
-     --font-body all point to Zalando Sans now; the legacy names are kept so
-     templates don't need to be churned. */
-  --font-title: 'Orbitron', sans-serif;
-  --font-ui:    'univia-pro', sans-serif;
-  --font-mono:  'univia-pro', sans-serif;
-  --font-body:  'univia-pro', sans-serif;
+  /* ----------  SEMANTIC: BORDERS / LINES  ---------- */
+  --line:          rgba(203,184,170,0.14);  /* hairline */
+  --line-strong:   rgba(203,184,170,0.28);
+  --line-brand:    var(--rust-400);
+  --line-accent:   var(--terracotta);
+  --stencil-line:  rgba(203,184,170,0.10);
+
+  /* ----------  SEMANTIC: STATUS  ---------- */
+  --positive: #7c8a4e;  /* olive-green, on-brand */
+  --warning:  var(--terracotta);
+  --danger:   #b8472f;
+  --info:     var(--khaki);
+
+  /* ----------  TYPE FAMILIES  ---------- */
+  --font-display: "Orbitron", "Bai Jamjuree", system-ui, sans-serif;
+  --font-body:    "Bai Jamjuree", system-ui, -apple-system, sans-serif;
+  --font-cond:    "Bai Jamjuree", system-ui, sans-serif;
+  --font-mono:    "Bai Jamjuree", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ----------  TYPE SCALE  ---------- */
+  --text-3xs:   6px;
+  --text-2xs:   8px;
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-base: 16px;
+  --text-md:   18px;
+  --text-lg:   22px;
+  --text-xl:   28px;
+  --text-2xl:  36px;
+  --text-3xl:  48px;
+  --text-4xl:  64px;
+  --text-5xl:  84px;
+
+  --leading-tight: 1.05;
+  --leading-snug:  1.25;
+  --leading-body:  1.55;
+
+  /* Display letter-spacing — Orbitron reads best with air */
+  --track-display: 0.08em;
+  --track-label:   0.18em; /* all-caps eyebrows / buttons */
+  --track-body:    0.005em;
+
+  /* ----------  SPACING (4px base)  ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ----------  RADII (hard, industrial — small)  ---------- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+  /* Brand uses chamfers more than rounds */
+  --chamfer: 10px;
+
+  /* ----------  SHADOWS / ELEVATION  ---------- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.55);
+  --shadow-lg: 0 18px 48px rgba(0,0,0,0.6);
+  --glow-sun: 0 0 24px rgba(232,133,92,0.35);
+  /* Warm "lift" glows — lighter tones bloom behind dark boxes on the dark theme */
+  --lift-sand: 0 12px 42px -6px rgba(203,184,170,0.42);
+  --lift-gold: 0 12px 42px -6px rgba(154,140,100,0.58);
+  --lift-tan:  0 12px 42px -6px rgba(107,98,80,0.72);
+  --lift-sun:  0 16px 48px -6px rgba(232,133,92,0.62);
+  --inset-line: inset 0 0 0 1px var(--line);
 }
+
+/* ----------  END OF PRIMARY ROOT  ---------- */
+
+/* ============================================================
+   COMPAT BRIDGE — maps the site's original token names onto the
+   new Sol Provision refresh tokens. Keeps all existing component
+   CSS + pages working unchanged. Delete a line once you've
+   migrated its usages to the new names directly.
+   ============================================================ */
+:root {
+  /* surfaces */
+  --bg:         var(--bg-base);      /* #0c0b0b */
+  --bg2:        var(--ink-850);      /* #131110 */
+  --bg3:        var(--bg-elevated);  /* #242120 */
+  --panel:      var(--bg-surface);   /* #1a1817 */
+
+  /* borders */
+  --border:     var(--line);
+  --border2:    var(--line-strong);
+
+  /* text */
+  --text:       var(--fg1);
+  --text2:      var(--fg2);
+  --text3:      var(--fg3);
+
+  /* accent family */
+  --accent2:    var(--sun-600);            /* deeper accent border  */
+  --accent-dim: rgba(232,133,92,0.14);     /* translucent accent fill */
+
+  /* fonts */
+  --font-ui:    var(--font-cond);     /* Bai Jamjuree — legible small */
+  --font-title: var(--font-display);  /* Orbitron */
+
+  /* status + category hues */
+  --green:      var(--positive);
+  --green-dim:  rgba(124,138,78,0.16);
+  --gold-dim:   rgba(154,140,100,0.16);
+  --terra:      var(--sun-600);
+  --terra-dim:  rgba(201,106,66,0.16);
+
+  /* ⚠ brand has NO purple — neutral stand-in for exploration pills */
+  --purple:     var(--graymauve);
+  --purple-dim: rgba(92,83,86,0.20);
+}
+
+/* ----------  END OF SECONDARY ROOT  ---------- */
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -113,10 +289,10 @@ header::before {
 .logo-mark img { width: 100%; height: 100%; object-fit: contain; }
 
 .logo-text {
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 24px;
-  letter-spacing: 0.15em;
+  font-size: 28px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text);
   line-height: 1;
@@ -291,7 +467,7 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
   color: var(--text3);
 }
 .stat-block-value {
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-size: 20px;
   font-weight: 600;
   color: var(--text);
@@ -354,7 +530,7 @@ main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
   border-left: 3px solid var(--accent);
 }
 .detail-title {
-  font-family: var(--font-ui);
+  font-family: var(--font-display);
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 0.08em;
