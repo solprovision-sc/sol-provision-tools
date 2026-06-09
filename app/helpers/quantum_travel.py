@@ -468,11 +468,13 @@ class NavGraph:
                 "kind": r["kind"],
                 "helio": helio(r),
                 "system": system_of(uuid),
+                "parent_uuid": r["parent_uuid"],
                 "body_uuid": body_of(r),
                 "body_radius_km": r["body_radius_km"],
                 "arrival_radius_km": r["arrival_radius_km"],
                 "om_radius_km": r["om_radius_km"],
                 "lat_deg": r["lat_deg"],
+                "lon_deg": r["lon_deg"],
             }
 
         for uuid, n in self._nodes.items():
@@ -542,6 +544,21 @@ class NavGraph:
 
     def bodies_in_system(self, system: str) -> list:
         return list(self._bodies_by_system.get(system, []))
+
+    def system_nodes(self, system: str, kinds: Sequence[str] = None) -> list:
+        """All loaded nodes belonging to ``system`` (optionally filtered to the
+        given kinds). Used by the starmap data endpoint to enumerate bodies and
+        POIs with their helio coordinates. Nodes without a helio position are
+        included — callers filter as needed."""
+        kset = set(kinds) if kinds else None
+        out = []
+        for n in self._nodes.values():
+            if n["system"] != system:
+                continue
+            if kset is not None and n["kind"] not in kset:
+                continue
+            out.append(n)
+        return out
 
     # -- inter-system jump points --
     def jump_link(self, from_system: str, to_system: str):

@@ -10,31 +10,31 @@ import * as THREE from 'three';
 import { hexToInt } from '../util/color.js';
 import { makeLabel } from '../util/label.js';
 import { makeOrbitRing } from './primitives.js';
-import { auToScene, moonAuToScene } from '../util/scale.js';
 import { loadBodyTextures, applyTexturesToMesh } from '../data/textures.js';
 import { addCloudLayer } from './clouds.js';
+import { addAtmosphere } from './atmosphere.js';
 
 // Render radii. ~2x the v1 values so textures are legible without needing to fly
 // in. Proportions kept so the overview still reads (Crusader > Super-Earth > rocky).
 const PLANET_R = {
-  'Super-Earth':       26,
-  'Gas Giant':         52,
-  'Terrestrial Rocky': 22,
-  'Smog Planet':       22,
-  'Ice Giant':         40,
-  'Protoplanet':       14,
-  default:             24,
+  'Super-Earth':       19,
+  'Gas Giant':         38,
+  'Terrestrial Rocky': 16,
+  'Smog Planet':       16,
+  'Ice Giant':         29,
+  'Protoplanet':       10,
+  default:             17,
 };
 
 // Captured-planet radius is fixed — these are small enough not to warrant per-subtype tuning.
-const CAPTURED_PLANET_R = 18;
+const CAPTURED_PLANET_R = 13;
 
 export function addPlanet(world, body, systemConfig) {
   const bd  = world.bodyIndex[body.id];
   const pr  = PLANET_R[body.subtype] || PLANET_R.default;
   const col = hexToInt(body.color);
 
-  const ring = makeOrbitRing(auToScene(body.dist, world.refAU), systemConfig.orbitColor, 0.22);
+  const ring = makeOrbitRing(bd.orbitRadiusScene, systemConfig.orbitColor, 0.22);
   ring.userData = { type: 'orbit', bodyType: 'orbits' };
   world.scene.add(ring);
   world.sceneObjects.push(ring);
@@ -51,6 +51,8 @@ export function addPlanet(world, body, systemConfig) {
   world.meshes.push(mesh);
   bd.mesh         = mesh;
   bd.renderRadius = pr;
+
+  addAtmosphere(world, mesh, pr, col, body.subtype);
 
   const label = makeLabel(body.name, systemConfig.labelColor, 19);
   label.position.set(bd.position.x + pr + 10, bd.position.y + pr + 8, bd.position.z);
@@ -71,7 +73,7 @@ export function addCapturedPlanet(world, body, systemConfig) {
   const pr       = CAPTURED_PLANET_R;
   const col      = hexToInt(body.color);
 
-  const ring = makeOrbitRing(moonAuToScene(body.dist, world.moonRefAU), systemConfig.moonOrbitColor, 0.3, 64);
+  const ring = makeOrbitRing(bd.orbitRadiusScene, systemConfig.moonOrbitColor, 0.3, 64);
   ring.position.copy(parentBd.position);
   ring.userData = { type: 'orbit', bodyType: 'orbits', parentId: body.parent };
   world.scene.add(ring);
@@ -90,6 +92,8 @@ export function addCapturedPlanet(world, body, systemConfig) {
   world.meshes.push(mesh);
   bd.mesh         = mesh;
   bd.renderRadius = pr;
+
+  addAtmosphere(world, mesh, pr, col, body.subtype);
 
   const label = makeLabel(body.name, systemConfig.labelColor, 17);
   label.position.set(bd.position.x + pr + 8, bd.position.y + pr + 6, bd.position.z);

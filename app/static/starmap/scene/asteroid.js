@@ -3,11 +3,10 @@
 
 import * as THREE from 'three';
 import { hexToInt } from '../util/color.js';
-import { auToScene } from '../util/scale.js';
 
 export function addAsteroidBelt(world, body, systemConfig) {
   const bd = world.bodyIndex[body.id];
-  const radius = auToScene(body.dist, world.refAU);
+  const radius = bd.orbitRadiusScene;
   const color  = hexToInt(body.color);
 
   const count = 500, spread = 0.06;

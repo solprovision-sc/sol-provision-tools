@@ -33,8 +33,8 @@ export function createComposer(renderer, scene, camera) {
   const bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     BLOOM_MAX_STRENGTH,
-    0.5,    // radius
-    0.95,   // threshold — only the star + jump-marker emissives bloom
+    0.4,    // radius — tighter, so the star flares to a crisp point not a smear
+    0.9,    // threshold — the white-hot star core + jump-marker emissives bloom
   );
   composer.addPass(bloomPass);
   composer.addPass(new OutputPass());
@@ -44,8 +44,8 @@ export function createComposer(renderer, scene, camera) {
 // Distance-modulated bloom. Spherical r ranges 60..12000; we ramp strength
 // linearly from BLOOM_MIN at NEAR_R to BLOOM_MAX at FAR_R so close zoom
 // doesn't smear the planets in front of the star.
-const BLOOM_MIN_STRENGTH = 0.08;
-const BLOOM_MAX_STRENGTH = 0.45;
+const BLOOM_MIN_STRENGTH = 0.06;
+const BLOOM_MAX_STRENGTH = 0.34;
 const NEAR_R = 120;
 const FAR_R  = 1000;
 

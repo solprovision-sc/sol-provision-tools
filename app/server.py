@@ -4003,6 +4003,85 @@ def _get_nav_graph(conn, patch):
     return g
 
 
+# Systems the starmap models, keyed by the lowercase slug the frontend uses.
+_STARMAP_SYSTEMS = {"stanton": "Stanton", "pyro": "Pyro", "nyx": "Nyx"}
+_STARMAP_BODY_KINDS = ("star", "planet", "moon", "jumppoint")
+# Selectable non-body locations / triangulation references: docking stations,
+# Lagrange points, and orbital markers (OMs). Outposts/landing-zones omitted —
+# players set position relative to stations / L-points / OMs / planets / moons.
+_STARMAP_POI_KINDS  = ("station", "lagrange", "om")
+_BODY_GROUP_KINDS   = ("star", "planet", "moon")
+
+
+@app.route("/api/starmap/<system>/bodies")
+def api_starmap_bodies(system):
+    """Per-system bodies + POIs with real heliocentric coordinates (km, star at
+    origin) for the starmap. Bodies are the star/planets/moons/jump points;
+    POIs are stations/landing zones/outposts/Lagrange points. Used to render the
+    map in true coordinates and to drive the 'set your position' triangulation.
+    """
+    canon = _STARMAP_SYSTEMS.get((system or "").lower())
+    if not canon:
+        return jsonify({"error": f"unknown system '{system}'"}), 404
+
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+    nav = _get_nav_graph(conn, p)
+
+    # Index this system's nodes by location_key so Lagrange points can be
+    # grouped under their named planet (key "Stanton3_L1" -> "Stanton3").
+    by_key = {n["key"]: n for n in nav.system_nodes(canon) if n["key"]}
+
+    def safe_node(uuid):
+        try:
+            return nav.node(uuid) if uuid else None
+        except Exception:
+            return None
+
+    def parent_info(n):
+        # Bodies group under their orbital parent (moon -> planet); L-points
+        # under the planet named in their key prefix; everything else under the
+        # body it belongs to (station -> planet, OM -> its moon/planet).
+        if n["kind"] in _BODY_GROUP_KINDS:
+            target = safe_node(n.get("parent_uuid"))
+        elif n["kind"] == "lagrange" and "_L" in (n["key"] or ""):
+            target = by_key.get(n["key"].split("_L")[0])
+        else:
+            target = safe_node(n.get("body_uuid") or n.get("parent_uuid"))
+        return (target["key"], target["name"]) if target else (None, None)
+
+    def ser(n, want_radius=False):
+        pkey, pname = parent_info(n)
+        d = {
+            "uuid": n["uuid"],
+            "key":  n["key"],
+            "name": n["name"],
+            "kind": n["kind"],
+            "helio": list(n["helio"]) if n["helio"] else None,
+            "parent_key":  pkey,
+            "parent_name": pname,
+        }
+        if want_radius:
+            d["radius_km"] = n["body_radius_km"]
+            d["lat_deg"]   = n["lat_deg"]
+            d["lon_deg"]   = n["lon_deg"]
+        return d
+
+    def real_name(n):
+        nm = (n["name"] or "").strip()
+        return nm and "UNINITIALIZED" not in nm and not nm.startswith("<=")
+
+    bodies = [ser(n, want_radius=True)
+              for n in nav.system_nodes(canon, _STARMAP_BODY_KINDS)
+              if real_name(n)]
+    # POIs must have a position to be a reference / marker; drop the unplaced
+    # and the placeholder/uninitialised rows.
+    pois = [ser(n) for n in nav.system_nodes(canon, _STARMAP_POI_KINDS)
+            if n["helio"] and real_name(n)]
+
+    return jsonify({"system": canon, "patch": p, "bodies": bodies, "pois": pois})
+
+
 @app.route("/api/cargo/route", methods=["POST"])
 def api_cargo_route():
     """Compute QT travel time + fuel for a sequence of origin->dest legs.

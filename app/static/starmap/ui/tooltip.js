@@ -30,7 +30,7 @@ export function initPicker(container, camera, world, onSelect) {
       }
     }
     tip.classList.remove('show');
-    document.body.style.cursor = 'crosshair';
+    document.body.style.cursor = 'default';
   });
 
   container.addEventListener('click', e => {

@@ -13,20 +13,30 @@ import { createCameraController }                        from './core/camera.js'
 import { createLoop }                                    from './core/loop.js';
 
 import { makeStarfield }       from './scene/starfield.js';
+import { makeEclipticGrid }    from './scene/grid.js';
+import { makeNebula }          from './scene/nebula.js';
 import { addStar }             from './scene/star.js';
 import { addPlanet, addCapturedPlanet } from './scene/planet.js';
 import { addMoon }             from './scene/moon.js';
 import { addJumpPoint }        from './scene/jumppoint.js';
 import { addAsteroidBelt }     from './scene/asteroid.js';
 import { rotateClouds }        from './scene/clouds.js';
+import { setMarker, clearMarker, updateMarker } from './scene/marker.js';
 
 import { SYSTEMS }                       from './data/systems.js';
 import { loadManifest }                  from './data/textures.js';
+import { loadSystemCoords }              from './data/coords.js';
 import { auToScene, moonAuToScene }      from './util/scale.js';
+
+// 1 AU in km — used to seed the systems.js→km fallback factor for bodies the
+// DB doesn't position (asteroid belts, unmodelled jump points).
+const AU_KM = 149597870.7;
+const SCENE_BASE_R = 700;   // scene radius of the outermost star-direct body
 
 import { initHud, setActiveSystem, setOrbitToggle, flashTransition } from './ui/hud.js';
 import { initInfoClose, showInfo, closeInfo }                        from './ui/info-panel.js';
 import { initPicker }                                                from './ui/tooltip.js';
+import { initPosition }                                             from './ui/position.js';
 import { bodyToSlug, findBodyBySlug, parseUrl, pushState, replaceState, onPopState } from './util/url.js';
 
 // ─── World ────────────────────────────────────────────────────────
@@ -58,6 +68,10 @@ const world = {
   refAU:          1,
   moonRefAU:      0.001,
   systemConfig:   null,
+  // Real-coordinate transform (set per system in computeInitialPositions).
+  refKm:          1,
+  helioToScene:   null,   // (xKm, yKm) → THREE.Vector3 scene position on the plane
+  coords:         null,   // raw /api/starmap payload for the active system
 };
 
 // ─── Per-system build / clear ─────────────────────────────────────
@@ -82,35 +96,17 @@ function clearScene() {
   closeInfo();
 }
 
-function computeInitialPositions(systemConfig) {
-  const starId      = systemConfig.bodies.find(b => b.type === 'STAR').id;
-  const directKids  = systemConfig.bodies.filter(b => b.parent === starId && b.dist > 0);
-  world.refAU       = Math.max(...directKids.map(b => b.dist));
-
-  let moonRef = 0;
-  for (const p of systemConfig.bodies.filter(b => b.type === 'PLANET')) {
-    for (const m of systemConfig.bodies.filter(b => b.parent === p.id)) {
-      if (m.dist > moonRef) moonRef = m.dist;
-    }
-  }
-  world.moonRefAU = moonRef < 0.001 ? 0.001 : moonRef;
-
-  // Initial index entries with default position + orbit angle.
-  for (const b of systemConfig.bodies) {
-    world.bodyIndex[b.id] = { ...b, position: new THREE.Vector3(), orbitAngle: b.lon * Math.PI / 180 };
-  }
-
-  // Recursive position walk so children inherit parent positions.
+// Walk the parent chain so children inherit parent positions, placing each body
+// at its precomputed orbitRadiusScene / orbitAngle relative to its parent.
+function placeAll(systemConfig) {
   function place(id) {
     const b = world.bodyIndex[id];
     if (!b) return new THREE.Vector3();
     if (b.type === 'STAR') { b.position.set(0, 0, 0); return b.position; }
     const parentBd = b.parent ? world.bodyIndex[b.parent] : null;
     const pp       = parentBd ? place(b.parent) : new THREE.Vector3();
-    const useMoon  = parentBd && parentBd.type === 'PLANET';
-    const r        = useMoon ? moonAuToScene(b.dist, world.moonRefAU)
-                             : auToScene(b.dist, world.refAU);
-    const lat      = b.lat * Math.PI / 180;
+    const r        = b.orbitRadiusScene || 0;
+    const lat      = (b.lat || 0) * Math.PI / 180;
     b.position.set(
       pp.x + r * Math.cos(lat) * Math.cos(b.orbitAngle),
       pp.y + r * Math.sin(lat),
@@ -121,14 +117,153 @@ function computeInitialPositions(systemConfig) {
   for (const b of systemConfig.bodies) place(b.id);
 }
 
-function buildSystem(systemKey) {
+// systems.js-only placement (no DB coords reachable). Mirrors the original v2
+// behaviour: star-direct bodies via auToScene, moons via the exaggerated
+// moonAuToScene, angles from the curated lon. Keeps the map working offline.
+function computeLegacyPositions(systemConfig) {
+  const starId     = systemConfig.bodies.find(b => b.type === 'STAR').id;
+  const directKids = systemConfig.bodies.filter(b => b.parent === starId && b.dist > 0);
+  world.refAU      = Math.max(...directKids.map(b => b.dist), 1);
+
+  let moonRef = 0;
+  for (const p of systemConfig.bodies.filter(b => b.type === 'PLANET'))
+    for (const m of systemConfig.bodies.filter(b => b.parent === p.id))
+      if (m.dist > moonRef) moonRef = m.dist;
+  world.moonRefAU = moonRef < 0.001 ? 0.001 : moonRef;
+
+  world.refKm        = world.refAU * AU_KM;
+  world.helioToScene = (x, y) => {
+    const r = Math.hypot(x, y), a = Math.atan2(y, x);
+    const R = auToScene(r / AU_KM, world.refAU);
+    return new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a));
+  };
+
+  for (const b of systemConfig.bodies) {
+    const parentIsPlanet = b.parent && systemConfig.bodies
+      .some(x => x.id === b.parent && x.type === 'PLANET');
+    const r = parentIsPlanet ? moonAuToScene(b.dist, world.moonRefAU)
+                             : auToScene(b.dist, world.refAU);
+    world.bodyIndex[b.id] = {
+      ...b, position: new THREE.Vector3(), helio: null, dbUuid: null,
+      orbitAngle: b.lon * Math.PI / 180, orbitRadiusScene: r,
+    };
+  }
+  placeAll(systemConfig);
+}
+
+// DB-coordinate placement: star/planets/jump points from real helio; moons +
+// captured planets keep the exaggerated parent-relative offset (so they stay
+// legible) but carry their real .helio for triangulation; asteroid belts and
+// any unmatched jump points fall back to a per-system km factor. A single
+// world.helioToScene maps any (x,y) km → scene, shared by bodies + the marker.
+function computeInitialPositions(systemConfig, coords) {
+  const hasDb = coords && Array.isArray(coords.bodies) && coords.bodies.some(n => n.helio);
+  if (!hasDb) { computeLegacyPositions(systemConfig); return; }
+
+  const starId  = systemConfig.bodies.find(b => b.type === 'STAR').id;
+  const bodies  = systemConfig.bodies;
+
+  // DB lookups: bodies by name, jump points by their target-system token.
+  const nodeByName   = new Map();
+  const jumpByTarget = new Map();
+  for (const n of coords.bodies) {
+    if (n.helio && n.name) nodeByName.set(n.name.toLowerCase(), n);
+    if (n.kind === 'jumppoint' && n.helio && n.key) {
+      const toks = n.key.split('_');           // JumpPoint_<own>_<target>
+      if (toks.length >= 3) jumpByTarget.set(toks[2].toLowerCase(), n);
+    }
+  }
+
+  // Index every body; attach real helio where we can match it.
+  for (const b of bodies) {
+    const bd = { ...b, position: new THREE.Vector3(), helio: null, dbUuid: null,
+                 orbitAngle: b.lon * Math.PI / 180, orbitRadiusScene: 0 };
+    const n = nodeByName.get((b.name || '').toLowerCase());
+    if (n) { bd.helio = n.helio; bd.dbUuid = n.uuid; }
+    else if (b.type === 'JUMPPOINT') {
+      const jn = jumpByTarget.get((b.name || '').split(/\s+/)[0].toLowerCase());
+      if (jn) { bd.helio = jn.helio; bd.dbUuid = jn.uuid; }
+    }
+    world.bodyIndex[b.id] = bd;
+  }
+
+  // Radial reference + transform from star-direct bodies that have real coords.
+  const starDirect = bodies.filter(b => b.parent === starId && b.type !== 'STAR');
+  let refKm = 0;
+  for (const b of starDirect) {
+    const bd = world.bodyIndex[b.id];
+    if (bd.helio) refKm = Math.max(refKm, Math.hypot(bd.helio[0], bd.helio[1]));
+  }
+  world.refKm = refKm > 0 ? refKm : AU_KM;
+  const scaleR = km => Math.sqrt(Math.max(km, 0) / world.refKm) * SCENE_BASE_R;
+  world.helioToScene = (x, y) => {
+    const r = Math.hypot(x, y), a = Math.atan2(y, x), R = scaleR(r);
+    return new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a));
+  };
+
+  // Median km-per-AU factor from matched star-direct bodies, for the gaps.
+  const factors = starDirect
+    .map(b => world.bodyIndex[b.id])
+    .filter(bd => bd.helio && bd.dist > 0)
+    .map(bd => Math.hypot(bd.helio[0], bd.helio[1]) / bd.dist)
+    .sort((a, b) => a - b);
+  const kmPerAU = factors.length ? factors[Math.floor(factors.length / 2)] : AU_KM / 10;
+
+  // Moon exaggeration reference (systems.js), kept for legibility.
+  let moonRef = 0;
+  for (const p of bodies.filter(b => b.type === 'PLANET'))
+    for (const m of bodies.filter(b => b.parent === p.id))
+      if (m.dist > moonRef) moonRef = m.dist;
+  world.moonRefAU = moonRef < 0.001 ? 0.001 : moonRef;
+  world.refAU     = Math.max(...starDirect.map(b => b.dist), 1);
+
+  // Star-direct bodies: real radius+angle if matched, else km-factor fallback.
+  for (const b of starDirect) {
+    const bd = world.bodyIndex[b.id];
+    if (bd.helio) {
+      bd.orbitRadiusScene = scaleR(Math.hypot(bd.helio[0], bd.helio[1]));
+      bd.orbitAngle       = Math.atan2(bd.helio[1], bd.helio[0]);
+    } else {
+      bd.orbitRadiusScene = scaleR(b.dist * kmPerAU);
+      bd.orbitAngle       = b.lon * Math.PI / 180;
+    }
+  }
+
+  // Moons + captured planets: exaggerated offset from parent for legibility,
+  // but use the real DB bearing when both ends are positioned.
+  for (const b of bodies) {
+    const bd = world.bodyIndex[b.id];
+    const pbd = b.parent ? world.bodyIndex[b.parent] : null;
+    if (!pbd || pbd.type !== 'PLANET') continue;
+    bd.orbitRadiusScene = moonAuToScene(b.dist, world.moonRefAU);
+    if (bd.helio && pbd.helio) {
+      bd.orbitAngle = Math.atan2(bd.helio[1] - pbd.helio[1], bd.helio[0] - pbd.helio[0]);
+    }
+  }
+
+  placeAll(systemConfig);
+}
+
+async function buildSystem(systemKey) {
   clearScene();
   const sys = SYSTEMS[systemKey];
   world.activeSystem = systemKey;
   world.systemConfig = sys;
-  computeInitialPositions(sys);
+  const coords = await loadSystemCoords(systemKey);
+  world.coords = coords;
+  computeInitialPositions(sys, coords);
 
   const starId = sys.bodies.find(b => b.type === 'STAR').id;
+
+  // Backdrop nebula + ecliptic reference grid go in first so bodies draw over them.
+  const nebula = makeNebula(sys.gridColor || '#3fe0ff');
+  scene.add(nebula);
+  world.sceneObjects.push(nebula);
+
+  const gridOuter = SCENE_BASE_R * 1.12;
+  const grid = makeEclipticGrid(gridOuter, sys.gridColor || '#3fe0ff');
+  scene.add(grid);
+  world.sceneObjects.push(grid);
 
   addStar(world, world.bodyIndex[starId], sys);
 
@@ -181,9 +316,7 @@ function updateOrbits(dt) {
 
     const parentBd = b.parent ? world.bodyIndex[b.parent] : null;
     const pp       = parentBd ? parentBd.position : new THREE.Vector3();
-    const useMoon  = parentBd && parentBd.type === 'PLANET';
-    const r        = useMoon ? moonAuToScene(b.dist, world.moonRefAU)
-                             : auToScene(b.dist, world.refAU);
+    const r        = bd.orbitRadiusScene || 0;
     const lat      = b.lat * Math.PI / 180;
     bd.position.set(
       pp.x + r * Math.cos(lat) * Math.cos(bd.orbitAngle),
@@ -205,8 +338,18 @@ function updateOrbits(dt) {
   }
 }
 
+// Labels are authored for the overview camera distance. Scale each inversely
+// with its screen-space distance (relative to the default view) so they hold a
+// roughly constant on-screen size — no more giant text when fly-to zooms in.
+const LABEL_REF_DIST = 900;
 function billboardLabels() {
-  for (const s of world.labelSprites) s.quaternion.copy(camera.quaternion);
+  for (const s of world.labelSprites) {
+    s.quaternion.copy(camera.quaternion);
+    if (!s.userData.baseScale) s.userData.baseScale = { x: s.scale.x, y: s.scale.y };
+    const d = camera.position.distanceTo(s.position);
+    const f = Math.max(0.4, Math.min(2.4, d / LABEL_REF_DIST));
+    s.scale.set(s.userData.baseScale.x * f, s.userData.baseScale.y * f, 1);
+  }
 }
 
 // ─── Loop subscribers (order matters — camera first, render last) ─
@@ -214,8 +357,68 @@ loop.add(updateCamera);
 loop.add(updateOrbits);
 loop.add(dt => rotateClouds(world, dt));
 loop.add(billboardLabels);
+loop.add(dt => updateMarker(world, dt));
 loop.add(() => tuneBloom(bloomPass, camera.position.length()));
 loop.add(() => composer.render());
+
+// ─── Position marker ──────────────────────────────────────────────
+let positionUI = null;
+
+// Real helio (x,y) km → scene position. Planets are at true scale so the
+// global transform is correct there; but a point inside a planet's moon-system
+// is mapped proportionally into that planet's *exaggerated* local frame, so a
+// marker e.g. 10% of the way from a moon to its planet lands 10% along the
+// rendered moon→planet line instead of collapsing onto the planet.
+function realToScene(x, y) {
+  const sys = world.systemConfig;
+  let nearest = null, nd = Infinity;
+  for (const b of sys.bodies) {
+    if (b.type !== 'PLANET') continue;
+    const bd = world.bodyIndex[b.id];
+    if (!bd || !bd.helio) continue;
+    const d = Math.hypot(x - bd.helio[0], y - bd.helio[1]);
+    if (d < nd) { nd = d; nearest = bd; }
+  }
+  if (nearest) {
+    let maxReal = 0, kSum = 0, kN = 0;
+    for (const mb of sys.bodies) {
+      if (mb.parent !== nearest.id) continue;
+      const mbd = world.bodyIndex[mb.id];
+      if (!mbd || !mbd.helio || !mbd.orbitRadiusScene) continue;
+      const realMoon = Math.hypot(mbd.helio[0] - nearest.helio[0], mbd.helio[1] - nearest.helio[1]);
+      if (realMoon > maxReal) maxReal = realMoon;
+      if (realMoon > 0) { kSum += mbd.orbitRadiusScene / realMoon; kN++; }
+    }
+    if (kN && nd < maxReal * 1.6) {
+      const K = kSum / kN;   // average local exaggeration of this moon-system
+      return new THREE.Vector3(
+        nearest.position.x + (x - nearest.helio[0]) * K,
+        0,
+        nearest.position.z + (y - nearest.helio[1]) * K,
+      );
+    }
+  }
+  return world.helioToScene(x, y);
+}
+
+async function getLocations(systemKey) {
+  const data = await loadSystemCoords(systemKey);
+  if (!data) return [];
+  const list = [];
+  for (const b of (data.bodies || [])) {
+    if ((b.kind === 'planet' || b.kind === 'moon') && b.helio)
+      list.push({ name: b.name, kind: b.kind, helio: b.helio, parentName: b.parent_name || '—', key: b.key });
+  }
+  for (const p of (data.pois || [])) {
+    if (p.helio) list.push({ name: p.name, kind: p.kind, helio: p.helio, parentName: p.parent_name || '—', key: p.key });
+  }
+  return list;
+}
+
+function placePosition(x, y, label) {
+  if (!world.helioToScene) return;
+  setMarker(world, realToScene(x, y), label);
+}
 
 // ─── Focus + URL state ───────────────────────────────────────────
 // fly-to distance: clamp(80, 600, renderRadius * 5) — keeps moons close,
@@ -225,14 +428,16 @@ function focusDistanceFor(body) {
   return Math.max(80, Math.min(600, r * 5));
 }
 
-function switchSystem(key, { updateUrl = true } = {}) {
+async function switchSystem(key, { updateUrl = true } = {}) {
   if (key === world.activeSystem) return;
   flashTransition();
-  buildSystem(key);
+  clearMarker(world);            // position is system-specific
+  await buildSystem(key);
   setActiveSystem(key, SYSTEMS[key]);
   world.orbitAnimating = false;
   setOrbitToggle(false);
   resetCamera();  // overview shot of the new system (focusBody, if next, will override)
+  if (positionUI) await positionUI.setSystem(key);
   if (updateUrl) pushState(key, null);
 }
 
@@ -254,9 +459,9 @@ function handleClose() {
   pushState(world.activeSystem, null);
 }
 
-function applyUrlState({ system, bodySlug }) {
+async function applyUrlState({ system, bodySlug }) {
   const target = (system && SYSTEMS[system]) ? system : 'stanton';
-  if (target !== world.activeSystem) switchSystem(target, { updateUrl: false });
+  if (target !== world.activeSystem) await switchSystem(target, { updateUrl: false });
   if (bodySlug) {
     const body = findBodyBySlug(SYSTEMS[target], bodySlug);
     if (body) focusBody(body.id, { updateUrl: false });
@@ -278,14 +483,27 @@ initInfoClose(handleClose);
 initPicker(container, camera, world, focusBody);
 onPopState(applyUrlState);
 
+positionUI = initPosition({
+  getLocations,
+  onSwitchSystem: key => switchSystem(key),
+  onPlace:        placePosition,
+  onClear:        () => clearMarker(world),
+});
+
 // ─── Init ─────────────────────────────────────────────────────────
 // Kick off the manifest fetch (fire-and-forget — body texture loads await it).
 loadManifest();
 
 const initial = parseUrl();
 const initialSystem = (initial.system && SYSTEMS[initial.system]) ? initial.system : 'stanton';
-buildSystem(initialSystem);
+
+loop.start();
+
+// Build the initial system (awaits the DB coords), then apply any deep-linked
+// body focus once the bodies exist.
+await buildSystem(initialSystem);
 setActiveSystem(initialSystem, SYSTEMS[initialSystem]);
+await positionUI.setSystem(initialSystem);
 // Canonicalize the URL (so /starmap → /starmap/stanton on load).
 replaceState(initialSystem, initial.bodySlug);
 
@@ -293,5 +511,3 @@ if (initial.bodySlug) {
   const body = findBodyBySlug(SYSTEMS[initialSystem], initial.bodySlug);
   if (body) focusBody(body.id, { updateUrl: false });
 }
-
-loop.start();

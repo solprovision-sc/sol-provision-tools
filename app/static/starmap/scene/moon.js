@@ -4,17 +4,17 @@ import * as THREE from 'three';
 import { hexToInt } from '../util/color.js';
 import { makeLabel } from '../util/label.js';
 import { makeOrbitRing } from './primitives.js';
-import { moonAuToScene } from '../util/scale.js';
 import { loadBodyTextures, applyTexturesToMesh } from '../data/textures.js';
 import { addCloudLayer } from './clouds.js';
+import { addAtmosphere } from './atmosphere.js';
 
-const MOON_R = 8;
+const MOON_R = 6;
 
 export function addMoon(world, body, systemConfig) {
   const bd       = world.bodyIndex[body.id];
   const parentBd = world.bodyIndex[body.parent];
   const col      = hexToInt(body.color);
-  const orbitR   = moonAuToScene(body.dist, world.moonRefAU);
+  const orbitR   = bd.orbitRadiusScene;
 
   const ring = makeOrbitRing(orbitR, systemConfig.moonOrbitColor, 0.18, 64);
   ring.position.copy(parentBd.position);
@@ -35,6 +35,8 @@ export function addMoon(world, body, systemConfig) {
   world.meshes.push(mesh);
   bd.mesh         = mesh;
   bd.renderRadius = MOON_R;
+
+  addAtmosphere(world, mesh, MOON_R, col, 'Moon');
 
   const label = makeLabel(body.name, systemConfig.moonLabelColor, 15);
   label.position.set(bd.position.x + 7, bd.position.y + 7, bd.position.z);
