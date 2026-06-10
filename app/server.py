@@ -1197,6 +1197,7 @@ def api_ships():
 
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
                  s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
+                 s.size_class,
                  s.length_m, s.beam_m, s.height_m,
                  s.length_rsi_m, s.beam_rsi_m, s.height_rsi_m,
                  s.rsi_name, s.rsi_url
@@ -1225,6 +1226,7 @@ def api_ships():
             "manufacturer": get_mfr(name),
             "career":       clean_career(r["career"] or ""),
             "role":         r["role"],
+            "size_class":   r["size_class"],
             "crew_size":    r["crew_size"],
             "cargo_scu":    r["cargo_scu"],
             "length_m":     r["length_m"],
@@ -1408,7 +1410,8 @@ def get_ship_components(conn, ship_entity, patch):
     # the nested weapon(s). Roots that contain no weapon/mount are dropped
     # (e.g. pure missile racks — handled by their own column).
     hp_rows = [dict(r) for r in conn.execute("""
-        SELECT port_name, parent_port, min_size, max_size, flags, installed_name, port_type
+        SELECT port_name, parent_port, min_size, max_size, flags, installed_name,
+               port_type, accepted_types
         FROM ship_hardpoints
         WHERE ship_entity_name = :ship AND patch_version = :patch
     """, {"ship": ship_entity, "patch": patch}).fetchall()]
@@ -1468,6 +1471,7 @@ def get_ship_components(conn, ship_entity, patch):
         return {
             "port_name":      hp["port_name"],
             "port_type":      hp["port_type"],
+            "accepted_types": hp["accepted_types"],
             "min_size":       hp["min_size"],
             "max_size":       hp["max_size"],
             "flags":          hp["flags"],
@@ -1490,18 +1494,25 @@ def get_ship_components(conn, ship_entity, patch):
         return out
 
     tops = [_build_node(r) for r in hp_rows if not (r["parent_port"] or "")]
-    weaponish = _flatten([n for n in tops if _has_weapon(n)])
 
-    # CIG reuses port_type='turret' for pilot gimbal mounts, so weapon-bearing
-    # tops are a mix of pilot weapons and crewed turrets. Partition them:
-    #   port_type 'turretbase'    → crewed turret (Manned/Remote/PDC)
-    #   port_type 'utilityturret' → utility turret
-    #   everything else           → pilot Weapons
+    # Pilot weapon vs crewed/remote/PDC turret — decided by the port's accepted
+    # <Types> (extracted into ship_hardpoints), the exact in-game signal:
+    #   TurretBase:*                          → crewed turret
+    #   Turret:* / UtilityTurret:* (no WeaponGun) → remote/PDC turret
+    #   anything accepting WeaponGun          → pilot-fireable weapon
+    # (Pilot gimbal mounts also use port_type 'turret' but their accepted_types
+    # include WeaponGun, so they correctly stay pilot.)
+    def _is_turret_port(n):
+        pt  = (n.get("port_type") or "").lower()
+        acc = n.get("accepted_types") or ""
+        if pt == "turretbase" or "TurretBase:" in acc:
+            return True
+        if pt in ("turret", "utilityturret") and "WeaponGun" not in acc:
+            return True
+        return False
+
     def _turret_class(n):
-        # item_sub_type is null on turret items and crew seats aren't linked to
-        # the turret port in ship_hardpoints, so the only signal is the port /
-        # item name. Best-effort (user-accepted): keyword match, else default to
-        # manned — most non-remote/non-PDC crewed turrets in SC are occupiable.
+        # Manned vs remote vs PDC — name-keyword heuristic, default manned.
         nm = ((n["port_name"] or "") + " " + (n["installed_name"] or "")).lower()
         if "pdc" in nm or "point_defense" in nm or "pointdefense" in nm:
             return "pdc"
@@ -1509,23 +1520,59 @@ def get_ship_components(conn, ship_entity, patch):
             return "remote"
         return "manned"
 
-    weapon_groups = []
-    turret_groups = {"manned": [], "remote": [], "pdc": []}
-    utility_turrets = []
-    for n in weaponish:
-        pt = (n.get("port_type") or "").lower()
-        if pt == "turretbase":
-            turret_groups[_turret_class(n)].append(n)
-        elif pt == "utilityturret":
-            utility_turrets.append(n)
+    # Turret tops keep their node as the group root (even an empty turret base
+    # whose default guns are foundry-backfilled) so all-turret ships like the
+    # Hammerhead don't leak into Pilot. Pilot tops are flattened to promote guns
+    # out of empty room/seat wrappers.
+    pilot_tops, turret_tops, utility_tops = [], [], []
+    for n in tops:
+        if not _has_weapon(n):
+            continue
+        if (n.get("port_type") or "").lower() == "utilityturret":
+            utility_tops.append(n)
+        elif _is_turret_port(n):
+            turret_tops.append(n)
         else:
-            weapon_groups.append(n)
+            pilot_tops.append(n)
+
+    weapon_groups = _flatten(pilot_tops)
+    turret_groups = {"manned": [], "remote": [], "pdc": []}
+    for n in turret_tops:
+        turret_groups[_turret_class(n)].append(n)
+    utility_turrets = list(utility_tops)
 
     _wsort = lambda n: (-(n["max_size"] or 0), n["port_name"] or "")
     weapon_groups.sort(key=_wsort)
     utility_turrets.sort(key=_wsort)
     for _b in turret_groups.values():
         _b.sort(key=_wsort)
+
+    # ── Aggregate DPS: pilot weapons vs all turret/PDC guns (excl. missiles) ──
+    def _weapon_dps(item):
+        ammo = (item or {}).get("ammo") or {}
+        shot = sum((ammo.get(k) or 0) for k in
+                   ("dmg_physical", "dmg_energy", "dmg_distortion",
+                    "dmg_thermal", "dmg_biochemical", "dmg_stun"))
+        if not shot:
+            return 0.0
+        fms = (item or {}).get("fire_modes") or []
+        fm = next((f for f in fms if (f.get("fire_rate") or 0) > 0), None)
+        if not fm:
+            return 0.0
+        return shot * (fm.get("pellet_count") or 1) * (fm["fire_rate"] / 60.0)
+
+    def _sum_dps(roots):
+        total, stack = 0.0, list(roots)
+        while stack:
+            n = stack.pop()
+            if n.get("kind") == "weapon":
+                total += _weapon_dps(n.get("item"))
+            stack.extend(n.get("children") or [])
+        return total
+
+    pilot_dps  = round(_sum_dps(weapon_groups))
+    turret_dps = round(_sum_dps(turret_groups["manned"]
+                                + turret_groups["remote"] + turret_groups["pdc"]))
 
     # Missile racks with their missile type looked up from item_missiles
     missile_racks = q(f"""
@@ -1707,6 +1754,8 @@ def get_ship_components(conn, ship_entity, patch):
         "weapon_groups":      weapon_groups,
         "turret_groups":      turret_groups,
         "utility_turrets":    utility_turrets,
+        "pilot_dps":          pilot_dps,
+        "turret_dps":         turret_dps,
         "missile_racks":      missile_racks,
         "missiles":           missiles,
         "missile_groups":     missile_groups,

@@ -393,139 +393,93 @@
   .anim-in:nth-child(10) { animation-delay: 0.20s; }
   .anim-in:nth-child(11) { animation-delay: 0.22s; }
   .anim-in:nth-child(12) { animation-delay: 0.24s; }
+
+  /* Sidebar filters (copied from crafting for identical theming) */
+  .filter-group { margin-bottom: 20px; }
+  .filter-input {
+    width: 100%; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-family: var(--font-mono);
+    font-size: 0.82rem; padding: 7px 10px; box-sizing: border-box; outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-input:focus { border-color: var(--accent); }
+  .result-count {
+    font-family: var(--font-mono); font-size: 0.75rem; color: var(--text3);
+    margin-bottom: 10px;
+  }
+  #filter-tree { display: flex; flex-direction: column; gap: 4px; }
+  .filter-head {
+    font-family: var(--font-title); font-size: 0.82rem; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase;
+    margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border2);
+  }
+  .filter-head:first-child { margin-top: 0; }
+  .filter-group2 { display: flex; flex-direction: column; }
+  .filter-group2-toggle {
+    display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
+    font-family: var(--font-mono); font-size: 0.75rem; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.06em; padding: 5px 0;
+  }
+  .filter-group2-toggle:hover { color: var(--accent); }
+  .filter-group2-toggle .caret {
+    font-size: 0.6rem; color: var(--text3); transition: transform 0.15s; width: 9px;
+  }
+  .filter-group2.collapsed .caret { transform: rotate(-90deg); }
+  .filter-group2.collapsed .filter-group2-body { display: none; }
+  .filter-group2-body { display: flex; flex-direction: column; padding: 2px 0 6px 4px; }
+  .filter-check {
+    display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;
+    font-family: var(--font-mono); font-size: 0.8rem; color: var(--text2);
+    padding: 3px 4px; border-radius: 3px; transition: background 0.12s, color 0.12s;
+  }
+  .filter-check:hover { background: var(--bg2); color: var(--text); }
+  .filter-check input { accent-color: var(--accent); cursor: pointer; margin: 0; flex-shrink: 0; }
+  .filter-check .fc-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .filter-check .fc-count { color: var(--text3); font-size: 0.7rem; flex-shrink: 0; }
+  .filter-check.checked { color: var(--text); }
+  #filter-clear {
+    margin-top: 12px; width: 100%; background: transparent; color: var(--text3);
+    border: 1px solid var(--border); border-radius: 4px; padding: 6px;
+    font-family: var(--font-mono); font-size: 0.72rem; cursor: pointer;
+    text-transform: uppercase; letter-spacing: 0.06em; transition: border-color 0.15s, color 0.15s;
+  }
+  #filter-clear:hover { border-color: var(--accent); color: var(--accent); }
+  .grid-empty { padding: 40px 0; text-align: center; color: var(--text3); font-family: var(--font-mono); font-size: 0.8rem; }
+  .ship-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 </style>
 {% endblock %}
 
 {% block body %}
-<div class="ships-page">
+<div class="layout">
 
-  <!-- ── Breadcrumb ── -->
-  <div class="breadcrumb" id="breadcrumb">
-    <span class="bc-item active" data-layer="mode">Ships</span>
-  </div>
-
-  <!-- ── Layer 0: Mode Select ── -->
-  <div class="layer active" id="layer-mode">
-    <div class="sec-hdr">
-      <div class="sec-bar"></div>
-      <div class="sec-title">Fleet Registry</div>
-      <div class="sec-note" id="total-count">Loading...</div>
-    </div>
-    <div class="mode-grid">
-
-      <div class="mode-card anim-in" onclick="selectMode('all')">
-        <div class="mode-corner"></div>
-        <div class="mode-eyebrow">Browse</div>
-        <div class="mode-name">All Ships</div>
-        <div class="mode-desc">Browse the complete vessel registry across all manufacturers and classes.</div>
-        <div class="mode-count" id="mode-count-all">—</div>
-        <div class="mode-footer">
-          <div class="mode-cta">Full Registry</div>
-          <div class="mode-arrow">→</div>
-        </div>
+  <aside id="sidebar">
+    <div class="sidebar-section">
+      <span class="section-label">Search</span>
+      <div class="filter-group">
+        <input type="search" id="ship-search" class="filter-input" placeholder="Search ships…" oninput="applyFilters()">
       </div>
-
-      <div class="mode-card anim-in" onclick="selectMode('manufacturer')">
-        <div class="mode-corner"></div>
-        <div class="mode-eyebrow">By Manufacturer</div>
-        <div class="mode-name">Manufacturer</div>
-        <div class="mode-desc">Filter by shipwright — explore the full lineup from each manufacturer.</div>
-        <div class="mode-count" id="mode-count-mfr">—</div>
-        <div class="mode-footer">
-          <div class="mode-cta">Browse Shipwrights</div>
-          <div class="mode-arrow">→</div>
-        </div>
-      </div>
-
-      <div class="mode-card anim-in" onclick="selectMode('career')">
-        <div class="mode-corner"></div>
-        <div class="mode-eyebrow">By Career</div>
-        <div class="mode-name">Career & Role</div>
-        <div class="mode-desc">Drill down by operational doctrine — Combat, Freight, Exploration, and more.</div>
-        <div class="mode-count" id="mode-count-career">—</div>
-        <div class="mode-footer">
-          <div class="mode-cta">Browse Careers</div>
-          <div class="mode-arrow">→</div>
-        </div>
-      </div>
-
     </div>
-  </div>
+    <div class="sidebar-section">
+      <span class="section-label">Filters</span>
+      <div id="filter-tree"><div class="grid-empty">Loading…</div></div>
+      <button id="filter-clear" type="button" onclick="clearFilters()">Clear all filters</button>
+    </div>
+  </aside>
 
-  <!-- ── Layer 1a: Manufacturer Select ── -->
-  <div class="layer" id="layer-manufacturer">
-    <div class="sec-hdr">
-      <div class="sec-bar"></div>
-      <div class="sec-title">By Manufacturer</div>
-      <div class="sec-note" id="mfr-count-note"></div>
-    </div>
-    <div class="mfr-grid" id="mfr-grid"></div>
-  </div>
-
-  <!-- ── Layer 1b: Career Select ── -->
-  <div class="layer" id="layer-career">
-    <div class="sec-hdr">
-      <div class="sec-bar"></div>
-      <div class="sec-title">By Career</div>
-      <div class="sec-note" id="career-count-note"></div>
-    </div>
-    <div class="career-grid" id="career-grid"></div>
-  </div>
-
-  <!-- ── Layer 2: Role Select ── -->
-  <div class="layer" id="layer-role">
-    <div class="sec-hdr">
-      <div class="sec-bar"></div>
-      <div class="sec-title" id="role-section-title">Roles</div>
-      <div class="sec-note" id="role-count-note"></div>
-    </div>
-    <div class="role-grid" id="role-grid"></div>
-  </div>
-
-  <!-- ── Layer Final: Ship List ── -->
-  <div class="layer" id="layer-ships">
-    <div class="sec-hdr">
-      <div class="sec-bar"></div>
-      <div class="sec-title" id="ship-list-title">Vessels</div>
-      <div class="sec-note" id="ship-list-note"></div>
-    </div>
-    <div class="ship-list-controls">
-      <input
-        type="text"
-        class="search-box"
-        id="ship-search"
-        placeholder="SEARCH VESSELS..."
-        oninput="filterShips()"
-      >
-      <div class="ship-count-badge" id="ship-count-badge">0 VESSELS</div>
-    </div>
+  <main>
+    <div class="result-count" id="result-count">Loading…</div>
     <div class="ship-grid" id="ship-grid"></div>
-  </div>
+  </main>
 
 </div>
 {% endblock %}
 
 {% block page_script %}
-  // ─── State ───────────────────────────────────────────────────────────────────
+  // --- State ---
   let ALL_SHIPS = [];
-  let filteredShips = [];
-  let activeMode = null;
-  let activeMfr = null;
-  let activeCareer = null;
-  let activeRole = null;
+  const facets = { careers: new Set(), roles: new Set(), mfrs: new Set(), sizes: new Set() };
 
-  // Breadcrumb trail: array of { label, action }
-  let trail = [{ label: 'Ships', action: () => showLayer('mode') }];
-
-  // ─── Helpers ─────────────────────────────────────────────────────────────────
-  function fmt(v, dec, unit) {
-    if (v === null || v === undefined || v === '') return '—';
-    const n = parseFloat(v);
-    if (isNaN(n)) return '—';
-    const s = dec ? n.toFixed(dec) : Math.round(n).toLocaleString();
-    return unit ? `${s} ${unit}` : s;
-  }
-
+  // --- Helpers ---
   function getMfr(entityName) {
     const MFR_MAP = {
       aegs:'Aegis', anvl:'Anvil', argo:'Argo', cnou:'C.O.', crus:'Crusader',
@@ -536,240 +490,69 @@
     const prefix = (entityName || '').split('_')[0].toLowerCase();
     return MFR_MAP[prefix] || prefix.toUpperCase();
   }
-
   function cleanCareer(s) {
-    return (s || '').replace('@vehicle_focus_', '').replace('@vehicle_class_', '').replace(/_/g, ' ').trim();
+    return (s || '').replace('@vehicle_focus_', '').replace('@vehicle_class_', '')
+      .replace('@item_ShipFocus_', '').replace('@Item Shipfocus ', '').replace(/^@/, '')
+      .replace(/_/g, ' ').trim();
   }
-
   function cleanRole(s) {
-    return (s || '').replace('@vehicle_class_', '').replace('@vehicle_role_', '').replace(/_/g, ' ').trim();
+    return (s || '').replace('@vehicle_class_', '').replace('@vehicle_role_', '')
+      .replace(/^@/, '').replace(/_/g, ' ').trim();
   }
-
   function toTitleCase(s) {
     return (s || '').replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
   }
+  const SIZE_LABELS = { 1:'Snub / Vehicle', 2:'Small', 3:'Medium', 4:'Large', 5:'Large', 6:'Capital' };
+  const SIZE_ORDER  = ['Snub / Vehicle','Small','Medium','Large','Capital'];
+  function sizeLabel(sc){ return SIZE_LABELS[sc] || null; }
 
-  // ─── Layer navigation ────────────────────────────────────────────────────────
-  function showLayer(layerId) {
-    document.querySelectorAll('.layer').forEach(l => l.classList.remove('active'));
-    document.getElementById('layer-' + layerId).classList.add('active');
-    renderBreadcrumb();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  function shipCareer(s){ return toTitleCase(cleanCareer(s.career)) || ''; }
+  function shipRole(s){ return toTitleCase(cleanRole(s.role)) || ''; }
+  function shipMfr(s){ return getMfr(s.entity_name); }
+  function shipSize(s){ return sizeLabel(s.size_class); }
+  function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+  // --- Filtering ---
+  function shipPasses(s){
+    // Role/Career facet -- OR across selected careers and roles.
+    if (facets.careers.size || facets.roles.size) {
+      if (!(facets.careers.has(shipCareer(s)) || facets.roles.has(shipRole(s)))) return false;
+    }
+    if (facets.mfrs.size && !facets.mfrs.has(shipMfr(s))) return false;
+    if (facets.sizes.size) { const sz = shipSize(s); if (!sz || !facets.sizes.has(sz)) return false; }
+    return true;
   }
 
-  function renderBreadcrumb() {
-    const bc = document.getElementById('breadcrumb');
-    bc.innerHTML = trail.map((item, i) => {
-      const isLast = i === trail.length - 1;
-      const sep = i > 0 ? `<span class="bc-sep">›</span>` : '';
-      if (isLast) {
-        return `${sep}<span class="bc-item active">${item.label}</span>`;
+  function applyFilters() {
+    const q = (document.getElementById('ship-search').value || '').toLowerCase().trim();
+    const result = ALL_SHIPS.filter(s => {
+      if (!shipPasses(s)) return false;
+      if (q) {
+        const name = (s.display_name || s.entity_name || '').toLowerCase();
+        if (!name.includes(q) && !shipMfr(s).toLowerCase().includes(q)) return false;
       }
-      return `${sep}<span class="bc-item" onclick="navigateTrail(${i})">${item.label}</span>`;
-    }).join('');
-  }
-
-  function navigateTrail(index) {
-    trail = trail.slice(0, index + 1);
-    trail[index].action();
-  }
-
-  // ─── Mode select ─────────────────────────────────────────────────────────────
-  function selectMode(mode) {
-    activeMode = mode;
-    activeMfr = null;
-    activeCareer = null;
-    activeRole = null;
-
-    if (mode === 'all') {
-      trail = [
-        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
-        { label: 'All Ships', action: () => showShipList(ALL_SHIPS, 'All Ships') }
-      ];
-      showShipList(ALL_SHIPS, 'All Ships');
-
-    } else if (mode === 'manufacturer') {
-      trail = [
-        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
-        { label: 'Manufacturer', action: () => showMfrLayer() }
-      ];
-      showMfrLayer();
-
-    } else if (mode === 'career') {
-      trail = [
-        { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
-        { label: 'Career', action: () => showCareerLayer() }
-      ];
-      showCareerLayer();
-    }
-  }
-
-  // ─── Manufacturer layer ───────────────────────────────────────────────────────
-  function showMfrLayer() {
-    // Group ships by manufacturer
-    const mfrMap = {};
-    ALL_SHIPS.forEach(s => {
-      const mfr = getMfr(s.entity_name);
-      if (!mfrMap[mfr]) mfrMap[mfr] = [];
-      mfrMap[mfr].push(s);
+      return true;
     });
-
-    const sorted = Object.keys(mfrMap).sort();
-    document.getElementById('mfr-count-note').textContent = `${sorted.length} manufacturers`;
-
-    const grid = document.getElementById('mfr-grid');
-    grid.innerHTML = sorted.map((mfr, i) => `
-      <div class="mfr-card anim-in" style="animation-delay:${Math.min(i * 0.02, 0.3)}s" onclick="selectMfr('${mfr}')">
-        <div class="mfr-code">${mfr}</div>
-        <div class="mfr-count">${mfrMap[mfr].length} vessels</div>
-      </div>
-    `).join('');
-
-    showLayer('manufacturer');
-  }
-
-  function selectMfr(mfr) {
-    activeMfr = mfr;
-    const ships = ALL_SHIPS.filter(s => getMfr(s.entity_name) === mfr);
-    trail = [
-      { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
-      { label: 'Manufacturer', action: () => showMfrLayer() },
-      { label: mfr, action: () => showShipList(ships, mfr) }
-    ];
-    showShipList(ships, mfr);
-  }
-
-  // ─── Career layer ─────────────────────────────────────────────────────────────
-  function showCareerLayer() {
-    const careerMap = {};
-    ALL_SHIPS.forEach(s => {
-      const career = toTitleCase(cleanCareer(s.career));
-      if (!career) return;
-      if (!careerMap[career]) careerMap[career] = [];
-      careerMap[career].push(s);
-    });
-
-    const sorted = Object.keys(careerMap).sort();
-    document.getElementById('career-count-note').textContent = `${sorted.length} career designations`;
-
-    const grid = document.getElementById('career-grid');
-    grid.innerHTML = sorted.map((career, i) => `
-      <div class="career-card anim-in" style="animation-delay:${Math.min(i * 0.03, 0.3)}s" onclick="selectCareer('${career}')">
-        <div class="career-accent"></div>
-        <div class="career-name">${career}</div>
-        <div class="career-count">${careerMap[career].length} vessels</div>
-      </div>
-    `).join('');
-
-    showLayer('career');
-  }
-
-  function selectCareer(career) {
-    activeCareer = career;
-    const ships = ALL_SHIPS.filter(s => toTitleCase(cleanCareer(s.career)) === career);
-
-    // Build role map for this career
-    const roleMap = {};
-    ships.forEach(s => {
-      const role = toTitleCase(cleanRole(s.role));
-      if (!role) return;
-      if (!roleMap[role]) roleMap[role] = [];
-      roleMap[role].push(s);
-    });
-
-    const roles = Object.keys(roleMap).sort();
-
-    trail = [
-      { label: 'Ships', action: () => { trail = trail.slice(0,1); showLayer('mode'); } },
-      { label: 'Career', action: () => showCareerLayer() },
-      { label: career, action: () => showRoleLayer(career, ships, roleMap) }
-    ];
-
-    // Skip role layer if only one role
-    if (roles.length <= 1) {
-      showShipList(ships, career);
-    } else {
-      showRoleLayer(career, ships, roleMap);
-    }
-  }
-
-  // ─── Role layer ───────────────────────────────────────────────────────────────
-  function showRoleLayer(career, ships, roleMap) {
-    const roles = Object.keys(roleMap).sort();
-    document.getElementById('role-section-title').textContent = career;
-    document.getElementById('role-count-note').textContent = `${roles.length} role classifications`;
-
-    const grid = document.getElementById('role-grid');
-    grid.innerHTML = `
-      <div class="role-card all-roles anim-in" onclick="selectRole(null, '${career}', ${JSON.stringify(ships).replace(/"/g, '&quot;')})">
-        <div class="role-name">All ${career}</div>
-        <div class="role-count">${ships.length} vessels</div>
-      </div>
-      ${roles.map((role, i) => `
-        <div class="role-card anim-in" style="animation-delay:${Math.min((i+1) * 0.03, 0.3)}s" onclick="selectRole('${role}', '${career}', null)">
-          <div class="role-name">${role}</div>
-          <div class="role-count">${roleMap[role].length} vessels</div>
-        </div>
-      `).join('')}
-    `;
-
-    showLayer('role');
-  }
-
-  function selectRole(role, career, allShips) {
-    activeRole = role;
-    let ships;
-    if (role === null) {
-      ships = allShips || ALL_SHIPS.filter(s => toTitleCase(cleanCareer(s.career)) === career);
-    } else {
-      ships = ALL_SHIPS.filter(s =>
-        toTitleCase(cleanCareer(s.career)) === career &&
-        toTitleCase(cleanRole(s.role)) === role
-      );
-    }
-    const label = role || `All ${career}`;
-    trail.push({ label, action: () => showShipList(ships, label) });
-    showShipList(ships, label);
-  }
-
-  // ─── Ship list ────────────────────────────────────────────────────────────────
-  function showShipList(ships, title) {
-    filteredShips = ships;
-    document.getElementById('ship-list-title').textContent = title;
-    document.getElementById('ship-search').value = '';
-    renderShipGrid(ships);
-    showLayer('ships');
-  }
-
-  function filterShips() {
-    const q = document.getElementById('ship-search').value.toLowerCase().trim();
-    const result = q
-      ? filteredShips.filter(s =>
-          (s.display_name || s.entity_name || '').toLowerCase().includes(q) ||
-          getMfr(s.entity_name).toLowerCase().includes(q)
-        )
-      : filteredShips;
     renderShipGrid(result);
+    const rc = document.getElementById('result-count');
+    rc.textContent = result.length === ALL_SHIPS.length
+      ? `${result.length} ships`
+      : `${result.length} of ${ALL_SHIPS.length} ships`;
   }
 
+  // --- Ship grid ---
   function renderShipGrid(ships) {
     const grid = document.getElementById('ship-grid');
-    document.getElementById('ship-count-badge').textContent = `${ships.length} VESSEL${ships.length !== 1 ? 'S' : ''}`;
-
-    if (ships.length === 0) {
-      grid.innerHTML = `<div class="empty-state">No vessels match your search</div>`;
-      return;
-    }
-
+    if (!ships.length) { grid.innerHTML = `<div class="grid-empty">No ships match your filters.</div>`; return; }
     grid.innerHTML = ships.map(s => {
-      const name   = s.display_name || s.entity_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      const mfr    = getMfr(s.entity_name);
-      const career = toTitleCase(cleanCareer(s.career));
-      const role   = toTitleCase(cleanRole(s.role));
+      const name   = s.display_name || s.entity_name.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      const mfr    = shipMfr(s);
+      const career = shipCareer(s);
+      const role   = shipRole(s);
       const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
-      const crew   = s.crew_min === s.crew_max ? `${s.crew_min}` : `${s.crew_min}–${s.crew_max}`;
-      const len    = s.length_rsi_m ? `${s.length_rsi_m}m` : '—';
-
+      const crew   = s.crew_size ? `${s.crew_size}` : '—';
+      const len    = s.length_rsi_m ? `${s.length_rsi_m}m` : (s.length_m ? `${s.length_m}m` : '—');
+      const size   = shipSize(s);
       return `
         <a class="ship-card" href="/ships/${s.entity_name}">
           <div class="ship-card-bar"></div>
@@ -777,52 +560,98 @@
             <div class="ship-mfr">${mfr}</div>
             <div class="ship-name">${name}</div>
             <div class="ship-stats">
-              <div>
-                <div class="ship-stat-label">Cargo</div>
-                <div class="ship-stat-value hi">${cargo}</div>
-              </div>
-              <div>
-                <div class="ship-stat-label">Crew</div>
-                <div class="ship-stat-value">${crew}</div>
-              </div>
-              <div>
-                <div class="ship-stat-label">Length</div>
-                <div class="ship-stat-value">${len}</div>
-              </div>
-              <div>
-                <div class="ship-stat-label">Role</div>
-                <div class="ship-stat-value">${role || career}</div>
-              </div>
+              <div><div class="ship-stat-label">Cargo</div><div class="ship-stat-value hi">${cargo}</div></div>
+              <div><div class="ship-stat-label">Crew</div><div class="ship-stat-value">${crew}</div></div>
+              <div><div class="ship-stat-label">Length</div><div class="ship-stat-value">${len}</div></div>
+              <div><div class="ship-stat-label">Role</div><div class="ship-stat-value">${role || career || '—'}</div></div>
             </div>
             <div class="ship-tags">
               ${career ? `<span class="ship-tag career">${career}</span>` : ''}
+              ${size ? `<span class="ship-tag size">${size}</span>` : ''}
             </div>
           </div>
-        </a>
-      `;
+        </a>`;
     }).join('');
   }
 
-  // ─── Init ─────────────────────────────────────────────────────────────────────
+  // --- Sidebar facet tree ---
+  function buildFilterTree() {
+    const careerRoles = new Map();
+    const careerCount = new Map();
+    const mfrCount = new Map();
+    const sizeCount = new Map();
+    for (const s of ALL_SHIPS) {
+      const c = shipCareer(s), r = shipRole(s), m = shipMfr(s), z = shipSize(s);
+      if (c) {
+        careerCount.set(c, (careerCount.get(c)||0)+1);
+        if (!careerRoles.has(c)) careerRoles.set(c, new Map());
+        if (r) { const rm = careerRoles.get(c); rm.set(r, (rm.get(r)||0)+1); }
+      }
+      if (m) mfrCount.set(m, (mfrCount.get(m)||0)+1);
+      if (z) sizeCount.set(z, (sizeCount.get(z)||0)+1);
+    }
+
+    const checkRow = (facet, value, count) =>
+      `<label class="filter-check"><input type="checkbox" data-facet="${facet}" data-value="${esc(value)}"><span class="fc-label">${value}</span><span class="fc-count">${count}</span></label>`;
+
+    let html = '<div class="filter-head">Role / Career</div>';
+    for (const c of [...careerCount.keys()].sort()) {
+      const roles = [...(careerRoles.get(c)||new Map()).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
+      html += `<div class="filter-group2 collapsed">
+        <div class="filter-group2-toggle">
+          <input type="checkbox" data-facet="careers" data-value="${esc(c)}" onclick="event.stopPropagation()">
+          <span class="caret">▼</span><span>${c}</span>
+          <span class="fc-count" style="margin-left:auto">${careerCount.get(c)}</span>
+        </div>
+        <div class="filter-group2-body">${roles.map(([r,n]) => checkRow('roles', r, n)).join('')}</div>
+      </div>`;
+    }
+
+    html += '<div class="filter-head">Manufacturer</div>';
+    html += [...mfrCount.keys()].sort().map(m => checkRow('mfrs', m, mfrCount.get(m))).join('');
+
+    html += '<div class="filter-head">Size</div>';
+    html += SIZE_ORDER.filter(z => sizeCount.has(z)).map(z => checkRow('sizes', z, sizeCount.get(z))).join('');
+
+    document.getElementById('filter-tree').innerHTML = html;
+  }
+
+  function wireFilterTree() {
+    const tree = document.getElementById('filter-tree');
+    tree.addEventListener('change', e => {
+      const inp = e.target;
+      if (inp.tagName !== 'INPUT') return;
+      const facet = inp.dataset.facet, value = inp.dataset.value;
+      if (inp.checked) facets[facet].add(value); else facets[facet].delete(value);
+      const lab = inp.closest('.filter-check'); if (lab) lab.classList.toggle('checked', inp.checked);
+      applyFilters();
+    });
+    tree.addEventListener('click', e => {
+      const tog = e.target.closest('.filter-group2-toggle');
+      if (tog && e.target.tagName !== 'INPUT') tog.closest('.filter-group2').classList.toggle('collapsed');
+    });
+  }
+
+  function clearFilters() {
+    for (const k of Object.keys(facets)) facets[k].clear();
+    document.querySelectorAll('#filter-tree input[type=checkbox]').forEach(i => { i.checked = false; });
+    document.querySelectorAll('#filter-tree .filter-check.checked').forEach(l => l.classList.remove('checked'));
+    document.getElementById('ship-search').value = '';
+    applyFilters();
+  }
+
+  // --- Init ---
   async function init() {
     try {
-      const ships = await api('/api/ships?limit=2000');
-      ALL_SHIPS = ships;
-
-      // Update mode card counts
-      const mfrCount = new Set(ships.map(s => getMfr(s.entity_name))).size;
-      const careerCount = new Set(ships.map(s => toTitleCase(cleanCareer(s.career))).filter(Boolean)).size;
-
-      document.getElementById('mode-count-all').textContent    = ships.length;
-      document.getElementById('mode-count-mfr').textContent    = mfrCount;
-      document.getElementById('mode-count-career').textContent = careerCount;
-      document.getElementById('total-count').textContent       = `${ships.length} vessels indexed`;
-
-    } catch(e) {
-      document.getElementById('total-count').textContent = 'Error loading ships';
+      ALL_SHIPS = await api('/api/ships?limit=2000');
+      buildFilterTree();
+      wireFilterTree();
+      applyFilters();
+    } catch (e) {
+      document.getElementById('result-count').textContent = 'Error loading ships';
+      document.getElementById('filter-tree').innerHTML = '<div class="grid-empty">Failed to load.</div>';
       console.error('Ships init error:', e);
     }
   }
-
   init();
 {% endblock %}

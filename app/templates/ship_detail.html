@@ -151,6 +151,32 @@
 
 .pm-seg.gated { cursor: not-allowed; opacity: 0.45; }
 
+/* Power summary readout (consumed vs available segments, reacts to the grid). */
+.pm-summary {
+  margin-top: 10px;
+  padding: 7px 10px;
+  background: rgba(126,38,25,0.10);
+  border: 1px solid rgba(126,38,25,0.25);
+  border-radius: 4px;
+}
+.pm-summary .pms-row { display: flex; align-items: center; gap: 9px; }
+.pm-summary .pms-icon { width: 22px; height: 22px; background-color: #E8855C; flex-shrink: 0; }
+.pm-summary .pms-readout {
+  display: flex; align-items: baseline; gap: 4px;
+  font-family: 'Orbitron', sans-serif;
+}
+.pm-summary .pms-num { font-size: 20px; font-weight: 700; color: #CBB8AA; line-height: 1; }
+.pm-summary .pms-num.over { color: #E8855C; }
+.pm-summary .pms-avail { font-size: 12px; color: #9A8C64; }
+.pm-summary .pms-warn {
+  display: none; font-size: 16px; color: #E8855C; margin-left: 2px;
+  align-self: center;
+}
+.pm-summary .pms-label {
+  margin-left: auto; font-size: 9px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: #9A8C64;
+}
+
 /* "H" = heat / overclock segment on coolers + life support (top segment). */
 .pm-seg-h {
   font-size: 9px;
@@ -1763,6 +1789,21 @@ body::before {
       <div class="sb-lbl-header">Power Distribution</div>
       <div class="pm-grid" id="pm-grid"><!-- 8 category columns rendered by JS --></div>
 
+      <!-- ── Power / Cooling / Weapon summary (live, reacts to the grid) ──── -->
+      <div class="pm-summary">
+        <div class="pms-row">
+          <div class="icon-md icon-powerplant pms-icon"></div>
+          <div class="pms-readout">
+            <span class="pms-num" id="pm-power-consumed">—</span>
+            <span class="pms-avail">/ <span id="pm-power-avail">—</span></span>
+            <span class="pms-warn material-icons-outlined" id="pm-power-warn"
+                  title="Power draw exceeds generator output">warning_amber</span>
+          </div>
+          <span class="pms-label">Segments</span>
+        </div>
+        <!-- Cooling + weapon-capacity pending an extractor pass for heat/regen data -->
+      </div>
+
       <!-- ── Meta Stats Panel ───────────────────────────────────────────── -->
       <div class="sb-lbl-header" style="margin-top:14px;">Performance</div>
       <div class="ms-panel">
@@ -1870,8 +1911,8 @@ body::before {
     <nav class="nav-section">
       <div class="nav-lbl">Sections</div>
       <a class="nav-a" href="#sec-overview">Overview</a>
-      <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
       <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
+	  <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
       <a class="nav-a" href="#sec-cargo">Cargo</a>
       <a class="nav-a" href="#sec-fuel">Fuel</a>
       <a class="nav-a" href="#sec-weapons">Weapons &amp; Missiles</a>
@@ -1939,36 +1980,6 @@ body::before {
         </div>
       </section>
 
-      <!-- Hull & Survivability -->
-      <section class="sec" id="sec-hull">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hull &amp; Survivability</div></div>
-        <div class="grid2" style="margin-bottom:12px">
-          <div class="panel">
-            <div class="panel-title">Structure</div>
-            <div class="dr"><span class="dr-l">Dimensions (L×W×H)</span><span class="dr-v" id="hull-dims">—</span></div>
-            <div class="dr"><span class="dr-l">Mass</span><span class="dr-v" id="hull-mass">-</span></div>
-            <div class="dr"><span class="dr-l">Total Hull HP</span><span class="dr-v gap-val">data gap</span></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Armor</div>
-            <div id="armor-content"><div class="dr"><span class="dr-l">Armor HP</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-        </div>
-        <div class="grid3">
-          <div class="panel">
-            <div class="panel-title">Shield HP &amp; Regen</div>
-            <div id="shield-summary-content"><div class="dr"><span class="dr-l">Total HP</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Shield Absorption</div>
-            <div id="shield-absorb-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Shield Resistance</div>
-            <div id="shield-resist-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-        </div>
-      </section>
 
       <!-- Flight Performance -->
 	  <!-- Commented Out
@@ -2034,6 +2045,38 @@ body::before {
 		  </div>
         </div>
     </section>
+	
+	
+	<!-- Hull & Survivability -->
+      <section class="sec" id="sec-hull">
+        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hull &amp; Survivability</div></div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div class="panel">
+            <div class="panel-title">Structure</div>
+            <div class="dr"><span class="dr-l">Dimensions (L×W×H)</span><span class="dr-v" id="hull-dims">—</span></div>
+            <div class="dr"><span class="dr-l">Mass</span><span class="dr-v" id="hull-mass">-</span></div>
+            <div class="dr"><span class="dr-l">Total Hull HP</span><span class="dr-v gap-val">data gap</span></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Armor</div>
+            <div id="armor-content"><div class="dr"><span class="dr-l">Armor HP</span><span class="dr-v gap-val">loading...</span></div></div>
+          </div>
+        </div>
+        <div class="grid3">
+          <div class="panel">
+            <div class="panel-title">Shield HP &amp; Regen</div>
+            <div id="shield-summary-content"><div class="dr"><span class="dr-l">Total HP</span><span class="dr-v gap-val">loading...</span></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Shield Absorption</div>
+            <div id="shield-absorb-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Shield Resistance</div>
+            <div id="shield-resist-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
+          </div>
+        </div>
+      </section>
 	
 	
       <!-- Cargo -->
@@ -3486,8 +3529,47 @@ body::before {
     el.textContent = fmt(value, decimals);
   }
 
+  // ── Power summary: consumed (active grid segments) vs available (generator) ──
+  // Active segments for one cell = mandatory of each enabled component + the
+  // cell's lit adjustable segments (only when a component is on). Locked cells
+  // (quantum) count their whole block. Mirrors the grid the player toggles.
+  function cellConsumedSegments(cell) {
+    const st = CELL_STATE[cell.key];
+    if (!st) return 0;
+    let total = 0;
+    cell.comps.forEach((comp, i) => {
+      if (st.compEnabled[i]) total += powerBarBreakdown(comp, cell.cat.key).mandatory;
+    });
+    if (st.compEnabled.some(Boolean)) total += st.adjLit.filter(Boolean).length;
+    return total;
+  }
+
+  function computePowerSummary() {
+    const ld = sidebarLoadout();
+    const available = (ld.powerplants || []).reduce((a, p) => a + (p.power_output || 0), 0);
+    let consumed = 0;
+    POWER_CATEGORIES.forEach(cat => {
+      const comps = componentsForCategory(cat.key);
+      if (!comps.length) return;
+      cellsForCategory(cat, comps).forEach(cell => { consumed += cellConsumedSegments(cell); });
+    });
+    return { consumed: Math.round(consumed), available: Math.round(available) };
+  }
+
+  function updatePowerSummary() {
+    const { consumed, available } = computePowerSummary();
+    const over = consumed - available;
+    const numEl  = document.getElementById('pm-power-consumed');
+    const availEl = document.getElementById('pm-power-avail');
+    const warnEl = document.getElementById('pm-power-warn');
+    if (numEl)  { numEl.textContent = consumed; numEl.classList.toggle('over', over > 0); }
+    if (availEl) availEl.textContent = available;
+    if (warnEl)  warnEl.style.display = over > 0 ? '' : 'none';
+  }
+
   function recomputeSidebarStats(ship) {
     if (!ship) return;
+    updatePowerSummary();
     const ld = sidebarLoadout();
 
     // ── Weapons: DPS + Alpha from ammo damage × fire rate × pellet count.
