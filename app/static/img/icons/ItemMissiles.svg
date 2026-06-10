@@ -1,25 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Missile rack: three missiles mounted on a rail. Single-color silhouette
-     so it works as a CSS mask (tinted via .icon-md background-color). -->
-<svg version="1.1" baseProfile="tiny" xmlns="http://www.w3.org/2000/svg"
-     x="0px" y="0px" viewBox="0 0 64 64" overflow="visible" xml:space="preserve">
-  <g fill="#FFFFFF">
-    <!-- mounting rail / pylon -->
-    <rect x="5" y="47" width="54" height="8" rx="2"/>
-    <!-- missile 1 -->
-    <polygon points="15,7 10.5,18 19.5,18"/>
-    <rect x="10.5" y="17" width="9" height="30" rx="2.5"/>
-    <polygon points="10.5,39 6,47 10.5,47"/>
-    <polygon points="19.5,39 24,47 19.5,47"/>
-    <!-- missile 2 -->
-    <polygon points="32,7 27.5,18 36.5,18"/>
-    <rect x="27.5" y="17" width="9" height="30" rx="2.5"/>
-    <polygon points="27.5,39 23,47 27.5,47"/>
-    <polygon points="36.5,39 41,47 36.5,47"/>
-    <!-- missile 3 -->
-    <polygon points="49,7 44.5,18 53.5,18"/>
-    <rect x="44.5" y="17" width="9" height="30" rx="2.5"/>
-    <polygon points="44.5,39 40,47 44.5,47"/>
-    <polygon points="53.5,39 58,47 53.5,47"/>
-  </g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 64 64" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <path d="M27.3,45.4L23.7,61L17.6,54.9L12,60.7L7.9,56.5L4,52.4L9.6,46.9L3.5,40.8L19.2,37.2L38.1,18.3L32.2,12.2L42.7,13.5L48.8,7.6L61.3,3.2L56.8,15.8L50.9,21.8L52.2,32.4L46.3,26.3L27.3,45.4Z" style="fill:white;fill-rule:nonzero;"/>
+    <g transform="matrix(0.446367,0,0,0.446367,5.03772,-0.228374)">
+        <path d="M27.3,45.4L23.7,61L17.6,54.9L12,60.7L7.9,56.5L4,52.4L9.6,46.9L3.5,40.8L19.2,37.2L38.1,18.3L32.2,12.2L42.7,13.5L48.8,7.6L61.3,3.2L56.8,15.8L50.9,21.8L52.2,32.4L46.3,26.3L27.3,45.4Z" style="fill:white;fill-rule:nonzero;"/>
+    </g>
 </svg>
