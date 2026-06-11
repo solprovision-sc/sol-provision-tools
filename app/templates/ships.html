@@ -304,6 +304,12 @@
     transition: background 0.18s;
   }
   .ship-card-body { padding: 14px; }
+  .ship-card-hdr-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
   .ship-mfr {
     font-size: 8px;
     letter-spacing: 2px;
@@ -311,6 +317,26 @@
     text-transform: uppercase;
     margin-bottom: 4px;
   }
+  .ship-card-hdr-row .ship-mfr { margin-bottom: 0; }
+  .ship-claim-btn {
+    background: transparent;
+    border: 1px solid rgba(154,140,100,0.4);
+    border-radius: 2px;
+    color: #9A8C64;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .ship-claim-btn:hover { color: #E8855C; border-color: #E8855C; }
+  .ship-claim-btn.owned { color: #4ea35b; border-color: #4ea35b; }
+  .ship-claim-btn.owned:hover { color: #c44545; border-color: #c44545; }
+  .ship-claim-btn:disabled { opacity: 0.45; cursor: default; }
+  .ship-claim-btn:disabled:hover { color: #9A8C64; border-color: rgba(154,140,100,0.4); }
   .ship-name {
     font-family: 'Orbitron', sans-serif;
     font-weight: 700;
@@ -554,10 +580,14 @@
       const len    = s.length_rsi_m ? `${s.length_rsi_m}m` : (s.length_m ? `${s.length_m}m` : '—');
       const size   = shipSize(s);
       return `
-        <a class="ship-card" href="/ships/${s.entity_name}">
+        <a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}">
           <div class="ship-card-bar"></div>
           <div class="ship-card-body">
-            <div class="ship-mfr">${mfr}</div>
+            <div class="ship-card-hdr-row">
+              <div class="ship-mfr">${mfr}</div>
+              <button type="button" class="ship-claim-btn" disabled
+                      onclick="toggleShipClaim('${s.entity_name}', this, event)">Claim</button>
+            </div>
             <div class="ship-name">${name}</div>
             <div class="ship-stats">
               <div><div class="ship-stat-label">Cargo</div><div class="ship-stat-value hi">${cargo}</div></div>
@@ -572,6 +602,80 @@
           </div>
         </a>`;
     }).join('');
+    paintAllShipOwnership();
+  }
+
+  // --- Ship ownership (mirrors blueprint claiming) -------------------------
+  let currentUser = null;             // {discord_id, callsign, ...} or null
+  let ownershipByShip = new Map();    // entity_name -> {count, ownedByMe}
+
+  async function loadShipOwnership() {
+    try { currentUser = await api('/api/auth/me'); } catch (_) { currentUser = null; }
+    ownershipByShip = new Map();
+    const ents = ALL_SHIPS.map(s => s.entity_name).filter(Boolean);
+    const myId = currentUser && currentUser.discord_id;
+    const CHUNK = 60;
+    for (let i = 0; i < ents.length; i += CHUNK) {
+      const slice = ents.slice(i, i + CHUNK);
+      let rows;
+      try {
+        rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(slice.join(','))}`);
+      } catch (_) { continue; }
+      rows.forEach(r => {
+        let st = ownershipByShip.get(r.ship_entity);
+        if (!st) { st = { count: 0, ownedByMe: false }; ownershipByShip.set(r.ship_entity, st); }
+        st.count += 1;
+        if (myId && r.discord_id === myId) st.ownedByMe = true;
+      });
+    }
+    paintAllShipOwnership();
+  }
+
+  function paintAllShipOwnership() {
+    document.querySelectorAll('.ship-card').forEach(card => {
+      const btn = card.querySelector('.ship-claim-btn');
+      if (!btn) return;
+      const st = ownershipByShip.get(card.dataset.entity) || { count: 0, ownedByMe: false };
+      if (!currentUser) {
+        btn.textContent = 'Claim';
+        btn.disabled = true;
+        btn.title = 'Log in to claim';
+        btn.classList.remove('owned');
+      } else {
+        btn.disabled = false;
+        btn.title = '';
+        if (st.ownedByMe) { btn.textContent = 'Unclaim'; btn.classList.add('owned'); }
+        else              { btn.textContent = 'Claim';   btn.classList.remove('owned'); }
+      }
+    });
+  }
+
+  async function toggleShipClaim(entity, btn, ev) {
+    // The button lives inside the card's <a> — don't navigate.
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    if (!currentUser) return;
+    const st = ownershipByShip.get(entity) || { count: 0, ownedByMe: false };
+    const method = st.ownedByMe ? 'DELETE' : 'POST';
+    btn.disabled = true;
+    try {
+      const r = await fetch(`/api/ship/${encodeURIComponent(entity)}/claim`, { method });
+      if (!r.ok && r.status !== 409 && r.status !== 404) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || `Failed to ${st.ownedByMe ? 'unclaim' : 'claim'} ship`);
+        btn.disabled = false;
+        return;
+      }
+      const rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(entity)}`);
+      const myId = currentUser.discord_id;
+      ownershipByShip.set(entity, {
+        count: rows.length,
+        ownedByMe: rows.some(x => x.discord_id === myId),
+      });
+      paintAllShipOwnership();
+    } catch (e) {
+      alert('Network error — try again.');
+      btn.disabled = false;
+    }
   }
 
   // --- Sidebar facet tree ---
@@ -647,6 +751,7 @@
       buildFilterTree();
       wireFilterTree();
       applyFilters();
+      loadShipOwnership();   // async — paints claim buttons when it lands
     } catch (e) {
       document.getElementById('result-count').textContent = 'Error loading ships';
       document.getElementById('filter-tree').innerHTML = '<div class="grid-empty">Failed to load.</div>';
