@@ -76,15 +76,38 @@
 }
 
 .s-name {
-  font-family: 'Orbitron', sans-serif; 
-  font-weight: 900; 
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
   font-size: 15px;
-  letter-spacing: 2px; 
-  color: #fff; 
+  letter-spacing: 2px;
+  color: #fff;
   text-transform: uppercase;
-  line-height: 1.3; 
+  line-height: 1.3;
   margin-bottom: 10px;
 }
+
+/* Ship name + Claim button row (claim mirrors the blueprint-card button). */
+.s-name-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 8px; margin-bottom: 10px;
+}
+.s-name-row .s-name { margin-bottom: 0; }
+.ship-claim-btn {
+  background: transparent;
+  border: 1px solid rgba(154,140,100,0.4);
+  border-radius: 2px;
+  color: #9A8C64;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  padding: 3px 8px; cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ship-claim-btn:hover { color: #E8855C; border-color: #E8855C; }
+.ship-claim-btn.owned { color: #4ea35b; border-color: #4ea35b; }
+.ship-claim-btn.owned:hover { color: #c44545; border-color: #c44545; }
+.ship-claim-btn:disabled { opacity: 0.45; cursor: default; }
+.ship-claim-btn:disabled:hover { color: #9A8C64; border-color: rgba(154,140,100,0.4); }
 
 /* Sidebar Stats */
 .sb-stats { 
@@ -151,6 +174,28 @@
 
 .pm-seg.gated { cursor: not-allowed; opacity: 0.45; }
 
+/* Master Mode toggle (SCM / NAV) between the grid and the summary readouts. */
+.pm-mode-toggle {
+  display: flex; gap: 0; margin-top: 8px;
+  border: 1px solid rgba(126,38,25,0.35); border-radius: 4px; overflow: hidden;
+}
+.pm-mode-btn {
+  flex: 1; padding: 4px 0; cursor: pointer; border: none;
+  background: transparent; color: #9A8C64;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  transition: background 0.12s, color 0.12s;
+}
+.pm-mode-btn + .pm-mode-btn { border-left: 1px solid rgba(126,38,25,0.35); }
+.pm-mode-btn:hover { color: #CBB8AA; }
+.pm-mode-btn.active { background: #7E2619; color: #fff; }
+
+/* Categories forced off by the current master mode: dimmed, non-interactive. */
+.pm-col.mode-locked { opacity: 0.35; }
+.pm-col.mode-locked .pm-icon,
+.pm-col.mode-locked .pm-mandatory,
+.pm-col.mode-locked .pm-seg { cursor: not-allowed; }
+
 /* Power summary readout (consumed vs available segments, reacts to the grid). */
 .pm-summary {
   margin-top: 10px;
@@ -175,6 +220,24 @@
 .pm-summary .pms-label {
   margin-left: auto; font-size: 9px; letter-spacing: 1.5px;
   text-transform: uppercase; color: #9A8C64;
+}
+.pm-summary .pms-cooling { margin-top: 7px; }
+.pm-summary .pms-cool-bar {
+  position: relative; flex: 1; height: 16px;
+  background: rgba(70,40,30,0.35);
+  border: 1px solid rgba(126,38,25,0.35);
+  border-radius: 3px; overflow: hidden;
+}
+.pm-summary .pms-cool-fill {
+  position: absolute; inset: 0 auto 0 0; width: 0%;
+  background: #6FB3C9; opacity: 0.75;
+  transition: width 0.15s, background 0.15s;
+}
+.pm-summary .pms-cool-fill.hot { background: #E8855C; }
+.pm-summary .pms-cool-text {
+  position: relative; display: block; text-align: center;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+  color: #CBB8AA; line-height: 16px; letter-spacing: 0.5px;
 }
 
 /* "H" = heat / overclock segment on coolers + life support (top segment). */
@@ -285,7 +348,8 @@
   margin-right: 4px;
 }
 
-.ms-icon-w, .ms-icon-m, .ms-icon-s, .ms-icon-p, .ms-icon-c, .ms-icon-q {
+.ms-icon-w, .ms-icon-m, .ms-icon-s, .ms-icon-p, .ms-icon-c, .ms-icon-q,
+.ms-icon-t, .ms-icon-e, .ms-icon-th, .ms-icon-sir, .ms-icon-sem, .ms-icon-scs {
   width: 12px; height: 12px;
   background: #E8855C;
   -webkit-mask-position: center; mask-position: center;
@@ -305,6 +369,49 @@
 .ms-icon-c { -webkit-mask-image: url(/static/img/icons/ItemCooler.svg); mask-image: url(/static/img/icons/ItemCooler.svg); }
 
 .ms-icon-q { -webkit-mask-image: url(/static/img/icons/ItemQuantumDrive.svg); mask-image: url(/static/img/icons/ItemQuantumDrive.svg); }
+
+.ms-icon-t   { -webkit-mask-image: url(/static/img/icons/ItemTurret.svg); mask-image: url(/static/img/icons/ItemTurret.svg); }
+
+.ms-icon-e   { -webkit-mask-image: url(/static/img/icons/ItemEMP.svg); mask-image: url(/static/img/icons/ItemEMP.svg); }
+
+.ms-icon-th  { -webkit-mask-image: url(/static/img/icons/ItemThrusters.svg); mask-image: url(/static/img/icons/ItemThrusters.svg); }
+
+.ms-icon-sir { -webkit-mask-image: url(/static/img/icons/signature_ir.svg); mask-image: url(/static/img/icons/signature_ir.svg); }
+
+.ms-icon-sem { -webkit-mask-image: url(/static/img/icons/signature_em.svg); mask-image: url(/static/img/icons/signature_em.svg); }
+
+.ms-icon-scs { -webkit-mask-image: url(/static/img/icons/signature_cs.svg); mask-image: url(/static/img/icons/signature_cs.svg); }
+
+.ms-row-triple { gap: 8px; }
+.ms-row-triple .ms-cell { flex: 1; }
+.ms-cell.ms-center { justify-content: center; }
+
+/* ── Erkul-style grouped meta stats: icon left, big value + small caption, ──
+   stacked sub-lines, dividers between groups. */
+.ms-panel { gap: 7px; }
+.msg-group { display: flex; align-items: flex-start; gap: 11px; padding: 1px 0; }
+.msg-group .msg-icon {
+  width: 18px; height: 18px; margin-top: 4px;
+  -webkit-mask-size: contain; mask-size: contain;
+}
+.msg-icon.msg-icon-none { background: transparent; }
+.msg-body { display: flex; flex-direction: column; min-width: 0; }
+.msg-main { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
+.msg-v {
+  font-family: 'Orbitron', sans-serif; font-weight: 700; color: #CBB8AA;
+  line-height: 1.15; white-space: nowrap;
+}
+.msg-v.xl { font-size: 20px; }
+.msg-v.md { font-size: 15px; }
+.msg-v.sm { font-size: 12px; }
+.msg-v.gap { color: #6a4d3c; font-weight: 400; }
+.msg-u {
+  font-size: 10px; color: #9A8C64; letter-spacing: 0.4px;
+  padding-left: 1px; white-space: nowrap;
+}
+.msg-sp { width: 10px; }
+.msg-line { display: flex; align-items: baseline; gap: 5px; margin-top: 2px; }
+.msg-divider { border-top: 1px solid rgba(126,38,25,0.28); margin: 3px 0; }
 
 .sb-row {
   display: flex; 
@@ -1005,6 +1112,9 @@
   letter-spacing: 1px;
   color: #6b6253;
 }
+
+/* Muted "Empty" slot name (open mining-module slots etc.) */
+.hp-empty-slot { color: #6b6253; font-style: italic; }
 
 /* Multiplier badge next to a missile/bomb name (×2, ×8 …) */
 .hp-count {
@@ -1778,7 +1888,11 @@ body::before {
     <div class="ship-id">
       <a class="s-back" href="/ships">← Fleet Registry</a>
       <div class="s-mfr" id="sb-mfr">—</div>
-      <div class="s-name" id="sb-name">Loading...</div>
+      <div class="s-name-row">
+        <div class="s-name" id="sb-name">Loading...</div>
+        <button type="button" class="ship-claim-btn" id="sb-claim-btn" disabled
+                onclick="toggleShipClaim(this)">Claim</button>
+      </div>
       <div class="sb-row"><span class="sb-lbl">Career</span><span class="sb-val" id="sb-career"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Role</span><span class="sb-val" id="sb-role"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size"></span></div>
@@ -1788,6 +1902,14 @@ body::before {
       <!-- ── Power Management Grid ──────────────────────────────────────── -->
       <div class="sb-lbl-header">Power Distribution</div>
       <div class="pm-grid" id="pm-grid"><!-- 8 category columns rendered by JS --></div>
+
+      <!-- ── Master Mode toggle: SCM (weapons/shields, no QT) vs NAV (QT only) ── -->
+      <div class="pm-mode-toggle" id="pm-mode-toggle">
+        <button class="pm-mode-btn active" data-mode="scm" onclick="setMasterMode('scm')"
+                title="SCM mode — shields and weapons active, quantum drive offline">SCM</button>
+        <button class="pm-mode-btn" data-mode="nav" onclick="setMasterMode('nav')"
+                title="NAV mode — quantum drive active, shields and weapons offline">NAV</button>
+      </div>
 
       <!-- ── Power / Cooling / Weapon summary (live, reacts to the grid) ──── -->
       <div class="pm-summary">
@@ -1801,62 +1923,128 @@ body::before {
           </div>
           <span class="pms-label">Segments</span>
         </div>
-        <!-- Cooling + weapon-capacity pending an extractor pass for heat/regen data -->
+        <!-- Cooling: heat generated by powered components vs coolant from coolers -->
+        <div class="pms-row pms-cooling">
+          <div class="icon-md icon-cooler pms-icon"></div>
+          <div class="pms-cool-bar" id="pm-cool-bar"
+               title="Heat generated by powered components vs coolant generated by coolers">
+            <div class="pms-cool-fill" id="pm-cool-fill"></div>
+            <span class="pms-cool-text" id="pm-cool-text">—</span>
+          </div>
+          <span class="pms-label">Cooling</span>
+        </div>
+        <!-- Weapon capacity: power the guns need vs weapon segments currently on -->
+        <div class="pms-row pms-cooling" id="pm-wpn-row" style="display:none;">
+          <div class="icon-md icon-weapons pms-icon"></div>
+          <div class="pms-readout"
+               title="Minimum power the weapons need for full capability vs weapon segments currently on">
+            <span class="pms-num" id="pm-wpn-req">—</span>
+            <span class="pms-avail">/ <span id="pm-wpn-on">—</span> on</span>
+            <span class="pms-warn material-icons-outlined" id="pm-wpn-warn"
+                  title="Weapon power segments below minimum for full weapon capability">warning_amber</span>
+          </div>
+          <span class="pms-label">Wpn Power</span>
+        </div>
       </div>
 
       <!-- ── Meta Stats Panel ───────────────────────────────────────────── -->
       <div class="sb-lbl-header" style="margin-top:14px;">Performance</div>
       <div class="ms-panel">
-        <!-- Weapons -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-icon-w"></span><span class="ms-num" id="ms-weap-dps">—</span><span class="ms-unit">DPS</span></div>
-          <div class="ms-cell ms-right"><span class="ms-num" id="ms-weap-alpha">—</span><span class="ms-unit">Alpha</span></div>
+        <!-- Pilot weapons -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-w" title="Pilot Weapons"></span>
+          <div class="msg-body">
+            <div class="msg-main">
+              <span class="msg-v xl" id="ms-pilot-dps">—</span><span class="msg-u">dps</span>
+              <span class="msg-sp"></span>
+              <span class="msg-v md" id="ms-pilot-alpha">—</span><span class="msg-u">alpha</span>
+            </div>
+          </div>
         </div>
-        <!-- Missiles -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-icon-m"></span><span class="ms-num" id="ms-miss-count">—</span><span class="ms-unit">Missiles</span></div>
-          <div class="ms-cell ms-right"><span class="ms-num" id="ms-miss-alpha">—</span><span class="ms-unit">Alpha</span></div>
+        <!-- Crew / PDC turrets -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-t" title="Crew / PDC Turrets"></span>
+          <div class="msg-body">
+            <div class="msg-main">
+              <span class="msg-v xl" id="ms-turret-dps">—</span><span class="msg-u">dps</span>
+              <span class="msg-sp"></span>
+              <span class="msg-v md" id="ms-turret-alpha">—</span><span class="msg-u">alpha</span>
+            </div>
+          </div>
         </div>
-        <!-- Shield -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-icon-s"></span><span class="ms-num" id="ms-shield-hp">—</span><span class="ms-unit">Shield HP</span></div>
-          <div class="ms-cell ms-right"><span class="ms-num" id="ms-shield-regen">—</span><span class="ms-unit">hp/s</span></div>
+        <div class="msg-divider"></div>
+        <!-- Ordnance -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-m" title="Missiles & Bombs"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v xl" id="ms-miss-dmg">—</span><span class="msg-u">dmg missiles</span></div>
+          </div>
         </div>
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-sub">Regen</span><span class="ms-num" id="ms-shield-regen-time">—</span><span class="ms-unit">s</span></div>
-          <div class="ms-cell ms-right"><span class="ms-sub">Down</span><span class="ms-num" id="ms-shield-down-delay">—</span><span class="ms-unit">s</span></div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-e" title="EMP"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v md" id="ms-emp-dmg">—</span><span class="msg-u">dmg emp</span></div>
+          </div>
         </div>
-        <!-- Power / Cooling -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-icon-p"></span><span class="ms-num" id="ms-power-out">—</span><span class="ms-unit">Power</span></div>
-          <div class="ms-cell ms-right"><span class="ms-icon-c"></span><span class="ms-num" id="ms-cool-out">—</span><span class="ms-unit">Cool</span></div>
+        <div class="msg-divider"></div>
+        <!-- Shields -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-s" title="Shields"></span>
+          <div class="msg-body">
+            <div class="msg-main">
+              <span class="msg-v xl" id="ms-shield-hp">—</span><span class="msg-u">hp</span>
+              <span class="msg-sp"></span>
+              <span class="msg-v md" id="ms-shield-regen">—</span><span class="msg-u">hp/s</span>
+            </div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-res-phys">—</span><span class="msg-u">% physical resistance</span></div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-res-energy">—</span><span class="msg-u">% energy resistance</span></div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-res-dist">—</span><span class="msg-u">% distortion resistance</span></div>
+          </div>
         </div>
-        <!-- Quantum -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-icon-q"></span><span class="ms-num" id="ms-qd-speed">—</span><span class="ms-unit">km/s</span></div>
-          <div class="ms-cell ms-right"><span class="ms-sub">Fuel/Gm</span><span class="ms-num" id="ms-qd-fuel">—</span></div>
+        <div class="msg-divider"></div>
+        <!-- Speeds -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-q" title="Quantum Speed"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v xl" id="ms-qd-speed">—</span><span class="msg-u">km/s quantum</span></div>
+          </div>
         </div>
-        <!-- Flight -->
-        <div class="ms-row">
-          <div class="ms-cell ms-full"><span class="ms-sub">SCM / NAV</span><span class="ms-num" id="ms-scm-nav">— / —</span><span class="ms-unit">m/s</span></div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-th" title="SCM / NAV Speed"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v md" id="ms-scm-nav">— / —</span><span class="msg-u">m/s scm / nav</span></div>
+          </div>
         </div>
-        <div class="ms-row">
-          <div class="ms-cell ms-full"><span class="ms-sub">P / R / Y</span><span class="ms-num" id="ms-mnv">— / — / —</span><span class="ms-unit">°/s</span></div>
+        <div class="msg-divider"></div>
+        <!-- Boost -->
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-th" title="Boost"></span>
+          <div class="msg-body">
+            <div class="msg-main">
+              <span class="msg-v md" id="ms-boost-dep">—</span><span class="msg-u">s depletion</span>
+              <span class="msg-sp"></span>
+              <span class="msg-v md" id="ms-boost-regen">—</span><span class="msg-u">s regen</span>
+            </div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-boost-ang">— / — / —</span><span class="msg-u">% P / R / Y boost</span></div>
+          </div>
         </div>
-        <!-- Hull / Mass -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-sub">Hull HP</span><span class="ms-num" id="ms-hull-hp">—</span></div>
-          <div class="ms-cell ms-right"><span class="ms-sub">Mass</span><span class="ms-num" id="ms-mass">—</span><span class="ms-unit">kg</span></div>
+        <div class="msg-divider"></div>
+        <!-- Mass -->
+        <div class="msg-group">
+          <span class="msg-icon msg-icon-none"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v md" id="ms-mass">—</span><span class="msg-u">kg mass</span></div>
+          </div>
         </div>
+        <div class="msg-divider"></div>
         <!-- Signatures -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-sub">IR</span><span class="ms-num" id="ms-sig-ir">—</span></div>
-          <div class="ms-cell ms-right"><span class="ms-sub">EM</span><span class="ms-num" id="ms-sig-em">—</span></div>
-        </div>
-        <!-- Crew / Cargo -->
-        <div class="ms-row ms-row-pair">
-          <div class="ms-cell"><span class="ms-sub">Crew</span><span class="ms-num" id="ms-crew">—</span></div>
-          <div class="ms-cell ms-right"><span class="ms-sub">Cargo</span><span class="ms-num" id="ms-cargo">—</span><span class="ms-unit">SCU</span></div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-sir" title="Signatures"></span>
+          <div class="msg-body">
+            <div class="msg-line"><span class="msg-v sm" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
+            <div class="msg-line"><span class="msg-v sm" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
+          </div>
         </div>
       </div>
       <br>
@@ -2211,8 +2399,9 @@ body::before {
       radars: JSON.parse(JSON.stringify(ship.components.radars || []))
     };
     
-    // Extract hardpoint metadata from hardpoints object
-    const hardpointTypes = ['powerplant', 'shield', 'cooler', 'quantum_drive', 'radar'];
+    // Extract hardpoint metadata from hardpoints object.
+    // Keys must match the API's raw port_type values ('quantumdrive', no underscore).
+    const hardpointTypes = ['powerplant', 'shield', 'cooler', 'quantumdrive', 'radar'];
 	
 	console.log('[DEBUG] ship.hardpoints:', ship.hardpoints);
     console.log('[DEBUG] ship.hardpoints.powerplant:', ship.hardpoints.powerplant);
@@ -2233,11 +2422,21 @@ body::before {
   }
   
   /**
+   * Map a swap-modal compType to its state keys. QuantumDrive is the only
+   * multi-word type: its hardpoints are keyed by raw port_type
+   * ('quantumdrive') while its loadout list is 'quantum_drives'.
+   */
+  function compStateKeys(compType) {
+    if (compType === 'QuantumDrive') return { hp: 'quantumdrive', list: 'quantum_drives' };
+    const lc = compType.toLowerCase();
+    return { hp: lc, list: lc + 's' };
+  }
+
+  /**
    * Open component swap modal
    */
   async function openSwapModal(compType, hardpointIndex) {
-    const typeKey = compType.toLowerCase() + 's'; // 'powerplant' -> 'powerplants'
-    const hardpoint = shipLoadout.hardpoints[compType.toLowerCase()];
+    const hardpoint = shipLoadout.hardpoints[compStateKeys(compType).hp];
     
     if (!hardpoint || !hardpoint[hardpointIndex]) {
       console.error('[Modal] Invalid hardpoint:', compType, hardpointIndex);
@@ -2591,7 +2790,7 @@ body::before {
     console.log('[Swap] Applying:', newComponent.display_name || newComponent.entity_name);
     
     // Update current loadout state
-    const typeKey = compType.toLowerCase() + 's';
+    const typeKey = compStateKeys(compType).list;
     shipLoadout.current[typeKey][hardpointIndex] = newComponent;
     
     // Re-render the component card
@@ -2612,7 +2811,7 @@ body::before {
    * Update a single component card with new data
    */
   function updateComponentCard(compType, hardpointIndex, component) {
-    const typeKey = compType.toLowerCase() + 's';
+    const typeKey = compStateKeys(compType).list;
     // Map component types to their actual container IDs
 	const containerMap = {
 	  'PowerPlant': 'power-content',
@@ -2849,8 +3048,8 @@ body::before {
     
     console.log(`[Reset] Restoring stock ${compType}s`);
     
-    const typeKey = compType.toLowerCase() + 's'; // 'PowerPlant' -> 'powerplants'
-    
+    const typeKey = compStateKeys(compType).list;
+
     // Deep copy original back to current for this type only
     shipLoadout.current[typeKey] = JSON.parse(JSON.stringify(shipLoadout.original[typeKey]));
     
@@ -3203,7 +3402,7 @@ body::before {
     { key: 'quantum',     label: 'Quantum',     icon: 'ItemQuantumDrive.svg',  compKey: 'quantum_drives'     },
     { key: 'emp',         label: 'EMP',         icon: 'ItemCountermeasure.svg',compKey: 'emp'                },
     { key: 'qed',         label: 'QED',         icon: 'ItemQuantumDrive.svg',  compKey: 'qed'                },
-    { key: 'mining',      label: 'Mining',      icon: 'ItemMining.svg',        compKey: 'weapons',            filter: isMiningWeapon },
+    { key: 'mining',      label: 'Mining',      icon: 'ItemMining.svg',        compKey: 'mining_lasers',      multiCompKey: ['mining_lasers', 'weapons'], filter: c => isMiningWeapon(c) || (c.mining_dps != null) },
     { key: 'salvage',     label: 'Salvage',     icon: 'ItemSalvage.svg',       compKey: 'salvage',            filter: c => !(c.entity_name || '').toLowerCase().startsWith('wep_') },
     { key: 'utility',     label: 'Utility',     icon: 'ItemTractorBeam.svg',   compKey: 'utility',            multiCompKey: ['weapons','salvage'], filter: c => isUtilityWeapon(c) || (c.entity_name || '').toLowerCase().startsWith('wep_') },
     { key: 'radar',       label: 'Radar',       icon: 'ItemRadar.svg',         compKey: 'radars'             },
@@ -3364,6 +3563,7 @@ body::before {
       // Icon → toggle whole cell (turn all components on or all off).
       col.querySelector('.pm-icon').addEventListener('click', e => {
         e.stopPropagation();
+        if (isModeLocked(st.catKey)) return;
         const anyOn = st.compEnabled.some(Boolean);
         st.compEnabled = st.compEnabled.map(() => !anyOn);
         repaintCell(cellKey);
@@ -3373,6 +3573,7 @@ body::before {
       col.querySelectorAll('.pm-mandatory').forEach(el => {
         el.addEventListener('click', e => {
           e.stopPropagation();
+          if (isModeLocked(st.catKey)) return;
           const i = parseInt(el.dataset.comp, 10);
           st.compEnabled[i] = !st.compEnabled[i];
           repaintCell(cellKey);
@@ -3384,6 +3585,7 @@ body::before {
       col.querySelectorAll('.pm-seg').forEach(el => {
         el.addEventListener('click', e => {
           e.stopPropagation();
+          if (isModeLocked(st.catKey)) return;
           if (GATED_BY_ALL_ON.has(st.catKey) && !st.compEnabled.every(Boolean)) return;
           const j = parseInt(el.dataset.adj, 10);
           // Contiguous fill: segments activate/deactivate in order, no gaps.
@@ -3400,6 +3602,54 @@ body::before {
       });
       repaintCell(cellKey);
     });
+
+    // Re-apply the master-mode lockouts after every grid (re-)render.
+    enforceMasterMode();
+  }
+
+  // ── Master Modes (SCM / NAV) ──────────────────────────────────────────────────
+  // SCM: shields + weapons may be powered, quantum drive forced off.
+  // NAV: quantum drive may be powered, shields + weapons forced off.
+  let masterMode = 'scm';
+  const MODE_FORCED_OFF = { scm: ['quantum'], nav: ['weapons', 'shields'] };
+
+  function isModeLocked(catKey) {
+    return (MODE_FORCED_OFF[masterMode] || []).includes(catKey);
+  }
+
+  // Force locked categories off in CELL_STATE + dim their columns.
+  function enforceMasterMode() {
+    Object.keys(CELL_STATE).forEach(cellKey => {
+      const st = CELL_STATE[cellKey];
+      const locked = isModeLocked(st.catKey);
+      const col = document.querySelector(`.pm-col[data-cell="${cellKey}"]`);
+      if (locked) {
+        st.compEnabled = st.compEnabled.map(() => false);
+        st.adjLit = st.adjLit.map(() => false);
+      }
+      if (col) col.classList.toggle('mode-locked', locked);
+      repaintCell(cellKey);
+    });
+  }
+
+  function setMasterMode(mode) {
+    if (mode === masterMode) return;
+    const wasOff = MODE_FORCED_OFF[masterMode] || [];
+    masterMode = mode;
+    const nowOff = MODE_FORCED_OFF[mode] || [];
+    // Categories released by the mode switch come back fully powered
+    // (mirrors the game: flipping to SCM re-energizes shields/weapons).
+    Object.keys(CELL_STATE).forEach(cellKey => {
+      const st = CELL_STATE[cellKey];
+      if (wasOff.includes(st.catKey) && !nowOff.includes(st.catKey)) {
+        st.compEnabled = st.compEnabled.map(() => true);
+        st.adjLit = st.adjLit.map(() => true);
+      }
+    });
+    enforceMasterMode();
+    document.querySelectorAll('#pm-mode-toggle .pm-mode-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.mode === mode));
+    recomputeSidebarStats(window.__currentShip);
   }
 
   function repaintCell(cellKey) {
@@ -3567,47 +3817,140 @@ body::before {
     if (warnEl)  warnEl.style.display = over > 0 ? '' : 'none';
   }
 
+  // ── Cooling summary: heat generated vs coolant generated ─────────────────────
+  // Game model (extracted from 4.8.1 data): a powered component heats up at
+  // heat_baseline °/s per power unit consumed; weapons heat per shot fired;
+  // rare items declare explicit Coolant consumption. Coolers convert power →
+  // coolant units (cooling_output), scaling with their own throttle. The bar
+  // shows total heat demand vs coolant supply, reacting to the power grid.
+  function cellHeatDemand(cell) {
+    const st = CELL_STATE[cell.key];
+    if (!st) return 0;
+    const litAdj = st.compEnabled.some(Boolean) ? st.adjLit.filter(Boolean).length : 0;
+    const enabled = [];
+    let totalAdj = 0;
+    cell.comps.forEach((comp, i) => {
+      const bb = powerBarBreakdown(comp, cell.cat.key);
+      if (st.compEnabled[i]) { enabled.push({ comp, bb }); totalAdj += bb.adjustable; }
+    });
+    let heat = 0;
+    enabled.forEach(({ comp, bb }) => {
+      // Lit adjustable segments distributed by each comp's adjustable share.
+      const share = totalAdj > 0 ? litAdj * (bb.adjustable / totalAdj) : 0;
+      const activePower = bb.mandatory + share;
+      if (comp.coolant_consumption > 0) { heat += comp.coolant_consumption; return; }
+      if (comp.heat_baseline)           { heat += comp.heat_baseline * activePower; return; }
+      // Weapons carry no baseline — sustained-fire heat from the fire mode.
+      if (comp.fire_modes) {
+        const fm = pickFireMode(comp);
+        heat += (fm.heat_per_shot || 0) * ((fm.fire_rate || 0) / 60);
+      }
+    });
+    return heat;
+  }
+
+  function computeCoolingSummary() {
+    const ld = sidebarLoadout();
+    let demand = 0, supply = 0;
+    POWER_CATEGORIES.forEach(cat => {
+      const comps = componentsForCategory(cat.key);
+      if (!comps.length) return;
+      cellsForCategory(cat, comps).forEach(cell => {
+        if (cat.key === 'cooler') {
+          // Coolant generated scales with the cooler's own throttle state.
+          const st = CELL_STATE[cell.key];
+          cell.comps.forEach((comp, i) => {
+            const bb = powerBarBreakdown(comp, cat.key);
+            const total = bb.mandatory + bb.adjustable;
+            const on = st && st.compEnabled[i];
+            const active = on ? bb.mandatory + st.adjLit.filter(Boolean).length : 0;
+            const frac = total > 0 ? Math.min(1, active / total) : (on ? 1 : 0);
+            supply += (comp.cooling_output || 0) * frac;
+          });
+        } else {
+          demand += cellHeatDemand(cell);
+        }
+      });
+    });
+    // Powerplant self-heat: generation tracks load → heat = consumed segments ×
+    // output-weighted average baseline of the installed plants.
+    const pps = ld.powerplants || [];
+    const ppOut = pps.reduce((a, p) => a + (p.power_output || 0), 0);
+    if (ppOut > 0) {
+      const wBase = pps.reduce((a, p) => a + (p.heat_baseline || 0) * (p.power_output || 0), 0) / ppOut;
+      const { consumed, available } = computePowerSummary();
+      demand += wBase * Math.min(consumed, available);
+    }
+    return { demand, supply };
+  }
+
+  function updateCoolingSummary() {
+    const fill = document.getElementById('pm-cool-fill');
+    const text = document.getElementById('pm-cool-text');
+    if (!fill || !text) return;
+    const { demand, supply } = computeCoolingSummary();
+    if (!supply) {
+      fill.style.width = '0%';
+      text.textContent = demand > 0 ? 'No cooling' : '—';
+      return;
+    }
+    const pct = (demand / supply) * 100;
+    fill.style.width = Math.min(100, pct) + '%';
+    fill.classList.toggle('hot', pct > 100);
+    text.textContent = `${pct.toFixed(1)}%`;
+  }
+
+  // ── Weapon power: minimum segments for full weapon capability ────────────────
+  // Required = exact sum of the pilot guns' power draw (e.g. 1.5+1.5+0.1 = 3.1).
+  // On = active segments in the weapons grid cell. Red + warning when the lit
+  // weapon segments can't cover the full draw.
+  function updateWeaponPowerSummary() {
+    const row = document.getElementById('pm-wpn-row');
+    if (!row) return;
+    const comps = componentsForCategory('weapons');
+    if (!comps.length) { row.style.display = 'none'; return; }
+    row.style.display = '';
+    const required = comps.reduce((a, w) => a + (w.power_draw || 0), 0);
+    let on = 0;
+    const cat = POWER_CATEGORIES.find(c => c.key === 'weapons');
+    cellsForCategory(cat, comps).forEach(cell => { on += cellConsumedSegments(cell); });
+    const short = on < required - 1e-9;
+    const reqEl = document.getElementById('pm-wpn-req');
+    const onEl  = document.getElementById('pm-wpn-on');
+    const warn  = document.getElementById('pm-wpn-warn');
+    if (reqEl) {
+      reqEl.textContent = Number.isInteger(required) ? required : required.toFixed(1);
+      reqEl.classList.toggle('over', short);
+    }
+    if (onEl) onEl.textContent = on;
+    if (warn) warn.style.display = short ? '' : 'none';
+  }
+
   function recomputeSidebarStats(ship) {
     if (!ship) return;
     updatePowerSummary();
+    updateCoolingSummary();
+    updateWeaponPowerSummary();
     const ld = sidebarLoadout();
 
-    // ── Weapons: DPS + Alpha from ammo damage × fire rate × pellet count.
-    // Primary fire mode is the first one returned (server orders by type).
-    const weapons = ld.weapons || [];
-    let totalDps = 0, totalAlpha = 0, anyAmmo = false;
-    weapons.forEach(w => {
-      if (!w.ammo) return;
-      const a = w.ammo;
-      const shot = (a.dmg_physical||0) + (a.dmg_energy||0) + (a.dmg_distortion||0)
-                 + (a.dmg_thermal||0) + (a.dmg_biochemical||0) + (a.dmg_stun||0);
-      if (shot === 0) return;
-      anyAmmo = true;
-      const fm = (w.fire_modes && w.fire_modes[0]) || {};
-      const pellets = fm.pellet_count || 1;
-      const rate    = fm.fire_rate    || 0;  // rounds per minute
-      const dps     = shot * pellets * (rate / 60);
-      totalAlpha   += shot * pellets;
-      totalDps     += dps * powerModifier('weapons', w);
-    });
-    if (anyAmmo) {
-      setNum('ms-weap-dps',   totalDps,   0);
-      setNum('ms-weap-alpha', totalAlpha, 0);
-    } else {
-      // ammo data not yet available for this weapon type — show data gap
-      setNum('ms-weap-dps',   null);
-      setNum('ms-weap-alpha', null);
-    }
+    // ── Weapons: pilot vs crew/PDC DPS + alpha. Server pre-aggregates these
+    // from the hardpoint trees (exact pilot/turret split); weapon swaps don't
+    // feed them yet — live tree→stat sync is the Phase 3 follow-up.
+    const comps = (ship.components || {});
+    setNum('ms-pilot-dps',    comps.pilot_dps    || null, 0);
+    setNum('ms-pilot-alpha',  comps.pilot_alpha  || null, 0);
+    setNum('ms-turret-dps',   comps.turret_dps   || null, 0);
+    setNum('ms-turret-alpha', comps.turret_alpha || null, 0);
 
-    // ── Missiles: count + total alpha.
+    // ── Missiles & bombs: total damage. EMP: total distortion damage.
     const missiles = ld.missiles || [];
-    const missCount = missiles.length;
     const missAlpha = missiles.reduce((acc, m) => {
       return acc + (m.dmg_physical||0) + (m.dmg_energy||0) + (m.dmg_distortion||0)
                  + (m.dmg_thermal||0) + (m.dmg_biochemical||0) + (m.dmg_stun||0);
     }, 0);
-    setNum('ms-miss-count', missCount,        0, { zeroIsGap: true });
-    setNum('ms-miss-alpha', missAlpha || null, 0);
+    setNum('ms-miss-dmg', missAlpha || null, 0);
+    const empDmg = (ld.emp || []).reduce((acc, e) => acc + (e.distortion_damage || 0), 0);
+    setNum('ms-emp-dmg', empDmg || null, 0);
 
     // ── Shields: HP and regen scale with per-shield power modifier.
     const shields = ld.shields || [];
@@ -3619,6 +3962,19 @@ body::before {
     });
     setNum('ms-shield-hp',    shieldHp || null,    0);
     setNum('ms-shield-regen', shieldRegen || null, 0);
+
+    // ── Shield resistances: mid-point of min/max bands, averaged across
+    // installed shields, shown as damage-reduction %.
+    function resistPct(minKey, maxKey) {
+      const vals = shields
+        .map(s => (s[minKey] != null && s[maxKey] != null) ? (s[minKey] + s[maxKey]) / 2 : null)
+        .filter(v => v != null);
+      if (!vals.length) return null;
+      return (vals.reduce((a, v) => a + v, 0) / vals.length) * 100;
+    }
+    setNum('ms-res-phys',   resistPct('resist_physical_min', 'resist_physical_max'), 0);
+    setNum('ms-res-energy', resistPct('resist_energy_min',   'resist_energy_max'),   0);
+    setNum('ms-res-dist',   resistPct('resist_distort_min',  'resist_distort_max'),  0);
     setNum('ms-shield-regen-time',
            (shieldHp && shieldRegen) ? shieldHp / shieldRegen : null, 1);
     setNum('ms-shield-down-delay',
@@ -3638,41 +3994,70 @@ body::before {
     setNum('ms-qd-speed', qd ? qd.drive_speed * qdMult : null, 0);
     setNum('ms-qd-fuel',  qd ? qd.fuel_per_gm_mscu        : null, 0);
 
-    // ── Flight: SCM, NAV, pitch/roll/yaw scaled by engines power.
+    // ── Flight: SCM / NAV scaled by engines power.
     const fc = (ld.flight_controllers || [])[0];
     const eMult = powerModifier('engines', fc);
     const scm = fc ? fc.scm_speed * eMult : null;
     const nav = fc ? fc.max_speed * eMult : null;
-    document.getElementById('ms-scm-nav').textContent =
+    const scmNavEl = document.getElementById('ms-scm-nav');
+    if (scmNavEl) scmNavEl.textContent =
       (scm !== null && nav !== null) ? `${fmt(scm, 0)} / ${fmt(nav, 0)}` : '— / —';
-    if (fc) {
-      const p = (fc.max_pitch_speed || 0) * eMult;
-      const r = (fc.max_roll_speed  || 0) * eMult;
-      const y = (fc.max_yaw_speed   || 0) * eMult;
-      document.getElementById('ms-mnv').textContent =
-        `${fmt(p, 0)} / ${fmt(r, 0)} / ${fmt(y, 0)}`;
-    } else {
-      document.getElementById('ms-mnv').textContent = '— / — / —';
+
+    // ── Boost: afterburner ramp up (depletion) / ramp down (regen), and the
+    // boost angular-velocity multipliers shown as %.
+    setNum('ms-boost-dep',   fc ? fc.afterburner_ramp_up   : null, 1);
+    setNum('ms-boost-regen', fc ? fc.afterburner_ramp_down : null, 1);
+    const angEl = document.getElementById('ms-boost-ang');
+    if (angEl) {
+      angEl.textContent = fc
+        ? `${fmt((fc.ab_ang_mult_pitch || 0) * 100, 0)} / ${fmt((fc.ab_ang_mult_roll || 0) * 100, 0)} / ${fmt((fc.ab_ang_mult_yaw || 0) * 100, 0)}`
+        : '— / — / —';
     }
 
-    // ── Hull / mass / sigs / crew / cargo (ship-level, not loadout-dependent).
-    setNum('ms-hull-hp', ship.hull_hp || null, 0);
-    setNum('ms-mass',    ship.mass_kg || null, 0);
+    // ── Mass (ship-level).
+    setNum('ms-mass', ship.mass_kg || null, 0);
 
-    // EM & IR signature = sum across all installed components that carry one.
-    const sigSources = []
-      .concat(ld.shields || [], ld.coolers || [], ld.powerplants || [],
-              ld.radars || [], ld.quantum_drives || [], ld.weapons || [],
-              ld.lifesupport || [], ld.salvage || [],
-              ld.emp || [], ld.qed || [], ld.tool_arms || [],
-              ld.wheels_controllers || []);
-    const emSig = sigSources.reduce((acc, c) => acc + (c.em_signature || 0), 0);
-    const irSig = sigSources.reduce((acc, c) => acc + (c.ir_signature || 0), 0);
-    setNum('ms-sig-em', emSig || null, 0);
-    setNum('ms-sig-ir', irSig || null, 0);
-
-    setNum('ms-crew',  ship.crew_size || null, 0);
-    setNum('ms-cargo', ship.cargo_scu || null, 0);
+    // ── Signatures. Model (matches SPViewer where verifiable):
+    //   EM = Σ component EM × its power state × armor EM multiplier
+    //   IR = (Σ component IR, coolers scaled by cooling utilization) × armor IR
+    //   CS = directional bounding areas (front/side/top) × armor CS multiplier.
+    //   (SPViewer's CS uses real hull surface areas, so absolute scale differs.)
+    const armor = (ld.armor || [])[0] || {};
+    const armEM = armor.signal_electromagnetic || 1;
+    const armIR = armor.signal_infrared || 1;
+    const armCS = armor.signal_cross_section || 1;
+    const SIG_CATS = [
+      ['shields', 'shields'], ['powerplants', 'power'], ['radars', 'radar'],
+      ['quantum_drives', 'quantum'], ['weapons', 'weapons'],
+      ['lifesupport', 'lifesupport'], ['salvage', 'salvage'],
+      ['emp', 'emp'], ['qed', 'qed'], ['mining_lasers', 'mining'],
+      ['tool_arms', 'utility'], ['wheels_controllers', 'wheels'],
+    ];
+    let emSig = 0, irSig = 0;
+    SIG_CATS.forEach(([listKey, catKey]) => {
+      (ld[listKey] || []).forEach(cmp => {
+        const m = powerModifier(catKey, cmp);
+        emSig += (cmp.em_signature || 0) * (m > 0 ? 1 : 0);
+        irSig += (cmp.ir_signature || 0) * (m > 0 ? 1 : 0);
+      });
+    });
+    // Coolers: IR rises with cooling load — scale nominal by utilization.
+    const coolSum = computeCoolingSummary();
+    const coolLoad = coolSum.supply > 0 ? Math.min(1, coolSum.demand / coolSum.supply) : 0;
+    (ld.coolers || []).forEach(cmp => {
+      const on = powerModifier('cooler', cmp) > 0;
+      emSig += (cmp.em_signature || 0) * (on ? 1 : 0);
+      irSig += (cmp.ir_signature || 0) * (on ? coolLoad : 0);
+    });
+    setNum('ms-sig-em', (emSig * armEM) || null, 0);
+    setNum('ms-sig-ir', (irSig * armIR) || null, 0);
+    const csEl = document.getElementById('ms-sig-cs');
+    if (csEl) {
+      const L = ship.length_m, B = ship.beam_m, H = ship.height_m;
+      csEl.textContent = (L && B && H)
+        ? `${fmt(B * H * armCS, 0)} f · ${fmt(L * H * armCS, 0)} s · ${fmt(L * B * armCS, 0)} t`
+        : '—';
+    }
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
@@ -4517,14 +4902,37 @@ body::before {
   // the modal can fetch options and apply the choice. Rebuilt every render.
   let armamentSlots = {};
   let armamentSlotSeq = 0;
-  function regSlot(node, mode, param) {
+  // mode: 'port' | 'mount' | 'missile_size' | 'types'. For 'types', param is
+  // {types:'A,B', min:n, max:n}. applyFn, when given, overrides the default
+  // swap behavior (used by mining/salvage/EMP/… cards).
+  function regSlot(node, mode, param, applyFn) {
     const id = 'arm' + (armamentSlotSeq++);
-    armamentSlots[id] = { node, mode, param };
+    armamentSlots[id] = { node, mode, param, apply: applyFn };
     return id;
   }
   // Closes the class attr and adds the click hook when the slot is editable.
   function swapAttrs(id) {
     return id ? ` arm-swappable" onclick="openArmamentSwap('${id}')"` : '"';
+  }
+
+  // Register a flat-list item (EMP/QED/refuel/utility/…): same-type, same-size
+  // options; applying replaces the list entry in place and re-renders.
+  function regItemSwap(it, types) {
+    if (!it || it.size == null) return null;
+    return regSlot({ item: it }, 'types', { types, min: it.size, max: it.size }, opt => {
+      Object.keys(it).forEach(k => { delete it[k]; });
+      Object.assign(it, opt);
+    });
+  }
+
+  // Register a tree node whose installed item swaps for same-type items
+  // (mining lasers, salvage heads, sub-modules).
+  function regNodeSwap(node, types, size) {
+    const s = size != null ? size : ((node.item || {}).size);
+    return regSlot(node, 'types', { types, min: s ?? 0, max: s ?? 99 }, opt => {
+      node.installed_name = opt.entity_name;
+      node.item = Object.assign({}, node.item, opt);
+    });
   }
 
   // Recursive render of one weapon-group node (hardpoint → mount → weapon).
@@ -4612,7 +5020,7 @@ body::before {
     const name = it.display_name || it.entity_name || 'Unknown';
     const size = (it.size != null && it.size !== '') ? `S${it.size}` : '';
     const stats = (opts.stats || []).filter(Boolean);
-    return `<div class="comp-card-h">
+    return `<div class="comp-card-h${swapAttrs(opts.slotId)}>
       <div class="comp-hdr-h">
         ${iconPrimary(iconKey)}
         <div class="comp-title-h">
@@ -4628,6 +5036,7 @@ body::before {
   // ── Per-category card renderers (own icon + relevant stats) ───────────────────
   function empCards(list) {
     return (list || []).map(it => hpStatCard(it, 'emp', {
+      slotId: regItemSwap(it, 'EMP'),
       primary: it.emp_radius ? `${fmt(it.emp_radius, 0)} m` : null,
       stats: [
         it.charge_time ? `${fmt(it.charge_time, 1)} s charge` : null,
@@ -4638,6 +5047,7 @@ body::before {
   }
   function qedCards(list) {
     return (list || []).map(it => hpStatCard(it, 'qed', {
+      slotId: regItemSwap(it, 'QuantumInterdictionGenerator'),
       primary: it.radius_meters ? `${fmt(it.radius_meters, 0)} m` : null,
       stats: [
         it.charge_time_secs ? `${fmt(it.charge_time_secs, 1)} s charge` : null,
@@ -4659,20 +5069,173 @@ body::before {
       });
     }).join('');
   }
+
+  // Prettify a raw entity/port name into a label: strip the ship prefix and
+  // scitem token, e.g. aegs_reclaimer_scitem_remote_salvage_turret_left →
+  // "Remote Salvage Turret Left", hardpoint_claw → "Claw".
+  function prettifyEntity(name) {
+    let n = (name || '').toLowerCase();
+    const ship = (typeof ENTITY_NAME !== 'undefined' ? ENTITY_NAME : '').toLowerCase();
+    if (ship && n.startsWith(ship + '_')) n = n.slice(ship.length + 1);
+    n = n.replace(/^hardpoint_/, '').replace(/(^|_)scitem(_|$)/, '$1').replace(/^_+|_+$/g, '');
+    return n.replace(/_/g, ' ').replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1));
+  }
+
+  // SPViewer-style Salvage section: ship-wide Modifiers summary + per-arm /
+  // per-turret groups with the salvage head and its sub-modules nested.
+  function salvageNodeHtml(node, salvageMap) {
+    const item  = node.item || {};
+    const ename = (item.entity_name || node.installed_name || '').toLowerCase();
+    const sv    = salvageMap[ename] || {};
+    const name  = (item.display_name && !/placeholder/i.test(item.display_name))
+                ? item.display_name : prettifyEntity(node.installed_name || node.port_name);
+    const isTractor = /tractor/i.test(item.item_sub_type || '') || /tractor/i.test(ename);
+    const icon  = (node.kind === 'turret' || node.kind === 'unknown') ? 'turret'
+                : isTractor ? 'utility' : 'salvage';
+    const lock  = node.editable ? '' : `<span class="wpn-lock" title="Non-editable">🔒</span>`;
+    const size  = item.size || node.max_size;
+    const stats = [];
+    const svStats = Object.keys(sv).length ? sv : item;   // swapped-in items carry their own stats
+    if (svStats.salvage_speed_multiplier != null && svStats.salvage_speed_multiplier !== 1)
+      stats.push(`${fmt(svStats.salvage_speed_multiplier, 2)}× speed`);
+    if (svStats.radius_multiplier != null && svStats.radius_multiplier !== 1)
+      stats.push(`${fmt(svStats.radius_multiplier, 2)}× radius`);
+    if (svStats.extraction_efficiency != null && svStats.extraction_efficiency !== 1)
+      stats.push(`${fmt(svStats.extraction_efficiency, 2)}× efficiency`);
+    if (svStats.power_draw) stats.push(`${fmt(svStats.power_draw, 0)} pwr`);
+    // Heads and sub-modules are swappable (same type, same size).
+    const itype = item.item_type || '';
+    const slotId = /salvagehead/i.test(itype)     ? regNodeSwap(node, 'SalvageHead', size)
+                 : /salvagemodifier/i.test(itype) ? regNodeSwap(node, 'SalvageModifier', size)
+                 : null;
+    const card = `
+      <div class="comp-card-h wpn-mount-card${swapAttrs(slotId)}>
+        <div class="comp-hdr-h">
+          ${iconPrimary(icon, 'Salvage')}
+          <div class="comp-title-h">
+            ${size ? `<div class="comp-size-h">S${size}</div>` : ''}
+            <div class="comp-name-h"><span class="comp-name-text-h">${name}</span></div>
+          </div>
+          ${lock}
+        </div>
+        ${stats.length ? `<div class="comp-stats-h"><div class="comp-stat-text-h">${stats.join('<span class="param-sep">&bull;</span>')}</div></div>` : ''}
+      </div>`;
+    const kids = (node.children && node.children.length)
+      ? `<div class="wpn-children">${node.children.map(ch => salvageNodeHtml(ch, salvageMap)).join('')}</div>` : '';
+    return card + kids;
+  }
+
+  function salvageSection(c) {
+    const groups = c.salvage_groups || [];
+    const buff   = c.salvage_buff;
+    let html = '';
+    if (buff) {
+      const stats = [];
+      if (buff.salvage_speed_multiplier != null) stats.push(`${fmt(buff.salvage_speed_multiplier, 2)}× Speed`);
+      if (buff.radius_multiplier != null)        stats.push(`${fmt(buff.radius_multiplier, 2)}× Radius`);
+      if (buff.extraction_efficiency != null)    stats.push(`${fmt(buff.extraction_efficiency, 2)}× Efficiency`);
+      html += hpStatCard({ display_name: 'Modifiers' }, 'salvage', { stats });
+    }
+    if (groups.length) {
+      const salvageMap = {};
+      (c.salvage || []).forEach(s => { salvageMap[(s.entity_name || '').toLowerCase()] = s; });
+      html += `<div class="wpn-list">` +
+        groups.map(g => `<div class="wpn-group">${salvageNodeHtml(g, salvageMap)}</div>`).join('') + `</div>`;
+    } else {
+      html += salvageCards(c.salvage || []);
+    }
+    return html;
+  }
+  // SPViewer-style Mining section: per-turret/arm groups with the mining laser
+  // nested, and the laser's module slots below it (installed module or Empty).
+  function miningNodeHtml(node, laserMap) {
+    const item  = node.item || {};
+    const ename = (item.entity_name || node.installed_name || '').toLowerCase();
+    const laser = laserMap[ename] || (item.mining_dps != null ? item : null);
+    const isModule = /miningmodifier/i.test(item.item_type || '');
+    const isLaser  = !!laser || /weaponmining/i.test(item.item_type || '');
+    const name  = (item.display_name && !/placeholder/i.test(item.display_name))
+                ? item.display_name : prettifyEntity(node.installed_name || node.port_name);
+    const icon  = (node.kind === 'turret' || node.kind === 'unknown') ? 'turret' : 'mining';
+    const lock  = node.editable ? '' : `<span class="wpn-lock" title="Non-editable">🔒</span>`;
+    const size  = item.size || node.max_size;
+    const primary = laser && laser.mining_dps ? `${fmt(laser.mining_dps, 0)} pwr/s` : '';
+    const stats = [];
+    if (laser && laser.overheat_temperature) stats.push(`${fmt(laser.overheat_temperature, 0)}° overheat`);
+    const slotId = isLaser  ? regNodeSwap(node, 'WeaponMining', size)
+                 : isModule ? regNodeSwap(node, 'MiningModifier', size)
+                 : null;
+    const card = `
+      <div class="comp-card-h wpn-mount-card${swapAttrs(slotId)}>
+        <div class="comp-hdr-h">
+          ${iconPrimary(icon, 'Mining')}
+          <div class="comp-title-h">
+            ${size ? `<div class="comp-size-h">S${size}</div>` : ''}
+            <div class="comp-name-h"><span class="comp-name-text-h">${name}</span>
+              ${isModule ? '<span class="wpn-tag">Module</span>' : ''}</div>
+          </div>
+          ${primary ? `<div class="comp-hp-h">${primary}</div>` : lock}
+        </div>
+        ${stats.length ? `<div class="comp-stats-h"><div class="comp-stat-text-h">${stats.join('<span class="param-sep">&bull;</span>')}</div></div>` : ''}
+      </div>`;
+    // Children: real installed sub-items first, then pad with the laser's
+    // remaining empty module slots so loadout capacity is visible. Empty slots
+    // are clickable — picking a module installs it as a child of this node.
+    let kidsHtml = (node.children || []).map(ch => miningNodeHtml(ch, laserMap)).join('');
+    if (laser && laser.module_slots) {
+      const installedModules = (node.children || [])
+        .filter(ch => /miningmodifier/i.test(((ch.item || {}).item_type) || '')).length;
+      const slotSize = laser.module_slot_size || 1;
+      for (let i = installedModules; i < laser.module_slots; i++) {
+        const emptyId = regSlot(node, 'types', { types: 'MiningModifier', min: slotSize, max: slotSize },
+          opt => {
+            node.children = node.children || [];
+            node.children.push({ kind: 'other', port_name: `module_slot_${node.children.length + 1}`,
+                                 editable: true, installed_name: opt.entity_name,
+                                 item: Object.assign({}, opt), children: [] });
+          });
+        kidsHtml += `
+          <div class="comp-card-h wpn-card${swapAttrs(emptyId)}>
+            <div class="comp-hdr-h">
+              ${iconPrimary('mining', 'Module Slot')}
+              <div class="comp-title-h">
+                <div class="comp-size-h">S${slotSize}</div>
+                <div class="comp-name-h"><span class="comp-name-text-h hp-empty-slot">Empty</span>
+                  <span class="wpn-tag">Module</span></div>
+              </div>
+            </div>
+          </div>`;
+      }
+    }
+    return card + (kidsHtml ? `<div class="wpn-children">${kidsHtml}</div>` : '');
+  }
+
+  function miningSection(c, flatList) {
+    const groups = c.mining_groups || [];
+    if (!groups.length) return miningCards(flatList);
+    const laserMap = {};
+    (c.mining_lasers || []).forEach(m => { laserMap[(m.entity_name || '').toLowerCase()] = m; });
+    return `<div class="wpn-list">` +
+      groups.map(g => `<div class="wpn-group">${miningNodeHtml(g, laserMap)}</div>`).join('') + `</div>`;
+  }
+
   function miningCards(list) {
     return (list || []).map(it => hpStatCard(it, 'mining', {
+      slotId: regItemSwap(it, 'WeaponMining'),
       stats: [ it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null,
                it.overheat_temperature ? `${fmt(it.overheat_temperature, 0)}° overheat` : null ],
     })).join('');
   }
   function refuelCards(list) {
     return (list || []).map(it => hpStatCard(it, 'refuel', {
+      slotId: regItemSwap(it, 'DockingCollar'),
       primary: it.hydrogen_flow_rate ? `${fmt(it.hydrogen_flow_rate, 1)} H₂/s` : null,
       stats: [ it.quantum_flow_rate ? `${fmt(it.quantum_flow_rate, 1)} Qt/s` : null ],
     })).join('');
   }
   function utilityCards(list) {
     return (list || []).map(it => hpStatCard(it, 'utility', {
+      slotId: regItemSwap(it, 'ToolArm'),
       tag: it.tool_kind ? `<span class="wpn-tag">${it.tool_kind}</span>` : '',
       stats: [ it.power_draw ? `${fmt(it.power_draw, 0)} pwr` : null ],
     })).join('');
@@ -4684,6 +5247,7 @@ body::before {
     if (window.__currentShip && window.__armamentOriginal) {
       window.__currentShip.components = JSON.parse(JSON.stringify(window.__armamentOriginal));
       populateWeapons(window.__currentShip);
+      armamentSidebarRefresh();
     }
   }
 
@@ -4767,8 +5331,8 @@ body::before {
       { label: 'Missiles & Bombs', render: missileHtml },
       { label: 'EMP',              render: () => empCards(c.emp || []) },
       { label: 'QED',              render: () => qedCards(c.qed || []) },
-      { label: 'Mining',           render: () => miningCards(mining) },
-      { label: 'Salvage',          render: () => salvageCards(c.salvage || []) },
+      { label: 'Mining',           render: () => miningSection(c, mining) },
+      { label: 'Salvage',          render: () => salvageSection(c) },
       { label: 'Refueling',        render: () => refuelCards(c.fuel_nozzles || []) },
       { label: 'Utility',          render: () =>
           (c.utility_turrets || []).map(g => `<div class="wpn-group">${weaponNodeHtml(g)}</div>`).join('')
@@ -4820,8 +5384,11 @@ body::before {
     const { mode, param, node } = slot;
     const qs = mode === 'mount'        ? `mount=${encodeURIComponent(param)}`
              : mode === 'missile_size' ? `missile_size=${encodeURIComponent(param)}`
+             : mode === 'types'        ? `types=${encodeURIComponent(param.types)}`
+                                         + `&min_size=${param.min ?? 0}&max_size=${param.max ?? 99}`
              :                           `port=${encodeURIComponent(param)}`;
     armCurrentName = (mode === 'missile_size' ? ((node.missile || {}).entity_name)
+                    : mode === 'types'        ? (((node.item || {}).entity_name) || node.installed_name)
                                               : node.installed_name) || '';
     const modal = document.getElementById('armament-swap-modal');
     document.getElementById('arm-modal-search').value = '';
@@ -4833,7 +5400,8 @@ body::before {
       const data = await r.json();
       armOptions = data.options || [];
       const ttl = mode === 'mount' ? 'Select Weapon'
-                : mode === 'missile_size' ? 'Select Missile / Bomb' : 'Select Mount / Weapon';
+                : mode === 'missile_size' ? 'Select Missile / Bomb'
+                : mode === 'types' ? 'Select Item' : 'Select Mount / Weapon';
       document.getElementById('arm-modal-title').textContent = `${ttl} (${armOptions.length})`;
       renderArmamentOptions();
     } catch (e) {
@@ -4848,7 +5416,8 @@ body::before {
     if (o.kind === 'rack')  return 'rack';
     if (o.kind === 'bomb')  return 'bomb';
     if (o.kind === 'missile') return o.tracking_signal_type || 'missile';
-    return o.item_sub_type || o.item_type || 'weapon';   // weapon / mining
+    const sub = (o.item_sub_type && o.item_sub_type !== 'UNDEFINED') ? o.item_sub_type : null;
+    return sub || o.item_type || 'weapon';   // weapon / mining / generic item
   }
 
   function armTable(rows) {
@@ -4888,6 +5457,13 @@ body::before {
     const opt  = armOptions[optIndex];
     if (!slot || !opt) return;
     const { mode, node } = slot;
+    if (slot.apply) {                                          // custom apply (types-mode cards)
+      slot.apply(opt);
+      closeArmamentSwap();
+      if (window.__currentShip) populateWeapons(window.__currentShip);
+      armamentSidebarRefresh();
+      return;
+    }
     if (mode === 'missile_size') {
       node.missile = Object.assign({}, opt);                 // swap the missile/bomb
     } else if (opt.kind === 'mount' || opt.kind === 'rack') {
@@ -4907,6 +5483,16 @@ body::before {
     }
     closeArmamentSwap();
     if (window.__currentShip) populateWeapons(window.__currentShip);
+    armamentSidebarRefresh();
+  }
+
+  // Armament swaps that touch flat component lists (EMP, QED, mining, salvage,
+  // refuel, utility) feed the sidebar's power/cooling models — refresh them.
+  // (Weapon-tree swaps render locally; syncing them into the flat weapons list
+  // for sidebar DPS is a known follow-up.)
+  function armamentSidebarRefresh() {
+    if (typeof renderPowerGrid === 'function')       renderPowerGrid();
+    if (typeof recomputeSidebarStats === 'function') recomputeSidebarStats(window.__currentShip);
   }
 
   function closeArmamentSwap() {
@@ -5015,4 +5601,56 @@ body::before {
   }
 
   init();
+
+  // ── Ship claiming (sidebar button — mirrors blueprint claiming) ──────────────
+  let claimUser  = null;                              // /api/auth/me result or null
+  let claimState = { count: 0, ownedByMe: false };
+
+  async function loadShipClaim() {
+    try { claimUser = await api('/api/auth/me'); } catch (_) { claimUser = null; }
+    try {
+      const rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(ENTITY_NAME)}`);
+      const myId = claimUser && claimUser.discord_id;
+      claimState = {
+        count: rows.length,
+        ownedByMe: !!myId && rows.some(x => x.discord_id === myId),
+      };
+    } catch (_) { /* leave previous state */ }
+    paintShipClaim();
+  }
+
+  function paintShipClaim() {
+    const btn = document.getElementById('sb-claim-btn');
+    if (!btn) return;
+    if (!claimUser) {
+      btn.textContent = 'Claim';
+      btn.disabled = true;
+      btn.title = 'Log in to claim';
+      btn.classList.remove('owned');
+      return;
+    }
+    btn.disabled = false;
+    btn.title = claimState.count
+      ? `${claimState.count} owner${claimState.count !== 1 ? 's' : ''} in the org` : '';
+    if (claimState.ownedByMe) { btn.textContent = 'Unclaim'; btn.classList.add('owned'); }
+    else                      { btn.textContent = 'Claim';   btn.classList.remove('owned'); }
+  }
+
+  async function toggleShipClaim(btn) {
+    if (!claimUser) return;
+    const method = claimState.ownedByMe ? 'DELETE' : 'POST';
+    btn.disabled = true;
+    try {
+      const r = await fetch(`/api/ship/${encodeURIComponent(ENTITY_NAME)}/claim`, { method });
+      if (!r.ok && r.status !== 409 && r.status !== 404) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || `Failed to ${claimState.ownedByMe ? 'unclaim' : 'claim'} ship`);
+      }
+    } catch (_) {
+      alert('Network error — try again.');
+    }
+    loadShipClaim();   // re-sync state + repaint (also re-enables the button)
+  }
+
+  loadShipClaim();
 {% endblock %}
