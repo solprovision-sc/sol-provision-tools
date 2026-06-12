@@ -4082,13 +4082,19 @@ body::before {
     setNum('ms-turret-dps',   turretW.dps   || null, 0);
     setNum('ms-turret-alpha', turretW.alpha || null, 0);
 
-    // ── Missiles & bombs: total damage. EMP: total distortion damage.
-    const missiles = ld.missiles || [];
-    const missAlpha = missiles.reduce((acc, m) => {
-      return acc + (m.dmg_physical||0) + (m.dmg_energy||0) + (m.dmg_distortion||0)
-                 + (m.dmg_thermal||0) + (m.dmg_biochemical||0) + (m.dmg_stun||0);
-    }, 0);
+    // ── Missiles & bombs: total damage across BOTH directly-mounted missiles
+    // (flat list) and rack missiles (missile_groups, the swappable ones, each
+    // with a count). Derived live so rack swaps register.
+    const missileDmg = m => !m ? 0
+      : (m.dmg_physical||0) + (m.dmg_energy||0) + (m.dmg_distortion||0)
+      + (m.dmg_thermal||0) + (m.dmg_biochemical||0) + (m.dmg_stun||0);
+    let missAlpha = (comps.missiles || []).reduce((a, m) => a + missileDmg(m), 0);
+    (comps.missile_groups || []).forEach(g => (g.missiles || []).forEach(mc => {
+      missAlpha += missileDmg(mc.missile) * (mc.count || 1);
+    }));
     setNum('ms-miss-dmg', missAlpha || null, 0);
+    // EMP: total distortion damage. EMP swaps mutate the flat list in place;
+    // the enriched swap options now carry distortion_damage, so this updates.
     const empDmg = (ld.emp || []).reduce((acc, e) => acc + (e.distortion_damage || 0), 0);
     setNum('ms-emp-dmg', empDmg || null, 0);
 

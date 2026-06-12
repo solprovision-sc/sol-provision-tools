@@ -2392,25 +2392,46 @@ def api_port_options(entity_name):
             f"FROM item_components WHERE patch_version=? "
             f"  AND item_type IN ({qmarks}) AND size BETWEEN ? AND ?",
             (p, *tlist, smin, smax)).fetchall()]
+        # Per-type stat enrichment so a swapped-in item is field-complete: the
+        # cards render real numbers AND the sidebar (power/cooling/signatures +
+        # per-type damage) recomputes correctly. Every typed table here carries
+        # power_draw + em/ir_signature; item_components adds the cooling fields.
+        TYPE_ENRICH = {
+            "EMP": ("item_emp", [
+                "power_draw", "em_signature", "ir_signature",
+                "distortion_damage", "emp_radius", "charge_time"]),
+            "QuantumInterdictionGenerator": ("item_qed", [
+                "power_draw", "em_signature", "ir_signature",
+                "radius_meters", "charge_time_secs", "cooldown_time_secs"]),
+            "WeaponMining": ("item_mining_lasers", [
+                "power_draw", "em_signature", "ir_signature",
+                "mining_dps", "module_slots", "module_slot_size", "overheat_temperature"]),
+            "SalvageHead": ("item_salvage", [
+                "power_draw", "em_signature", "ir_signature",
+                "salvage_speed_multiplier", "radius_multiplier", "extraction_efficiency"]),
+            "SalvageModifier": ("item_salvage", [
+                "power_draw", "em_signature", "ir_signature",
+                "salvage_speed_multiplier", "radius_multiplier", "extraction_efficiency"]),
+            "ToolArm": ("item_tool_arms", [
+                "power_draw", "em_signature", "ir_signature"]),
+        }
         for o in options:
             o["kind"] = "item"
             o["display_name"] = o.get("display_name") or o["entity_name"]
-            # Per-type stat enrichment so swapped-in items render real numbers.
-            if o["item_type"] == "WeaponMining":
-                ml = conn.execute(
-                    "SELECT mining_dps, module_slots, module_slot_size, overheat_temperature "
-                    "FROM item_mining_lasers WHERE uuid=? AND patch_version=?",
-                    (o["uuid"], p)).fetchone()
-                if ml:
-                    o.update(dict(ml))
-            elif o["item_type"] in ("SalvageHead", "SalvageModifier"):
-                sv = conn.execute(
-                    "SELECT salvage_speed_multiplier, radius_multiplier, extraction_efficiency, "
-                    "       power_draw "
-                    "FROM item_salvage WHERE uuid=? AND patch_version=?",
-                    (o["uuid"], p)).fetchone()
-                if sv:
-                    o.update(dict(sv))
+            # Shared cooling fields (all categories).
+            ic = conn.execute(
+                "SELECT heat_baseline, coolant_consumption FROM item_components "
+                "WHERE uuid=? AND patch_version=?", (o["uuid"], p)).fetchone()
+            if ic:
+                o.update(dict(ic))
+            enrich = TYPE_ENRICH.get(o["item_type"])
+            if enrich:
+                tbl, fields = enrich
+                row = conn.execute(
+                    f"SELECT {', '.join(fields)} FROM {tbl} "
+                    f"WHERE uuid=? AND patch_version=?", (o["uuid"], p)).fetchone()
+                if row:
+                    o.update(dict(row))
     elif port:
         hp = conn.execute(
             "SELECT accepted_types, required_tags, port_tags, min_size, max_size "
