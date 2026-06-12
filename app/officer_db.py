@@ -1,5 +1,8 @@
-"""Read-only SQL query interface for officers. Auth is handled by nginx."""
-from flask import Blueprint, render_template, request, jsonify, current_app
+"""Read-only SQL query interface for officers. Auth is handled by nginx,
+plus a session-level gate below so direct URL access without a login is
+still refused if the proxy ever lets a request through."""
+from flask import (Blueprint, render_template, request, jsonify, current_app,
+                   session, redirect)
 import sqlite3
 import os
 import time
@@ -9,6 +12,25 @@ officer_db = Blueprint('officer_db', __name__)
 MAX_ROWS = 5000
 QUERY_TIMEOUT_S = 10
 ALLOWED_PREFIXES = ('SELECT', 'WITH', 'EXPLAIN')
+
+
+@officer_db.before_request
+def _require_login():
+    """Mirror of server.require_page_login for this blueprint (defined here
+    to avoid a circular import). Anonymous visitors go to the dashboard's
+    Discord login; on the dev deployment ranks below 4 are refused."""
+    if not session.get('discord_id'):
+        if request.method != 'GET' or request.path != '/officer-db':
+            return jsonify({'error': 'Not authenticated'}), 401
+        return redirect('/')
+    if current_app.config.get('IS_DEV'):
+        try:
+            rank_n = int(session.get('rank') or 0)
+        except (TypeError, ValueError):
+            rank_n = 0
+        if rank_n < 4:
+            return ('You are not authorized to access the '
+                    'Sol Provision Development area'), 403
 
 
 def get_readonly_conn():
