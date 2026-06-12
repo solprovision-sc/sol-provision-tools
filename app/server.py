@@ -2108,14 +2108,19 @@ def get_compatible_components():
     if not table_name:
         return jsonify({"error": f"Unknown component type: {comp_type}"}), 400
     
-    # Query the dedicated component table joined with entities for size
+    # Query the dedicated component table joined with entities for size, plus
+    # item_components for the shared-only fields (heat_baseline, coolant) the
+    # sidebar's cooling model needs but the typed tables don't carry.
     query = f"""
-        SELECT 
+        SELECT
             c.*,
             e.size,
-            e.grade
+            e.grade,
+            ic.heat_baseline,
+            ic.coolant_consumption
         FROM {table_name} c
         JOIN entities e ON c.entity_name = e.entity_name AND c.patch_version = e.patch_version
+        LEFT JOIN item_components ic ON ic.uuid = c.uuid AND ic.patch_version = c.patch_version
         WHERE c.patch_version = ?
           AND e.size = ?
         ORDER BY c.entity_name
@@ -2215,19 +2220,16 @@ def get_compatible_components():
         if is_placeholder(display_name):
             continue
 
-        # Build simplified response
-        component = {
-            'uuid': comp.get('uuid'),
-            'entity_name': comp.get('entity_name'),
-            'display_name': display_name,  # ← Use the localized display_name
-            'manufacturer': comp['manufacturer'],
-            'size': comp.get('size'),
-            'grade': comp.get('grade'),
-            'grade_letter': comp['grade_letter'],
-            'class': comp.get('class'),
-            'item_type': comp_type,
-            'stats': stats
-        }
+        # Return the full flat row (every typed-table + shared field) so a
+        # swapped-in component is shape-compatible with get_ship_components and
+        # the sidebar's power/cooling/signature math reads it directly. `stats`
+        # is kept for the swap modal's curated per-type display.
+        component = dict(comp)
+        component.update({
+            'display_name': display_name,   # localized
+            'item_type':    comp_type,
+            'stats':        stats,
+        })
         
         components.append(component)
     
