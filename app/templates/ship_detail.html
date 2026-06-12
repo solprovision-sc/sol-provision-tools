@@ -3539,6 +3539,26 @@ body::before {
     return guns;
   }
 
+  // Sum DPS + alpha over the gun nodes in a set of hardpoint trees. Stock guns
+  // carry ammo + fire_modes (weaponDps/weaponPerShot compute the real values);
+  // swapped-in guns carry the modal's precomputed dps/max_dmg instead, so fall
+  // back to those. Live-derived so the Pilot/Turret DPS rows track swaps — the
+  // server pre-aggregates (comps.pilot_dps) only reflect the stock loadout.
+  function treeWeaponTotals(roots) {
+    let dps = 0, alpha = 0;
+    const walk = n => {
+      if (n && n.kind === 'weapon' && n.item) {
+        const it = n.item, c = n.count || 1;
+        const d = weaponDps(it),  a = weaponPerShot(it);
+        dps   += (d != null ? d : (it.dps     || 0)) * c;
+        alpha += (a != null ? a : (it.max_dmg || 0)) * c;
+      }
+      (n && n.children || []).forEach(walk);
+    };
+    (roots || []).forEach(walk);
+    return { dps: Math.round(dps), alpha: Math.round(alpha) };
+  }
+
   function componentsForCategory(catKey) {
     const cat = POWER_CATEGORIES.find(c => c.key === catKey);
     if (!cat) return [];
@@ -4049,14 +4069,18 @@ body::before {
     updateWeaponPowerSummary();
     const ld = sidebarLoadout();
 
-    // ── Weapons: pilot vs crew/PDC DPS + alpha. Server pre-aggregates these
-    // from the hardpoint trees (exact pilot/turret split); weapon swaps don't
-    // feed them yet — live tree→stat sync is the Phase 3 follow-up.
+    // ── Weapons: pilot vs crew/PDC DPS + alpha, derived live from the
+    // hardpoint trees so gun swaps update immediately (the server pre-aggregates
+    // only reflect the stock loadout).
     const comps = (ship.components || {});
-    setNum('ms-pilot-dps',    comps.pilot_dps    || null, 0);
-    setNum('ms-pilot-alpha',  comps.pilot_alpha  || null, 0);
-    setNum('ms-turret-dps',   comps.turret_dps   || null, 0);
-    setNum('ms-turret-alpha', comps.turret_alpha || null, 0);
+    const tg = comps.turret_groups || {};
+    const turretRoots = [].concat(tg.manned || [], tg.remote || [], tg.pdc || []);
+    const pilotW  = treeWeaponTotals(comps.weapon_groups || []);
+    const turretW = treeWeaponTotals(turretRoots);
+    setNum('ms-pilot-dps',    pilotW.dps    || null, 0);
+    setNum('ms-pilot-alpha',  pilotW.alpha  || null, 0);
+    setNum('ms-turret-dps',   turretW.dps   || null, 0);
+    setNum('ms-turret-alpha', turretW.alpha || null, 0);
 
     // ── Missiles & bombs: total damage. EMP: total distortion damage.
     const missiles = ld.missiles || [];
