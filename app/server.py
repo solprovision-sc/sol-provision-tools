@@ -1887,6 +1887,30 @@ def get_ship_components(conn, ship_entity, patch):
                t.power_low_start, t.power_medium_start, t.power_high_start
         {join("item_wheels_controllers")}""")
 
+    # Mining/salvage hardpoint trees carry display-only items (from the generic
+    # component map), but their stats (power_draw, em/ir_signature, mining_dps,
+    # multipliers) live in the flat mining_lasers / salvage lists. Merge those
+    # into the tree node items so the sidebar can derive power/cooling/signature
+    # straight from the trees — which is what swaps mutate.
+    def _merge_tree_stats(groups, by_name):
+        for root in groups:
+            stack = [root]
+            while stack:
+                n = stack.pop()
+                it = n.get("item")
+                ent = (it or {}).get("entity_name")
+                if it and ent:
+                    full = by_name.get(ent.lower())
+                    if full:
+                        for k, v in full.items():
+                            it.setdefault(k, v)   # add stats, keep display fields
+                stack.extend(n.get("children") or [])
+
+    _merge_tree_stats(mining_groups,
+                      {m["entity_name"].lower(): m for m in mining_lasers if m.get("entity_name")})
+    _merge_tree_stats(salvage_groups,
+                      {s["entity_name"].lower(): s for s in salvage if s.get("entity_name")})
+
     return {
         "armor":              armor,
         "shields":            shields,
