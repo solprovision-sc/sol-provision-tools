@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════════════
 import os, json, argparse, sqlite3, re, uuid
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, session
+from flask import Flask, jsonify, request, render_template, session, redirect
 import requests
 import time
 from datetime import timedelta, datetime, timezone
@@ -32,6 +32,10 @@ PATCH = None
 #   - Windows (local dev)                              → 'local' (uses dev Firebase project)
 is_local = os.name == 'nt'
 is_dev   = (not is_local) and os.path.exists('/var/www/sol-provision-tools-dev')
+app.config['IS_DEV'] = is_dev  # consumed by the officer_db blueprint's auth gate
+
+# The dev deployment is restricted to ranks 4+; everyone else sees this.
+DEV_AREA_DENIED = 'You are not authorized to access the Sol Provision Development area'
 
 # ✅ SESSION CONFIG - GOES HERE (before any routes)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-prod')
@@ -97,6 +101,15 @@ def require_org_member(f):
         return f(*args, **kwargs)
     return decorated_function
     
+def rank_int(rank):
+    """Coerce a rank value to int. Rank may be stored as int or string
+    depending on the snapshot import; treat missing/unparseable as 0 so we
+    never grant access by accident if the column drifts."""
+    try:
+        return int(rank) if rank is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
 def require_officer(f):
     """Decorator to gate endpoints behind officer rank (rank >= 5).
 
@@ -109,16 +122,22 @@ def require_officer(f):
         discord_id = session.get('discord_id')
         if not discord_id:
             return jsonify({'error': 'Not authenticated'}), 401
-        rank = session.get('rank')
-        # Defensive: rank may be stored as int or string depending on the
-        # snapshot import. Treat missing/None as 0 so we never grant access
-        # by accident if the column drifts.
-        try:
-            rank_n = int(rank) if rank is not None else 0
-        except (TypeError, ValueError):
-            rank_n = 0
-        if rank_n < 5:
+        if rank_int(session.get('rank')) < 5:
             return jsonify({'error': 'Officer access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_page_login(f):
+    """Page-level gate for UI routes. Anonymous visitors are bounced to the
+    dashboard, which hosts the 'Login with Discord' overlay — without this,
+    every page was reachable by typing its URL directly. On the dev
+    deployment, logged-in members below rank 4 are refused outright."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('discord_id'):
+            return redirect('/')
+        if is_dev and rank_int(session.get('rank')) < 4:
+            return DEV_AREA_DENIED, 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -641,13 +660,21 @@ def resolve_gpp_base_value(db, patch, gpp_entity_name, output_entity_name):
 # ══════════════════════════════════════════════════════════════════════
 
 @app.route("/")
-def index(): return render_template("index.html", active_page="/")
+def index():
+    # Anonymous visitors are allowed here — this page hosts the Discord
+    # login overlay that every other page redirects to. The dev-site rank
+    # gate still applies to anyone already logged in.
+    if is_dev and session.get('discord_id') and rank_int(session.get('rank')) < 4:
+        return DEV_AREA_DENIED, 403
+    return render_template("index.html", active_page="/")
 
 @app.route("/ships")
+@require_page_login
 def ships_page():
     return render_template("ships.html", active_page="/ships")
 
 @app.route("/ships/<entity_name>")
+@require_page_login
 def ship_detail(entity_name):
     return render_template("ship_detail.html", entity_name=entity_name, active_page="ships")
 
@@ -664,48 +691,51 @@ def ship_detail(entity_name):
 #def armor_page(): return render_template("armor.html", active_page="/armor")
 
 @app.route("/crafting")
+@require_page_login
 def crafting():
     return render_template("crafting.html", active_page="/crafting")
-    
+
 @app.route("/officers")
+@require_page_login
 def officers_page():
     # Page-level gate: non-officers (rank < 5) get bounced to the dashboard
     # instead of seeing an empty shell. The API endpoints behind this page
     # apply the same check via @require_officer.
-    discord_id = session.get('discord_id')
-    rank = session.get('rank')
-    try:
-        rank_n = int(rank) if rank is not None else 0
-    except (TypeError, ValueError):
-        rank_n = 0
-    if not discord_id or rank_n < 5:
+    if rank_int(session.get('rank')) < 5:
         return redirect('/')
     return render_template("officers.html", active_page="/officers")
 
 @app.route("/mission-rep")
+@require_page_login
 def mission_rep():
     return render_template("mission_rep.html", active_page="/mission-rep")
 
 @app.route("/mining-signatures")
+@require_page_login
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
 @app.route("/cargo-planner")
+@require_page_login
 def cargo_planner_page():
     return render_template("cargo_planner.html", active_page="/cargo-planner")
 
 @app.route("/ledger")
+@require_page_login
 def ledger(): return render_template("ledger.html", active_page="ledger")
 
 @app.route("/item_collection")
+@require_page_login
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
 @app.route("/base-builder")
+@require_page_login
 def base_builder_page(): return render_template("base_builder.html", active_page="/base-builder")
 
 @app.route("/starmap")
 @app.route("/starmap/<system>")
 @app.route("/starmap/<system>/<body>")
+@require_page_login
 def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
     return render_template("starmap.html", active_page="/starmap")
@@ -715,15 +745,17 @@ def starmap_page(system=None, body=None):
 # AUTH API ROUTES
 # ══════════════════════════════════════════════════════════════════════
 
-# Mock auth for local development
+# Mock auth for local development. Sets the same session fields the real
+# verify flow does, so the page/API auth gates behave as a logged-in officer.
+# Guarded by is_local so a spoofed Host header can't enable it on a deploy.
 @app.before_request
 def mock_auth():
-    if 'user' not in session and request.host.startswith('localhost'):
-        session['user'] = {
-            'discord_id': '123456789',
-            'username': 'TestUser',
-            'discriminator': '0001'
-        }
+    if is_local and 'discord_id' not in session and request.host.startswith('localhost'):
+        session['discord_id'] = '123456789'
+        session['username'] = 'TestUser'
+        session['callsign'] = 'Test User'
+        session['rank'] = 5
+        session['division'] = None
             
 @app.route('/api/auth/verify', methods=['POST'])
 def verify_auth():
@@ -778,7 +810,16 @@ def verify_auth():
                 'error': 'Not a Sol Provision member',
                 'message': 'You must be a member of the Sol Provision Discord server.'
             }), 403
-        
+
+        # The dev deployment is restricted to ranks 4+. Reject the login
+        # outright (no session) so the overlay shows the denial message.
+        if is_dev and rank_int(user['rank']) < 4:
+            user_conn.close()
+            return jsonify({
+                'error': 'Not authorized',
+                'message': DEV_AREA_DENIED
+            }), 403
+
         # Update last login timestamp
         cursor.execute('''
             UPDATE discord_members 
