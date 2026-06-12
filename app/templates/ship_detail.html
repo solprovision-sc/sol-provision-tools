@@ -3559,14 +3559,41 @@ body::before {
     return { dps: Math.round(dps), alpha: Math.round(alpha) };
   }
 
+  // Field-complete stat items installed in a hardpoint tree (mining/salvage).
+  // The server merges power_draw/em-ir/mining_dps into the tree node items, so
+  // these track swaps the same way pilot guns do.
+  function treeStatItems(groups) {
+    const items = [];
+    const walk = n => {
+      if (n && n.item &&
+          (n.item.power_draw != null || n.item.em_signature != null || n.item.mining_dps != null))
+        items.push(n.item);
+      (n && n.children || []).forEach(walk);
+    };
+    (groups || []).forEach(walk);
+    return items;
+  }
+  function miningItemsFromTree() {
+    const c = (window.__currentShip && window.__currentShip.components) || {};
+    return treeStatItems(c.mining_groups);
+  }
+  function salvageItemsFromTree() {
+    const c = (window.__currentShip && window.__currentShip.components) || {};
+    return treeStatItems(c.salvage_groups);
+  }
+
   function componentsForCategory(catKey) {
     const cat = POWER_CATEGORIES.find(c => c.key === catKey);
     if (!cat) return [];
-    // Pilot weapons come from the hardpoint tree so gun swaps register.
+    // Pilot weapons + mining lasers come from their hardpoint trees so swaps
+    // register (the flat lists aren't mutated by tree swaps).
     if (catKey === 'weapons') {
       const guns = pilotGunsFromTree();
       if (guns.length) return guns.filter(c => (c.power_draw || 0) > 0);
-      // fall through to the flat list for payloads without a tree
+    }
+    if (catKey === 'mining') {
+      const lasers = miningItemsFromTree();
+      if (lasers.length) return lasers.filter(c => (c.power_draw || 0) > 0);
     }
     const ld = sidebarLoadout();
     const buckets = cat.multiCompKey || [cat.compKey];
@@ -4181,7 +4208,12 @@ body::before {
     ];
     let emSig = 0, irSig = 0;
     SIG_CATS.forEach(([listKey, catKey]) => {
-      (ld[listKey] || []).forEach(cmp => {
+      // Mining/salvage live in hardpoint trees the flat lists don't track on
+      // swap — derive from the tree so signatures react (other cats stay flat).
+      let list = catKey === 'mining'  ? miningItemsFromTree()
+               : catKey === 'salvage' ? salvageItemsFromTree() : null;
+      if (!list || !list.length) list = ld[listKey] || [];
+      list.forEach(cmp => {
         const m = powerModifier(catKey, cmp);
         emSig += (cmp.em_signature || 0) * (m > 0 ? 1 : 0);
         irSig += (cmp.ir_signature || 0) * (m > 0 ? 1 : 0);
