@@ -4197,6 +4197,15 @@ body::before {
 
     if (ship.cargo_scu > 0) {
       setStatBlock('ov-cargo', 'ov-cargo-u', ship.cargo_scu, 0, 'SCU');
+      // Transparency: when the displayed (RSI published) capacity differs from
+      // the in-game grid sum, surface both on hover.
+      const cargoEl = document.getElementById('ov-cargo');
+      const rsi = ship.cargo_rsi_scu, game = ship.cargo_game_scu;
+      if (rsi && game != null && Math.abs(rsi - game) > 0.5) {
+        cargoEl.title = `RSI published capacity. In-game cargo grid sums to ${fmt(game, 0)} SCU.`;
+      } else {
+        cargoEl.title = '';
+      }
     } else {
       document.getElementById('ov-cargo').className = 'st-val gap-val';
       document.getElementById('ov-cargo').textContent = 'NONE';
