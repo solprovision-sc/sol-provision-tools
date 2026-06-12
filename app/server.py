@@ -230,6 +230,23 @@ SHIP_OWNERSHIP_SCHEMA = """
     )
 """
 
+# Saved ship loadouts live in the same standalone DB. `loadout_key` is a short
+# random share token (in the URL); discord_id is the creator (saving is login-
+# gated, so always set). loadout_json is a full-state snapshot of the page.
+SAVED_LOADOUTS_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS saved_loadouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loadout_key TEXT NOT NULL UNIQUE,
+        discord_id TEXT NOT NULL,
+        ship_entity TEXT NOT NULL,
+        name TEXT NOT NULL,
+        loadout_json TEXT NOT NULL,
+        patch_version TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        env TEXT NOT NULL CHECK(env IN ('prod', 'dev'))
+    )
+"""
+
 
 def _resolve_ship_ownership_db_path():
     """SHIP_OWNERSHIP_DB env var wins; otherwise next to DB_PATH (lazy so --db
@@ -241,10 +258,11 @@ def _resolve_ship_ownership_db_path():
 
 
 def get_ship_ownership_db():
-    """Connect to ship_ownership DB. Auto-creates the table on first run."""
+    """Connect to ship_ownership DB. Auto-creates both tables on first run."""
     conn = sqlite3.connect(_resolve_ship_ownership_db_path())
     conn.row_factory = sqlite3.Row
     conn.execute(SHIP_OWNERSHIP_SCHEMA)
+    conn.execute(SAVED_LOADOUTS_SCHEMA)
     conn.commit()
     return conn
 
@@ -1235,6 +1253,7 @@ def api_ships():
 
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
                  s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
+                 s.rsi_cargo_scu,
                  s.size_class,
                  s.length_m, s.beam_m, s.height_m,
                  s.length_rsi_m, s.beam_rsi_m, s.height_rsi_m,
@@ -1266,7 +1285,9 @@ def api_ships():
             "role":         r["role"],
             "size_class":   r["size_class"],
             "crew_size":    r["crew_size"],
-            "cargo_scu":    r["cargo_scu"],
+            "cargo_scu":    (r["rsi_cargo_scu"] or r["cargo_scu"]),
+            "cargo_game_scu": r["cargo_scu"],
+            "cargo_rsi_scu":  r["rsi_cargo_scu"],
             "length_m":     r["length_m"],
             "beam_m":       r["beam_m"],
             "height_m":     r["height_m"],
@@ -1968,7 +1989,11 @@ def api_ship_detail(entity_name):
         "career":                 clean_career(ship["career"] or ""),
         "role": ship["role_display"] or clean_role(ship["role"] or ""),
         "crew_size":              ship["crew_size"],
-        "cargo_scu":              ship["cargo_scu"],
+        # Display cargo = RSI published capacity when present (authoritative),
+        # else the in-game grid sum. Both raw values exposed for transparency.
+        "cargo_scu":              (ship["rsi_cargo_scu"] or ship["cargo_scu"]),
+        "cargo_game_scu":         ship["cargo_scu"],
+        "cargo_rsi_scu":          ship["rsi_cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
         "personal_scu":           round(personal, 1),
         "length_m":               ship["length_m"],
@@ -3620,6 +3645,133 @@ def api_ship_owners(entity_name):
             'claimed_at':   r['claimed_at'],
         } for r in rows],
     })
+
+
+# ── API: Saved ship loadouts ─────────────────────────────────────────────────
+# A loadout is a full-state snapshot of the page (components + armament + power
+# grid + master mode). Saving is login-gated and tied to the creator; loading by
+# key is open so a ?loadout=<key> URL works for anyone.
+
+import secrets as _secrets
+
+def _gen_loadout_key(conn):
+    """Short URL-safe share token, unique within the table."""
+    for _ in range(8):
+        key = _secrets.token_urlsafe(6)  # ~8 chars
+        hit = conn.execute(
+            "SELECT 1 FROM saved_loadouts WHERE loadout_key = ?", (key,)).fetchone()
+        if not hit:
+            return key
+    raise RuntimeError("could not generate a unique loadout key")
+
+
+@app.route('/api/ship/<entity_name>/loadout', methods=['POST'])
+@require_org_member
+def api_ship_loadout_save(entity_name):
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    body = request.get_json(silent=True) or {}
+    loadout = body.get('loadout')
+    if not isinstance(loadout, dict):
+        return jsonify({'error': 'Missing loadout state'}), 400
+    name = (body.get('name') or '').strip() or 'Unnamed loadout'
+    name = name[:80]
+    # Validate the ship exists (and grab the patch for provenance).
+    conn = get_db()
+    patch = latest_patch(conn)
+    ship = conn.execute(
+        "SELECT 1 FROM ships WHERE entity_name = ? AND patch_version = ?",
+        (entity_name, patch)).fetchone()
+    conn.close()
+    if not ship:
+        return jsonify({'error': 'Ship not found'}), 404
+    payload = json.dumps(loadout, separators=(',', ':'))
+    # Guard against runaway payloads (full-state snapshots are tens of KB).
+    if len(payload) > 1_000_000:
+        return jsonify({'error': 'Loadout too large'}), 413
+    own = get_ship_ownership_db()
+    key = _gen_loadout_key(own)
+    own.execute('''
+        INSERT INTO saved_loadouts
+            (loadout_key, discord_id, ship_entity, name, loadout_json, patch_version, env)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (key, discord_id, entity_name, name, payload, patch, env))
+    own.commit()
+    own.close()
+    return jsonify({
+        'success': True,
+        'key': key,
+        'name': name,
+        'ship_entity': entity_name,
+        'url': f"/ships/{entity_name}?loadout={key}",
+    })
+
+
+@app.route('/api/loadout/<key>', methods=['GET'])
+def api_loadout_get(key):
+    """Open (no auth) — powers ?loadout=<key> share links."""
+    env = _current_env()
+    own = get_ship_ownership_db()
+    row = own.execute('''
+        SELECT loadout_key, discord_id, ship_entity, name, loadout_json, created_at
+        FROM saved_loadouts WHERE loadout_key = ? AND env = ?
+    ''', (key, env)).fetchone()
+    own.close()
+    if not row:
+        return jsonify({'error': 'Loadout not found'}), 404
+    try:
+        loadout = json.loads(row['loadout_json'])
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Corrupt loadout'}), 500
+    return jsonify({
+        'key':         row['loadout_key'],
+        'ship_entity': row['ship_entity'],
+        'name':        row['name'],
+        'created_at':  row['created_at'],
+        'loadout':     loadout,
+    })
+
+
+@app.route('/api/ship/<entity_name>/loadouts', methods=['GET'])
+@require_org_member
+def api_ship_loadouts_mine(entity_name):
+    """The current user's saved loadouts for this ship (for the Load popup)."""
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    own = get_ship_ownership_db()
+    rows = own.execute('''
+        SELECT loadout_key, name, created_at
+        FROM saved_loadouts
+        WHERE ship_entity = ? AND discord_id = ? AND env = ?
+        ORDER BY created_at DESC
+    ''', (entity_name, discord_id, env)).fetchall()
+    own.close()
+    return jsonify({
+        'ship_entity': entity_name,
+        'loadouts': [{
+            'key':        r['loadout_key'],
+            'name':       r['name'],
+            'created_at': r['created_at'],
+        } for r in rows],
+    })
+
+
+@app.route('/api/loadout/<key>', methods=['DELETE'])
+@require_org_member
+def api_loadout_delete(key):
+    """Delete only the current user's own saved loadout."""
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    own = get_ship_ownership_db()
+    cur = own.execute(
+        "DELETE FROM saved_loadouts WHERE loadout_key = ? AND discord_id = ? AND env = ?",
+        (key, discord_id, env))
+    own.commit()
+    removed = cur.rowcount
+    own.close()
+    if removed == 0:
+        return jsonify({'error': 'Not found or not yours'}), 404
+    return jsonify({'success': True, 'key': key})
 
 
 # ── API: All claims by the current user ──────────────────────────────────────

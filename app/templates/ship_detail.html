@@ -109,6 +109,46 @@
 .ship-claim-btn:disabled { opacity: 0.45; cursor: default; }
 .ship-claim-btn:disabled:hover { color: #9A8C64; border-color: rgba(154,140,100,0.4); }
 
+/* Saved-loadout toolbar + modal controls */
+.lo-toolbar { display: flex; gap: 8px; margin-top: 12px; }
+.lo-btn {
+  flex: 1; padding: 6px 0; cursor: pointer;
+  background: transparent; border: 1px solid rgba(126,38,25,0.5); border-radius: 3px;
+  color: #CBB8AA; font-family: 'Orbitron', sans-serif; font-size: 9px;
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.lo-btn:hover { background: #7E2619; color: #fff; border-color: #7E2619; }
+.lo-btn:disabled { opacity: 0.4; cursor: default; }
+.lo-btn:disabled:hover { background: transparent; color: #CBB8AA; border-color: rgba(126,38,25,0.5); }
+.lo-modal { max-width: 440px; }
+.lo-label { font-size: 10px; letter-spacing: 1px; color: #9A8C64; text-transform: uppercase; display: block; margin-bottom: 5px; }
+.lo-input {
+  width: 100%; box-sizing: border-box; padding: 8px 10px;
+  background: #1a1410; border: 1px solid rgba(154,140,100,0.35); border-radius: 3px;
+  color: #e8d9c8; font-family: var(--font-ui, sans-serif); font-size: 13px;
+}
+.lo-input:focus { outline: none; border-color: #E8855C; }
+.lo-hint { font-size: 10px; color: #6a5d4a; margin-top: 6px; line-height: 1.4; }
+.lo-share-row { display: flex; gap: 6px; align-items: center; }
+.lo-share-row .lo-input { flex: 1; }
+.lo-share-row .lo-btn { flex: 0 0 auto; padding: 6px 12px; }
+.lo-list { display: flex; flex-direction: column; gap: 6px; }
+.lo-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 11px;
+  background: #1a1410; border: 1px solid rgba(154,140,100,0.2); border-radius: 3px;
+}
+.lo-row:hover { border-color: rgba(232,133,92,0.5); }
+.lo-row-main { flex: 1; min-width: 0; cursor: pointer; }
+.lo-row-name { color: #e8d9c8; font-size: 13px; font-weight: 600; }
+.lo-row-date { color: #6a5d4a; font-size: 10px; margin-top: 2px; }
+.lo-row-del {
+  flex: 0 0 auto; background: transparent; border: none; color: #6a5d4a;
+  cursor: pointer; font-size: 16px; padding: 2px 6px; line-height: 1;
+}
+.lo-row-del:hover { color: #c44545; }
+.lo-empty { color: #6a5d4a; font-size: 12px; text-align: center; padding: 16px 0; }
+
 /* Sidebar Stats */
 .sb-stats { 
   display: flex; 
@@ -1896,6 +1936,14 @@ body::before {
       <div class="sb-row"><span class="sb-lbl">Career</span><span class="sb-val" id="sb-career"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Role</span><span class="sb-val" id="sb-role"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size"></span></div>
+
+      <!-- ── Saved Loadouts ─────────────────────────────────────────────── -->
+      <div class="lo-toolbar">
+        <button type="button" class="lo-btn" id="lo-save-btn" onclick="openSaveLoadout()"
+                title="Save the current loadout and get a shareable link">Save Loadout</button>
+        <button type="button" class="lo-btn" id="lo-load-btn" onclick="openLoadLoadout()"
+                title="Load one of your saved loadouts">Load Saved</button>
+      </div>
     </div>
 
     <div class="sb-stats">
@@ -2352,6 +2400,52 @@ body::before {
     </div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeArmamentSwap()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Save Loadout modal ──────────────────────────────────────────────── -->
+<div id="save-loadout-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-content lo-modal">
+    <div class="modal-header">
+      <h3>Save Loadout</h3>
+      <button class="modal-close" onclick="closeSaveLoadout()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="lo-save-form">
+        <label class="lo-label">Name</label>
+        <input type="text" id="lo-save-name" class="lo-input" maxlength="80"
+               placeholder="e.g. Cargo run build" />
+        <div class="lo-hint">Saves the current components, armament, power-grid and master mode.</div>
+      </div>
+      <div id="lo-save-result" style="display:none;">
+        <div class="lo-label">Shareable link</div>
+        <div class="lo-share-row">
+          <input type="text" id="lo-share-url" class="lo-input" readonly />
+          <button class="lo-btn" id="lo-copy-btn" onclick="copyShareUrl()">Copy</button>
+        </div>
+        <div class="lo-hint">Anyone with this link can open this exact loadout.</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeSaveLoadout()">Close</button>
+      <button class="btn-primary" id="lo-save-confirm" onclick="confirmSaveLoadout()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Load Saved Loadout modal ────────────────────────────────────────── -->
+<div id="load-loadout-modal" class="modal-overlay" style="display: none;">
+  <div class="modal-content lo-modal">
+    <div class="modal-header">
+      <h3>Your Saved Loadouts</h3>
+      <button class="modal-close" onclick="closeLoadLoadout()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="lo-load-list" class="lo-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" onclick="closeLoadLoadout()">Cancel</button>
     </div>
   </div>
 </div>
@@ -4197,6 +4291,15 @@ body::before {
 
     if (ship.cargo_scu > 0) {
       setStatBlock('ov-cargo', 'ov-cargo-u', ship.cargo_scu, 0, 'SCU');
+      // Transparency: when the displayed (RSI published) capacity differs from
+      // the in-game grid sum, surface both on hover.
+      const cargoEl = document.getElementById('ov-cargo');
+      const rsi = ship.cargo_rsi_scu, game = ship.cargo_game_scu;
+      if (rsi && game != null && Math.abs(rsi - game) > 0.5) {
+        cargoEl.title = `RSI published capacity. In-game cargo grid sums to ${fmt(game, 0)} SCU.`;
+      } else {
+        cargoEl.title = '';
+      }
     } else {
       document.getElementById('ov-cargo').className = 'st-val gap-val';
       document.getElementById('ov-cargo').textContent = 'NONE';
@@ -5593,6 +5696,10 @@ body::before {
 	  //populateInsurance(ship);
       initScrollSpy();
 
+      // If the URL carries ?loadout=<key>, apply that snapshot over the stock
+      // loadout now that every view is rendered and __currentShip is set.
+      maybeLoadFromUrl();
+
     } catch(e) {
       document.getElementById('loading').innerHTML =
         `<div class="loading-text" style="color:#b06020">Error loading vessel data</div>`;
@@ -5653,4 +5760,166 @@ body::before {
   }
 
   loadShipClaim();
+
+  // ══ Saved Loadouts ═══════════════════════════════════════════════════════════
+  // A loadout is a full-state snapshot: the swappable components, the entire
+  // armament/component payload, the power-grid segment state, and master mode.
+  // Self-contained (item stats included), so loading needs no re-resolution.
+
+  function serializeLoadout() {
+    const ship = window.__currentShip || {};
+    const clone = o => JSON.parse(JSON.stringify(o || null));
+    return {
+      v: 1,
+      ship: ENTITY_NAME,
+      components: clone(typeof shipLoadout !== 'undefined' ? shipLoadout.current : {}),
+      armament:  clone(ship.components || {}),
+      power:     clone(typeof CELL_STATE !== 'undefined' ? CELL_STATE : {}),
+      mode:      (typeof masterMode !== 'undefined' ? masterMode : 'scm'),
+    };
+  }
+
+  // Restore a snapshot onto the live page + re-render every dependent view.
+  function applyLoadout(state) {
+    if (!state || !window.__currentShip) return;
+    const clone = o => JSON.parse(JSON.stringify(o || null));
+    if (state.armament)   window.__currentShip.components = clone(state.armament);
+    if (state.components && typeof shipLoadout !== 'undefined') {
+      shipLoadout.current = clone(state.components);
+      // Component swaps live in shipLoadout.current, but populateComponents (and
+      // every other view) renders from ship.components — so overlay the restored
+      // swappable categories onto it, the same layering sidebarLoadout() does.
+      Object.keys(shipLoadout.current).forEach(k => {
+        window.__currentShip.components[k] = clone(shipLoadout.current[k]);
+      });
+    }
+    const ship = window.__currentShip;
+    // Re-render the loadout views from the restored state.
+    try { populateComponents(ship); } catch (_) {}
+    try { populateWeapons(ship); } catch (_) {}
+    try { populateCargo(ship); } catch (_) {}
+    try { populateFuel(ship); } catch (_) {}
+    try { populateOverview(ship); } catch (_) {}
+    if (typeof renderPowerGrid === 'function') renderPowerGrid();
+    // Overlay saved power-grid segment state onto the freshly-built CELL_STATE.
+    if (state.power && typeof CELL_STATE !== 'undefined') {
+      Object.keys(state.power).forEach(k => {
+        if (CELL_STATE[k] && state.power[k]) {
+          if (Array.isArray(state.power[k].compEnabled)) CELL_STATE[k].compEnabled = state.power[k].compEnabled.slice();
+          if (Array.isArray(state.power[k].adjLit))      CELL_STATE[k].adjLit      = state.power[k].adjLit.slice();
+        }
+      });
+    }
+    // Master mode (re-asserts lockouts + repaints all cells).
+    if (typeof masterMode !== 'undefined') {
+      masterMode = state.mode || 'scm';
+      document.querySelectorAll('#pm-mode-toggle .pm-mode-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.mode === masterMode));
+    }
+    if (typeof enforceMasterMode === 'function') enforceMasterMode();
+    if (typeof recomputeSidebarStats === 'function') recomputeSidebarStats(ship);
+  }
+
+  // ── Save flow ────────────────────────────────────────────────────────────────
+  function openSaveLoadout() {
+    if (!claimUser) { alert('Log in to save loadouts.'); return; }
+    document.getElementById('lo-save-form').style.display = 'block';
+    document.getElementById('lo-save-result').style.display = 'none';
+    document.getElementById('lo-save-confirm').style.display = '';
+    document.getElementById('lo-save-name').value = '';
+    document.getElementById('save-loadout-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('lo-save-name').focus(), 30);
+  }
+  function closeSaveLoadout() {
+    document.getElementById('save-loadout-modal').style.display = 'none';
+  }
+  async function confirmSaveLoadout() {
+    const name = document.getElementById('lo-save-name').value.trim();
+    const btn = document.getElementById('lo-save-confirm');
+    btn.disabled = true;
+    try {
+      const r = await fetch(`/api/ship/${ENTITY_NAME}/loadout`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, loadout: serializeLoadout() }),
+      });
+      const data = await r.json();
+      if (!r.ok) { alert(data.error || 'Failed to save loadout'); btn.disabled = false; return; }
+      const url = `${location.origin}${data.url}`;
+      document.getElementById('lo-share-url').value = url;
+      document.getElementById('lo-save-form').style.display = 'none';
+      document.getElementById('lo-save-result').style.display = 'block';
+      document.getElementById('lo-save-confirm').style.display = 'none';
+      // reflect the new loadout in the address bar without reloading
+      history.replaceState(null, '', `${location.pathname}?loadout=${data.key}`);
+    } catch (_) {
+      alert('Network error — try again.');
+    }
+    btn.disabled = false;
+  }
+  function copyShareUrl() {
+    const el = document.getElementById('lo-share-url');
+    el.select();
+    navigator.clipboard.writeText(el.value).then(() => {
+      const b = document.getElementById('lo-copy-btn');
+      const t = b.textContent; b.textContent = 'Copied'; setTimeout(() => b.textContent = t, 1200);
+    }).catch(() => { try { document.execCommand('copy'); } catch (_) {} });
+  }
+
+  // ── Load flow ──────────────────────────────────────────────────────────────────
+  async function openLoadLoadout() {
+    if (!claimUser) { alert('Log in to view your saved loadouts.'); return; }
+    const list = document.getElementById('lo-load-list');
+    list.innerHTML = `<div class="lo-empty">Loading…</div>`;
+    document.getElementById('load-loadout-modal').style.display = 'flex';
+    try {
+      const data = await api(`/api/ship/${ENTITY_NAME}/loadouts`);
+      const items = data.loadouts || [];
+      if (!items.length) { list.innerHTML = `<div class="lo-empty">No saved loadouts for this ship yet.</div>`; return; }
+      list.innerHTML = items.map(l => `
+        <div class="lo-row" data-key="${l.key}">
+          <div class="lo-row-main" onclick="loadSavedByKey('${l.key}')">
+            <div class="lo-row-name">${escapeHtmlLO(l.name)}</div>
+            <div class="lo-row-date">${(l.created_at || '').replace('T', ' ').slice(0, 16)}</div>
+          </div>
+          <button class="lo-row-del" title="Delete" onclick="deleteSavedLoadout('${l.key}', this)">&times;</button>
+        </div>`).join('');
+    } catch (_) {
+      list.innerHTML = `<div class="lo-empty">Failed to load.</div>`;
+    }
+  }
+  function closeLoadLoadout() { document.getElementById('load-loadout-modal').style.display = 'none'; }
+
+  async function loadSavedByKey(key) {
+    try {
+      const data = await api(`/api/loadout/${encodeURIComponent(key)}`);
+      applyLoadout(data.loadout);
+      history.replaceState(null, '', `${location.pathname}?loadout=${key}`);
+      closeLoadLoadout();
+    } catch (_) { alert('Failed to load that loadout.'); }
+  }
+
+  async function deleteSavedLoadout(key, btn) {
+    if (!confirm('Delete this saved loadout?')) return;
+    try {
+      const r = await fetch(`/api/loadout/${encodeURIComponent(key)}`, { method: 'DELETE' });
+      if (r.ok) { const row = btn.closest('.lo-row'); if (row) row.remove(); }
+      else alert('Failed to delete.');
+    } catch (_) { alert('Network error.'); }
+  }
+
+  function escapeHtmlLO(s) {
+    return String(s || '').replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ── Auto-load from ?loadout=<key> on the URL (open to anyone) ───────────────────
+  async function maybeLoadFromUrl() {
+    const key = new URLSearchParams(location.search).get('loadout');
+    if (!key) return;
+    try {
+      const data = await api(`/api/loadout/${encodeURIComponent(key)}`);
+      if (data.ship_entity && data.ship_entity !== ENTITY_NAME) return; // wrong ship
+      applyLoadout(data.loadout);
+    } catch (_) { /* invalid/expired key — leave stock loadout */ }
+  }
 {% endblock %}
