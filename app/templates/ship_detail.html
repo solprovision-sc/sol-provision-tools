@@ -3523,9 +3523,31 @@ body::before {
   // component's share of lit adjustable segments.
   let CELL_STATE = {};
 
+  // Pilot guns installed in the weapon_groups tree (what the loadout section
+  // actually shows). Armament swaps mutate these nodes in place, so deriving
+  // from the tree keeps the power grid + weapon-power summary in sync with the
+  // displayed loadout — the flat ld.weapons list isn't updated by gun swaps.
+  function pilotGunsFromTree() {
+    const ship = window.__currentShip;
+    const groups = (ship && ship.components && ship.components.weapon_groups) || [];
+    const guns = [];
+    const walk = n => {
+      if (n && n.kind === 'weapon' && n.item) guns.push(n.item);
+      (n && n.children || []).forEach(walk);
+    };
+    groups.forEach(walk);
+    return guns;
+  }
+
   function componentsForCategory(catKey) {
     const cat = POWER_CATEGORIES.find(c => c.key === catKey);
     if (!cat) return [];
+    // Pilot weapons come from the hardpoint tree so gun swaps register.
+    if (catKey === 'weapons') {
+      const guns = pilotGunsFromTree();
+      if (guns.length) return guns.filter(c => (c.power_draw || 0) > 0);
+      // fall through to the flat list for payloads without a tree
+    }
     const ld = sidebarLoadout();
     const buckets = cat.multiCompKey || [cat.compKey];
     let list = [];
