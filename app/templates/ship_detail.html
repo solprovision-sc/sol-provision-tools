@@ -2642,7 +2642,7 @@ body::before {
         { key: 'display_name', label: 'Name', width: '18%' },
         { key: 'manufacturer', label: 'Manufacturer', width: '12%' },
         { key: 'grade_letter', label: 'Grade', width: '8%' },
-        { key: 'speed_mps', label: 'Speed', width: '12%', format: v => fmt(v, 0, 'm/s') },
+        { key: 'speed_mps', label: 'Speed', width: '12%', format: v => fmt(v, 0, 'km/s') },
         { key: 'quantum_fuel_requirement', label: 'Fuel/Gm', width: '12%', format: v => fmt(v, 2, '') },
         { key: 'spool_up_time', label: 'Spool', width: '10%', format: v => fmt(v, 1, 's') },
         { key: 'cooldown_time', label: 'Cooldown', width: '10%', format: v => fmt(v, 1, 's') },
@@ -2813,7 +2813,7 @@ body::before {
       previewHtml += `
         <div class="preview-stat-row">
           <span class="preview-stat-label">Speed</span>
-          <span class="preview-stat-val">${fmtStat(comp.stats.speed_mps, 0, 'm/s')}</span>
+          <span class="preview-stat-val">${fmtStat(comp.stats.speed_mps, 0, 'km/s')}</span>
         </div>
         <div class="preview-stat-row">
           <span class="preview-stat-label">Fuel per Gm</span>
@@ -3077,7 +3077,7 @@ body::before {
     // Update main stat (speed in .comp-hp-h)
     const speedEl = card.querySelector('.comp-hp-h');
     if (speedEl) {
-      speedEl.textContent = `${fmt(comp.stats.speed_mps, 0)} m/s`;
+      speedEl.textContent = `${fmt(comp.stats.speed_mps, 0)} km/s`;
     }
     
     // Update stats - quantum drives have more varied stat displays

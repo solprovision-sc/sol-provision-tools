@@ -2132,7 +2132,13 @@ def get_compatible_components():
     for row in rows:
         # Convert row to dict
         comp = dict(row)
-        
+
+        # Unit-normalize to match get_ship_components: it serves QD speed as
+        # drive_speed/1000 (km/s). The raw table value is ×1000, so a swapped-in
+        # drive would otherwise read 1000× too fast in the sidebar/card.
+        if comp_type == 'QuantumDrive' and comp.get('drive_speed') is not None:
+            comp['drive_speed'] = comp['drive_speed'] / 1000
+
         # Lookup display_name from localization table
         # Entity format: powr_acom_s02_solarflare_scitem (lowercase, with _scitem)
         # Key formats in DB:
@@ -2204,8 +2210,10 @@ def get_compatible_components():
             stats['power_draw'] = comp.get('power_draw', 0)
             
         elif comp_type == 'QuantumDrive':
-            stats['quantum_fuel_requirement'] = comp.get('quantum_fuel_requirement', 0)
-            stats['speed_mps'] = comp.get('speed', 0)
+            # Use the real column names. drive_speed is already km/s-normalized
+            # above; speed_mps here is the km/s value the card/modal display.
+            stats['quantum_fuel_requirement'] = comp.get('fuel_per_gm_mscu', 0)
+            stats['speed_mps'] = comp.get('drive_speed', 0)
             stats['cooldown_time'] = comp.get('cooldown_time', 0)
             stats['spool_up_time'] = comp.get('spool_up_time', 0)
             stats['em_signature'] = comp.get('em_signature', 0)
