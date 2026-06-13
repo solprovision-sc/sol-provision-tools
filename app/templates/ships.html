@@ -303,6 +303,10 @@
   .ship-card.concept:hover { transform: none; border-color: rgba(126,38,25,0.22); }
   .ship-card.concept:hover .ship-card-bar { background: inherit; }
   .ship-card.concept .ship-card-bar { background: #4a4036; }
+  /* Flyable but no detail page (e.g. ATLS exosuits): claimable, not dimmed, not clickable. */
+  .ship-card.nolink { cursor: default; }
+  .ship-card.nolink:hover { transform: none; border-color: rgba(126,38,25,0.22); }
+  .ship-card.nolink:hover .ship-card-bar { background: inherit; }
   .ship-card-bar {
     height: 2px;
     background: rgba(126,38,25,0.3);
@@ -668,9 +672,13 @@
               ${size ? `<span class="ship-tag size">${size}</span>` : ''}
             </div>
           </div>`;
-      return flyable
+      // Linkable only when we have game data behind it. Flyable ships without
+      // an extracted entity (e.g. ATLS exosuits) are claimable but have no
+      // detail page — render as a plain (undimmed) non-link card.
+      const linkable = flyable && s.entity_name;
+      return linkable
         ? `<a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}" data-rsi="${s.rsi_id}">${inner}</a>`
-        : `<div class="ship-card concept" data-rsi="${s.rsi_id}">${inner}</div>`;
+        : `<div class="ship-card ${flyable ? 'nolink' : 'concept'}" data-rsi="${s.rsi_id}">${inner}</div>`;
     }).join('');
     paintAllShipOwnership();
   }
