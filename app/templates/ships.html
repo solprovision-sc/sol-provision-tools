@@ -549,7 +549,7 @@
 {% block page_script %}
   // --- State ---
   let ALL_SHIPS = [];
-  const facets = { careers: new Set(), roles: new Set(), mfrs: new Set(), sizes: new Set() };
+  const facets = { kinds: new Set(), careers: new Set(), roles: new Set(), mfrs: new Set(), sizes: new Set() };
 
   // --- Helpers ---
   function getMfr(entityName) {
@@ -575,7 +575,7 @@
     return (s || '').replace(/\w\S*/g, t => t.charAt(0).toUpperCase() + t.substr(1).toLowerCase());
   }
   const SIZE_LABELS = { 1:'Snub / Vehicle', 2:'Small', 3:'Medium', 4:'Large', 5:'Large', 6:'Capital' };
-  const SIZE_ORDER  = ['Snub / Vehicle','Small','Medium','Large','Capital'];
+  const SIZE_ORDER  = ['Snub','Small','Medium','Large','Capital','Ground Vehicle'];
   function sizeLabel(sc){ return SIZE_LABELS[sc] || null; }
 
   // Facets come from the RSI catalog fields (present for every ship incl.
@@ -583,11 +583,20 @@
   function shipCareer(s){ return toTitleCase(s.type || '') || ''; }
   function shipRole(s){ return s.focus || ''; }
   function shipMfr(s){ return s.manufacturer || getMfr(s.entity_name || ''); }
-  function shipSize(s){ return toTitleCase(s.size || '') || ''; }
+  // RSI size 'vehicle' = a ground vehicle; surface it as such.
+  function shipSize(s){
+    const z = (s.size || '').toLowerCase();
+    return z === 'vehicle' ? 'Ground Vehicle' : (toTitleCase(z) || '');
+  }
+  // Flight vs Ground — RSI size 'vehicle' is the reliable ground signal
+  // (catches Ballista/ROC/G12 whose type is combat/industrial/transport).
+  function shipKind(s){ return (s.size || '').toLowerCase() === 'vehicle' ? 'Ground' : 'Flight'; }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
   // --- Filtering ---
   function shipPasses(s){
+    // Type facet -- Flight vs Ground.
+    if (facets.kinds.size && !facets.kinds.has(shipKind(s))) return false;
     // Role/Career facet -- OR across selected careers and roles.
     if (facets.careers.size || facets.roles.size) {
       if (!(facets.careers.has(shipCareer(s)) || facets.roles.has(shipRole(s)))) return false;
@@ -773,8 +782,10 @@
     const careerCount = new Map();
     const mfrCount = new Map();
     const sizeCount = new Map();
+    const kindCount = new Map();
     for (const s of ALL_SHIPS) {
-      const c = shipCareer(s), r = shipRole(s), m = shipMfr(s), z = shipSize(s);
+      const c = shipCareer(s), r = shipRole(s), m = shipMfr(s), z = shipSize(s), k = shipKind(s);
+      kindCount.set(k, (kindCount.get(k)||0)+1);
       if (c) {
         careerCount.set(c, (careerCount.get(c)||0)+1);
         if (!careerRoles.has(c)) careerRoles.set(c, new Map());
@@ -787,7 +798,11 @@
     const checkRow = (facet, value, count) =>
       `<label class="filter-check"><input type="checkbox" data-facet="${facet}" data-value="${esc(value)}"><span class="fc-label">${value}</span><span class="fc-count">${count}</span></label>`;
 
-    let html = '<div class="filter-head">Role / Career</div>';
+    let html = '<div class="filter-head">Type</div>';
+    html += ['Flight', 'Ground'].filter(k => kindCount.has(k))
+      .map(k => checkRow('kinds', k, kindCount.get(k))).join('');
+
+    html += '<div class="filter-head">Role / Career</div>';
     for (const c of [...careerCount.keys()].sort()) {
       const roles = [...(careerRoles.get(c)||new Map()).entries()].sort((a,b)=>a[0].localeCompare(b[0]));
       html += `<div class="filter-group2 collapsed">
