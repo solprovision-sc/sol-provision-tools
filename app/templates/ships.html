@@ -474,6 +474,8 @@
     margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border2);
   }
   .filter-head:first-child { margin-top: 0; }
+  /* subtle separator between sub-groups within a filter section */
+  .filter-subdivider { height: 1px; background: var(--border2); opacity: 0.5; margin: 7px 8px; }
   .filter-group2 { display: flex; flex-direction: column; }
   .filter-group2-toggle {
     display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;
@@ -549,7 +551,7 @@
 {% block page_script %}
   // --- State ---
   let ALL_SHIPS = [];
-  const facets = { kinds: new Set(), careers: new Set(), roles: new Set(), mfrs: new Set(), sizes: new Set() };
+  const facets = { kinds: new Set(), statuses: new Set(), careers: new Set(), roles: new Set(), mfrs: new Set(), sizes: new Set() };
 
   // --- Helpers ---
   function getMfr(entityName) {
@@ -591,12 +593,16 @@
   // Flight vs Ground — RSI size 'vehicle' is the reliable ground signal
   // (catches Ballista/ROC/G12 whose type is combat/industrial/transport).
   function shipKind(s){ return (s.size || '').toLowerCase() === 'vehicle' ? 'Ground' : 'Flight'; }
+  // Flyable (game data, opens detail) vs Concept — matches the card badge.
+  function shipStatus(s){ return s.flyable ? 'Flyable' : 'Concept'; }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
   // --- Filtering ---
   function shipPasses(s){
     // Type facet -- Flight vs Ground.
     if (facets.kinds.size && !facets.kinds.has(shipKind(s))) return false;
+    // Type facet -- Flyable vs Concept.
+    if (facets.statuses.size && !facets.statuses.has(shipStatus(s))) return false;
     // Role/Career facet -- OR across selected careers and roles.
     if (facets.careers.size || facets.roles.size) {
       if (!(facets.careers.has(shipCareer(s)) || facets.roles.has(shipRole(s)))) return false;
@@ -783,9 +789,11 @@
     const mfrCount = new Map();
     const sizeCount = new Map();
     const kindCount = new Map();
+    const statusCount = new Map();
     for (const s of ALL_SHIPS) {
       const c = shipCareer(s), r = shipRole(s), m = shipMfr(s), z = shipSize(s), k = shipKind(s);
       kindCount.set(k, (kindCount.get(k)||0)+1);
+      statusCount.set(shipStatus(s), (statusCount.get(shipStatus(s))||0)+1);
       if (c) {
         careerCount.set(c, (careerCount.get(c)||0)+1);
         if (!careerRoles.has(c)) careerRoles.set(c, new Map());
@@ -801,6 +809,9 @@
     let html = '<div class="filter-head">Type</div>';
     html += ['Flight', 'Ground'].filter(k => kindCount.has(k))
       .map(k => checkRow('kinds', k, kindCount.get(k))).join('');
+    html += '<div class="filter-subdivider"></div>';
+    html += ['Flyable', 'Concept'].filter(k => statusCount.has(k))
+      .map(k => checkRow('statuses', k, statusCount.get(k))).join('');
 
     html += '<div class="filter-head">Role / Career</div>';
     for (const c of [...careerCount.keys()].sort()) {
