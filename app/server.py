@@ -375,8 +375,16 @@ def _migrate_claims_rsi_id():
             df.close(); own.close()
             return
         patch = latest_patch(df)
+        # A data_name may back several catalog rows (editions aliased to a base
+        # ship). Order so the genuine matched base (rsi_id stamped on the ship
+        # row) is last and wins the dict overwrite — legacy claims migrate to it.
         name_to_id = {r["data_name"]: r["rsi_id"] for r in df.execute(
-            "SELECT data_name, rsi_id FROM ship_catalog WHERE patch_version=? AND data_name IS NOT NULL",
+            """SELECT sc.data_name, sc.rsi_id
+               FROM ship_catalog sc
+               LEFT JOIN ships s ON s.entity_name = sc.data_name
+                                AND s.patch_version = sc.patch_version
+               WHERE sc.patch_version=? AND sc.data_name IS NOT NULL
+               ORDER BY (sc.rsi_id = s.rsi_ship_id) ASC""",
             (patch,))}
         df.close()
         fixed = 0
@@ -2149,9 +2157,17 @@ def api_ship_detail(entity_name):
     # Catalog rsi_id (the claim key) for this hull, if the catalog is present.
     rsi_id = None
     try:
+        # A data_name may back several catalog rows (editions/bundles aliased to
+        # a base ship). Prefer the genuine matched base — the rsi_id the matcher
+        # stamped onto the ship row — over any alias sharing the same data_name.
         crow = conn.execute(
-            "SELECT rsi_id FROM ship_catalog WHERE data_name = ? AND patch_version = ?",
-            (entity_name, p)).fetchone()
+            """SELECT sc.rsi_id FROM ship_catalog sc
+               WHERE sc.data_name = ? AND sc.patch_version = ?
+               ORDER BY (sc.rsi_id = (SELECT s.rsi_ship_id FROM ships s
+                                      WHERE s.entity_name = ? AND s.patch_version = ?)) DESC,
+                        sc.rsi_id ASC
+               LIMIT 1""",
+            (entity_name, p, entity_name, p)).fetchone()
         if crow:
             rsi_id = crow["rsi_id"]
     except sqlite3.Error:
