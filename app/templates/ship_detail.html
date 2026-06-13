@@ -5823,27 +5823,35 @@ body::before {
   // ── Ship claiming (sidebar button — mirrors blueprint claiming) ──────────────
   let claimUser  = null;                              // /api/auth/me result or null
   let claimState = { count: 0, ownedByMe: false };
+  // Claims key on the catalog rsi_id (from the ship-detail payload).
+  function claimRsiId() {
+    const v = (window.__currentShip || {}).rsi_id;
+    return (v === undefined || v === null) ? null : v;
+  }
 
   async function loadShipClaim() {
     try { claimUser = await api('/api/auth/me'); } catch (_) { claimUser = null; }
-    try {
-      const rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(ENTITY_NAME)}`);
-      const myId = claimUser && claimUser.discord_id;
-      claimState = {
-        count: rows.length,
-        ownedByMe: !!myId && rows.some(x => x.discord_id === myId),
-      };
-    } catch (_) { /* leave previous state */ }
+    const rid = claimRsiId();
+    if (rid != null) {
+      try {
+        const rows = await api(`/api/ships/ownership?ids=${rid}`);
+        const myId = claimUser && claimUser.discord_id;
+        claimState = {
+          count: rows.length,
+          ownedByMe: !!myId && rows.some(x => x.discord_id === myId),
+        };
+      } catch (_) { /* leave previous state */ }
+    }
     paintShipClaim();
   }
 
   function paintShipClaim() {
     const btn = document.getElementById('sb-claim-btn');
     if (!btn) return;
-    if (!claimUser) {
+    if (!claimUser || claimRsiId() == null) {
       btn.textContent = 'Claim';
       btn.disabled = true;
-      btn.title = 'Log in to claim';
+      btn.title = claimRsiId() == null ? 'Not in ship catalog' : 'Log in to claim';
       btn.classList.remove('owned');
       return;
     }
@@ -5875,7 +5883,8 @@ body::before {
   }
 
   async function toggleShipClaim(btn) {
-    if (!claimUser) return;
+    const rid = claimRsiId();
+    if (!claimUser || rid == null) return;
     const claiming = !claimState.ownedByMe;
     let source = null;
     if (claiming) {
@@ -5888,7 +5897,7 @@ body::before {
         ? { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ source }) }
         : { method: 'DELETE' };
-      const r = await fetch(`/api/ship/${encodeURIComponent(ENTITY_NAME)}/claim`, opts);
+      const r = await fetch(`/api/ship/${rid}/claim`, opts);
       if (!r.ok && r.status !== 409 && r.status !== 404) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || `Failed to ${claiming ? 'claim' : 'unclaim'} ship`);

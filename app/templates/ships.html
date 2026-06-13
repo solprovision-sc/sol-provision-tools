@@ -628,11 +628,11 @@
       const len    = s.length_m ? `${s.length_m}m` : '—';
       const size   = shipSize(s);
       const flyable = !!s.flyable;
-      // Concept ships (no game data) aren't claimable until the claim layer
-      // moves to the catalog id (Phase 3) — disabled with a hint for now.
-      const claimAttr = flyable
-        ? `onclick="toggleShipClaim('${s.entity_name}', this, event)"`
-        : `disabled title="Concept ship — claiming coming soon"`;
+      // Claims key on the catalog rsi_id, so flyable AND concept ships are
+      // claimable. (Disabled only if a ship somehow lacks an rsi_id.)
+      const claimAttr = s.rsi_id
+        ? `onclick="toggleShipClaim(${s.rsi_id}, this, event)"`
+        : `disabled title="Not yet claimable"`;
       const inner = `
           <div class="ship-card-bar"></div>
           <div class="ship-card-body">
@@ -654,31 +654,31 @@
             </div>
           </div>`;
       return flyable
-        ? `<a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}">${inner}</a>`
+        ? `<a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}" data-rsi="${s.rsi_id}">${inner}</a>`
         : `<div class="ship-card concept" data-rsi="${s.rsi_id}">${inner}</div>`;
     }).join('');
     paintAllShipOwnership();
   }
 
-  // --- Ship ownership (mirrors blueprint claiming) -------------------------
+  // --- Ship ownership (claims key on catalog rsi_id) -----------------------
   let currentUser = null;             // {discord_id, callsign, ...} or null
-  let ownershipByShip = new Map();    // entity_name -> {count, ownedByMe}
+  let ownershipByShip = new Map();    // rsi_id -> {count, ownedByMe}
 
   async function loadShipOwnership() {
     try { currentUser = await api('/api/auth/me'); } catch (_) { currentUser = null; }
     ownershipByShip = new Map();
-    const ents = ALL_SHIPS.map(s => s.entity_name).filter(Boolean);
+    const ids = ALL_SHIPS.map(s => s.rsi_id).filter(v => v != null);
     const myId = currentUser && currentUser.discord_id;
-    const CHUNK = 60;
-    for (let i = 0; i < ents.length; i += CHUNK) {
-      const slice = ents.slice(i, i + CHUNK);
+    const CHUNK = 80;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
       let rows;
       try {
-        rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(slice.join(','))}`);
+        rows = await api(`/api/ships/ownership?ids=${slice.join(',')}`);
       } catch (_) { continue; }
       rows.forEach(r => {
-        let st = ownershipByShip.get(r.ship_entity);
-        if (!st) { st = { count: 0, ownedByMe: false }; ownershipByShip.set(r.ship_entity, st); }
+        let st = ownershipByShip.get(r.rsi_id);
+        if (!st) { st = { count: 0, ownedByMe: false }; ownershipByShip.set(r.rsi_id, st); }
         st.count += 1;
         if (myId && r.discord_id === myId) st.ownedByMe = true;
       });
@@ -690,14 +690,12 @@
     document.querySelectorAll('.ship-card').forEach(card => {
       const btn = card.querySelector('.ship-claim-btn');
       if (!btn) return;
-      // Concept cards have no data-entity — not claimable yet (Phase 3).
-      if (!card.dataset.entity) {
-        btn.textContent = 'Claim';
-        btn.disabled = true;
-        btn.title = 'Concept ship — claiming coming soon';
+      const rsiId = card.dataset.rsi ? Number(card.dataset.rsi) : null;
+      if (rsiId == null) {   // no catalog id — can't claim
+        btn.textContent = 'Claim'; btn.disabled = true; btn.title = 'Not yet claimable';
         return;
       }
-      const st = ownershipByShip.get(card.dataset.entity) || { count: 0, ownedByMe: false };
+      const st = ownershipByShip.get(rsiId) || { count: 0, ownedByMe: false };
       if (!currentUser) {
         btn.textContent = 'Claim';
         btn.disabled = true;
@@ -732,11 +730,11 @@
     });
   }
 
-  async function toggleShipClaim(entity, btn, ev) {
+  async function toggleShipClaim(rsiId, btn, ev) {
     // The button lives inside the card's <a> — don't navigate.
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-    if (!currentUser) return;
-    const st = ownershipByShip.get(entity) || { count: 0, ownedByMe: false };
+    if (!currentUser || rsiId == null) return;
+    const st = ownershipByShip.get(rsiId) || { count: 0, ownedByMe: false };
     const claiming = !st.ownedByMe;
     let source = null;
     if (claiming) {
@@ -749,16 +747,16 @@
         ? { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ source }) }
         : { method: 'DELETE' };
-      const r = await fetch(`/api/ship/${encodeURIComponent(entity)}/claim`, opts);
+      const r = await fetch(`/api/ship/${rsiId}/claim`, opts);
       if (!r.ok && r.status !== 409 && r.status !== 404) {
         const err = await r.json().catch(() => ({}));
         alert(err.error || `Failed to ${claiming ? 'claim' : 'unclaim'} ship`);
         btn.disabled = false;
         return;
       }
-      const rows = await api(`/api/ships/ownership?entities=${encodeURIComponent(entity)}`);
+      const rows = await api(`/api/ships/ownership?ids=${rsiId}`);
       const myId = currentUser.discord_id;
-      ownershipByShip.set(entity, {
+      ownershipByShip.set(rsiId, {
         count: rows.length,
         ownedByMe: rows.some(x => x.discord_id === myId),
       });
