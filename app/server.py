@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════════════
 import os, json, argparse, sqlite3, re, uuid
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, session
+from flask import Flask, jsonify, request, render_template, session, redirect
 import requests
 import time
 from datetime import timedelta, datetime, timezone
@@ -32,6 +32,10 @@ PATCH = None
 #   - Windows (local dev)                              → 'local' (uses dev Firebase project)
 is_local = os.name == 'nt'
 is_dev   = (not is_local) and os.path.exists('/var/www/sol-provision-tools-dev')
+app.config['IS_DEV'] = is_dev  # consumed by the officer_db blueprint's auth gate
+
+# The dev deployment is restricted to ranks 4+; everyone else sees this.
+DEV_AREA_DENIED = 'You are not authorized to access the Sol Provision Development area'
 
 # ✅ SESSION CONFIG - GOES HERE (before any routes)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-prod')
@@ -97,6 +101,15 @@ def require_org_member(f):
         return f(*args, **kwargs)
     return decorated_function
     
+def rank_int(rank):
+    """Coerce a rank value to int. Rank may be stored as int or string
+    depending on the snapshot import; treat missing/unparseable as 0 so we
+    never grant access by accident if the column drifts."""
+    try:
+        return int(rank) if rank is not None else 0
+    except (TypeError, ValueError):
+        return 0
+
 def require_officer(f):
     """Decorator to gate endpoints behind officer rank (rank >= 5).
 
@@ -109,16 +122,22 @@ def require_officer(f):
         discord_id = session.get('discord_id')
         if not discord_id:
             return jsonify({'error': 'Not authenticated'}), 401
-        rank = session.get('rank')
-        # Defensive: rank may be stored as int or string depending on the
-        # snapshot import. Treat missing/None as 0 so we never grant access
-        # by accident if the column drifts.
-        try:
-            rank_n = int(rank) if rank is not None else 0
-        except (TypeError, ValueError):
-            rank_n = 0
-        if rank_n < 5:
+        if rank_int(session.get('rank')) < 5:
             return jsonify({'error': 'Officer access required'}), 403
+        return f(*args, **kwargs)
+    return decorated_function
+
+def require_page_login(f):
+    """Page-level gate for UI routes. Anonymous visitors are bounced to the
+    dashboard, which hosts the 'Login with Discord' overlay — without this,
+    every page was reachable by typing its URL directly. On the dev
+    deployment, logged-in members below rank 4 are refused outright."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('discord_id'):
+            return redirect('/')
+        if is_dev and rank_int(session.get('rank')) < 4:
+            return DEV_AREA_DENIED, 403
         return f(*args, **kwargs)
     return decorated_function
 
@@ -211,6 +230,62 @@ def get_db_with_ownership():
     return conn
 
 
+# ── Ship ownership DB (mirrors blueprint_ownership) ───────────────────────────
+# Same design: standalone file so it survives wholesale dataforge.db swaps,
+# env column so dev-tools claims never pollute prod. Ships are identified by
+# entity_name (stable across patches, unlike uuid).
+
+SHIP_OWNERSHIP_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS ship_ownership (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        discord_id TEXT NOT NULL,
+        ship_entity TEXT NOT NULL,
+        ship_name TEXT NOT NULL,
+        patch_version TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
+        notes TEXT,
+        UNIQUE(discord_id, ship_entity, patch_version)
+    )
+"""
+
+# Saved ship loadouts live in the same standalone DB. `loadout_key` is a short
+# random share token (in the URL); discord_id is the creator (saving is login-
+# gated, so always set). loadout_json is a full-state snapshot of the page.
+SAVED_LOADOUTS_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS saved_loadouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        loadout_key TEXT NOT NULL UNIQUE,
+        discord_id TEXT NOT NULL,
+        ship_entity TEXT NOT NULL,
+        name TEXT NOT NULL,
+        loadout_json TEXT NOT NULL,
+        patch_version TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        env TEXT NOT NULL CHECK(env IN ('prod', 'dev'))
+    )
+"""
+
+
+def _resolve_ship_ownership_db_path():
+    """SHIP_OWNERSHIP_DB env var wins; otherwise next to DB_PATH (lazy so --db
+    overrides in __main__ still work)."""
+    explicit = os.environ.get('SHIP_OWNERSHIP_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'ship_ownership.db')
+
+
+def get_ship_ownership_db():
+    """Connect to ship_ownership DB. Auto-creates both tables on first run."""
+    conn = sqlite3.connect(_resolve_ship_ownership_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute(SHIP_OWNERSHIP_SCHEMA)
+    conn.execute(SAVED_LOADOUTS_SCHEMA)
+    conn.commit()
+    return conn
+
+
 _OWNERSHIP_MIGRATION_DONE = False
 
 def _migrate_legacy_ownership_rows():
@@ -270,6 +345,12 @@ def _migrate_legacy_ownership_rows():
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
+
+
+def is_placeholder(name):
+    """CIG ships unfinished items with a '<= PLACEHOLDER =>' display name; these
+    should never surface in the UI. Matches any name containing 'placeholder'."""
+    return bool(name) and "placeholder" in str(name).lower()
 
 
 # ── Cargo planner user DB (saved plans + activity) ────────────────────────────
@@ -579,13 +660,21 @@ def resolve_gpp_base_value(db, patch, gpp_entity_name, output_entity_name):
 # ══════════════════════════════════════════════════════════════════════
 
 @app.route("/")
-def index(): return render_template("index.html", active_page="/")
+def index():
+    # Anonymous visitors are allowed here — this page hosts the Discord
+    # login overlay that every other page redirects to. The dev-site rank
+    # gate still applies to anyone already logged in.
+    if is_dev and session.get('discord_id') and rank_int(session.get('rank')) < 4:
+        return DEV_AREA_DENIED, 403
+    return render_template("index.html", active_page="/")
 
 @app.route("/ships")
+@require_page_login
 def ships_page():
     return render_template("ships.html", active_page="/ships")
 
 @app.route("/ships/<entity_name>")
+@require_page_login
 def ship_detail(entity_name):
     return render_template("ship_detail.html", entity_name=entity_name, active_page="ships")
 
@@ -602,48 +691,51 @@ def ship_detail(entity_name):
 #def armor_page(): return render_template("armor.html", active_page="/armor")
 
 @app.route("/crafting")
+@require_page_login
 def crafting():
     return render_template("crafting.html", active_page="/crafting")
-    
+
 @app.route("/officers")
+@require_page_login
 def officers_page():
     # Page-level gate: non-officers (rank < 5) get bounced to the dashboard
     # instead of seeing an empty shell. The API endpoints behind this page
     # apply the same check via @require_officer.
-    discord_id = session.get('discord_id')
-    rank = session.get('rank')
-    try:
-        rank_n = int(rank) if rank is not None else 0
-    except (TypeError, ValueError):
-        rank_n = 0
-    if not discord_id or rank_n < 5:
+    if rank_int(session.get('rank')) < 5:
         return redirect('/')
     return render_template("officers.html", active_page="/officers")
 
 @app.route("/mission-rep")
+@require_page_login
 def mission_rep():
     return render_template("mission_rep.html", active_page="/mission-rep")
 
 @app.route("/mining-signatures")
+@require_page_login
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
 @app.route("/cargo-planner")
+@require_page_login
 def cargo_planner_page():
     return render_template("cargo_planner.html", active_page="/cargo-planner")
 
 @app.route("/ledger")
+@require_page_login
 def ledger(): return render_template("ledger.html", active_page="ledger")
 
 @app.route("/item_collection")
+@require_page_login
 def item_collection_page(): return render_template("item_collection.html", active_page="/item_collection")
 
 @app.route("/base-builder")
+@require_page_login
 def base_builder_page(): return render_template("base_builder.html", active_page="/base-builder")
 
 @app.route("/starmap")
 @app.route("/starmap/<system>")
 @app.route("/starmap/<system>/<body>")
+@require_page_login
 def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
     return render_template("starmap.html", active_page="/starmap")
@@ -653,15 +745,17 @@ def starmap_page(system=None, body=None):
 # AUTH API ROUTES
 # ══════════════════════════════════════════════════════════════════════
 
-# Mock auth for local development
+# Mock auth for local development. Sets the same session fields the real
+# verify flow does, so the page/API auth gates behave as a logged-in officer.
+# Guarded by is_local so a spoofed Host header can't enable it on a deploy.
 @app.before_request
 def mock_auth():
-    if 'user' not in session and request.host.startswith('localhost'):
-        session['user'] = {
-            'discord_id': '123456789',
-            'username': 'TestUser',
-            'discriminator': '0001'
-        }
+    if is_local and 'discord_id' not in session and request.host.startswith('localhost'):
+        session['discord_id'] = '123456789'
+        session['username'] = 'TestUser'
+        session['callsign'] = 'Test User'
+        session['rank'] = 5
+        session['division'] = None
             
 @app.route('/api/auth/verify', methods=['POST'])
 def verify_auth():
@@ -716,7 +810,16 @@ def verify_auth():
                 'error': 'Not a Sol Provision member',
                 'message': 'You must be a member of the Sol Provision Discord server.'
             }), 403
-        
+
+        # The dev deployment is restricted to ranks 4+. Reject the login
+        # outright (no session) so the overlay shows the denial message.
+        if is_dev and rank_int(user['rank']) < 4:
+            user_conn.close()
+            return jsonify({
+                'error': 'Not authorized',
+                'message': DEV_AREA_DENIED
+            }), 403
+
         # Update last login timestamp
         cursor.execute('''
             UPDATE discord_members 
@@ -1191,6 +1294,8 @@ def api_ships():
 
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
                  s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
+                 s.rsi_cargo_scu,
+                 s.size_class,
                  s.length_m, s.beam_m, s.height_m,
                  s.length_rsi_m, s.beam_rsi_m, s.height_rsi_m,
                  s.rsi_name, s.rsi_url
@@ -1219,8 +1324,11 @@ def api_ships():
             "manufacturer": get_mfr(name),
             "career":       clean_career(r["career"] or ""),
             "role":         r["role"],
+            "size_class":   r["size_class"],
             "crew_size":    r["crew_size"],
-            "cargo_scu":    r["cargo_scu"],
+            "cargo_scu":    (r["rsi_cargo_scu"] or r["cargo_scu"]),
+            "cargo_game_scu": r["cargo_scu"],
+            "cargo_rsi_scu":  r["rsi_cargo_scu"],
             "length_m":     r["length_m"],
             "beam_m":       r["beam_m"],
             "height_m":     r["height_m"],
@@ -1239,7 +1347,8 @@ def get_ship_components(conn, ship_entity, patch):
     Returns a dict keyed by component category.
     """
     def q(sql):
-        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()]
+        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()
+                if not is_placeholder(dict(r).get("display_name"))]
 
     # Reusable join fragment — all component queries share this structure
     def join(tbl):
@@ -1257,6 +1366,7 @@ def get_ship_components(conn, ship_entity, patch):
     armor = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.signal_cross_section, t.signal_electromagnetic, t.signal_infrared,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
@@ -1270,11 +1380,15 @@ def get_ship_components(conn, ship_entity, patch):
     shields = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.max_shield_health, t.max_shield_regen,
                t.damaged_regen_delay, t.downed_regen_delay,
                t.decay_ratio, t.reserve_drain_ratio,
                t.absorb_physical_min, t.absorb_physical_max,
                t.absorb_energy_min,   t.absorb_energy_max,
+               t.resist_physical_min, t.resist_physical_max,
+               t.resist_energy_min,   t.resist_energy_max,
+               t.resist_distort_min,  t.resist_distort_max,
                t.absorb_distort_min,  t.absorb_distort_max,
                t.resist_physical_min, t.resist_physical_max,
                t.resist_energy_min,   t.resist_energy_max,
@@ -1286,6 +1400,7 @@ def get_ship_components(conn, ship_entity, patch):
     coolers = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.power_draw, t.cooling_output,
                t.em_signature, t.ir_signature, t.health,
                t.power_low, t.power_medium, t.power_high
@@ -1294,6 +1409,7 @@ def get_ship_components(conn, ship_entity, patch):
     powerplants = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.power_output, t.em_signature, t.health,
                t.power_low, t.power_medium, t.power_high
         {join("item_powerplants")}""")
@@ -1301,6 +1417,7 @@ def get_ship_components(conn, ship_entity, patch):
     quantum_drives = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.drive_speed / 1000 as drive_speed, t.stage_one_accel_mps2 as accel1,
                t.stage_two_accel_mps2 as accel2,t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
@@ -1321,6 +1438,7 @@ def get_ship_components(conn, ship_entity, patch):
     flight_controllers = q(f"""
         SELECT ic.entity_name, ic.display_name,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.scm_speed, t.max_speed,
                t.boost_speed_forward, t.boost_speed_backward,
                t.max_pitch_speed, t.max_roll_speed, t.max_yaw_speed,
@@ -1352,6 +1470,8 @@ def get_ship_components(conn, ship_entity, patch):
     weapons_base = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.item_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.heat_rate_online, t.power_active_cooldown,
                t.overheat_temperature, t.cooling_per_second,
                t.time_till_cooling_starts, t.overheat_fix_time,
@@ -1362,10 +1482,10 @@ def get_ship_components(conn, ship_entity, patch):
         {join("item_weapons")}
         ORDER BY ic.size DESC, ic.entity_name""")
 
-    weapons = []
-    for w in weapons_base:
-        weapon = dict(w)
-        fire_modes = [dict(r) for r in conn.execute("""
+    def _enrich_weapon(weapon):
+        """Attach fire modes + the linked AmmoParams damage block to a weapon dict
+        so the client can compute DPS = total damage × pellet_count × fire_rate."""
+        weapon["fire_modes"] = [dict(r) for r in conn.execute("""
             SELECT fire_mode_type, fire_rate, heat_per_shot, heat_per_second,
                    ammo_type, pellet_count, ammo_cost,
                    spread_min, spread_max, spread_attack, spread_decay,
@@ -1378,10 +1498,6 @@ def get_ship_components(conn, ship_entity, patch):
             )
             ORDER BY fire_mode_type
         """, (weapon["entity_name"], patch)).fetchall()]
-        weapon["fire_modes"] = fire_modes
-
-        # Attach the AmmoParams damage block (single row, by UUID lookup) so
-        # the client can compute DPS = total damage × pellet_count × fire_rate.
         ammo = None
         if weapon.get("ammo_uuid"):
             ar = conn.execute("""
@@ -1394,13 +1510,253 @@ def get_ship_components(conn, ship_entity, patch):
             if ar:
                 ammo = dict(ar)
         weapon["ammo"] = ammo
+        return weapon
 
-        weapons.append(weapon)
+    weapons = [_enrich_weapon(dict(w)) for w in weapons_base]
+
+    # ── Hierarchical weapon groups: hardpoint → mount → weapon ────────────────
+    # The flat `weapons` list above loses the hardpoint/mount structure. Walk
+    # ship_hardpoints (parent_port chains) so the UI can render each weapon
+    # hardpoint, its installed mount (fixed/gimbal, from item_weapon_mounts), and
+    # the nested weapon(s). Roots that contain no weapon/mount are dropped
+    # (e.g. pure missile racks — handled by their own column).
+    hp_rows = [dict(r) for r in conn.execute("""
+        SELECT port_name, parent_port, min_size, max_size, flags, installed_name,
+               port_type, accepted_types
+        FROM ship_hardpoints
+        WHERE ship_entity_name = :ship AND patch_version = :patch
+    """, {"ship": ship_entity, "patch": patch}).fetchall()]
+
+    children_map = {}
+    for r in hp_rows:
+        children_map.setdefault((r["parent_port"] or "").lower(), []).append(r)
+
+    mount_map = {dict(r)["entity_name"].lower(): dict(r) for r in conn.execute(
+        "SELECT * FROM item_weapon_mounts WHERE patch_version = ?", (patch,)).fetchall()}
+    weapon_map = {w["entity_name"].lower(): w for w in weapons}
+    comp_map = {r["entity_name"].lower(): dict(r) for r in conn.execute("""
+        SELECT DISTINCT ic.entity_name, ic.display_name, ic.size,
+               ic.item_type, ic.item_sub_type
+        FROM ship_hardpoints sh
+        JOIN item_components ic
+          ON LOWER(ic.entity_name) = LOWER(sh.installed_name)
+         AND ic.patch_version = :patch
+        WHERE sh.ship_entity_name = :ship AND sh.patch_version = :patch
+    """, {"ship": ship_entity, "patch": patch}).fetchall()}
+
+    def _has_weapon(node):
+        return (node["kind"] in ("weapon", "mount")
+                or any(_has_weapon(ch) for ch in node["children"]))
+
+    def _is_salvage_item(item):
+        if not item:
+            return False
+        it = (item.get("item_type") or "").lower()
+        if "salvage" in it and "controller" not in it:
+            return True
+        # Salvage arms are extracted as weapon mounts tagged salvageMount.
+        return "salvagemount" in (item.get("tags") or "").lower()
+
+    def _has_salvage(node):
+        return (_is_salvage_item(node.get("item"))
+                or any(_has_salvage(ch) for ch in node["children"]))
+
+    def _is_mining_item(item):
+        if not item:
+            return False
+        it = (item.get("item_type") or "").lower()
+        if it in ("weaponmining", "miningmodifier"):
+            return True
+        # Mining arms are extracted as weapon mounts tagged miningMount.
+        return "miningmount" in (item.get("tags") or "").lower()
+
+    def _has_mining(node):
+        return (_is_mining_item(node.get("item"))
+                or any(_has_mining(ch) for ch in node["children"]))
+
+    def _build_node(hp):
+        name  = hp["installed_name"]
+        lname = (name or "").lower()
+        kind, item = "empty", None
+        if lname in mount_map:
+            kind, item = "mount", mount_map[lname]
+        elif lname in weapon_map:
+            kind, item = "weapon", weapon_map[lname]
+        elif lname in comp_map:
+            item = comp_map[lname]
+            it = (item.get("item_type") or "").lower()
+            kind = ("turret"  if "turret"  in it else
+                    "missile" if "missile" in it else "other")
+        elif name:
+            kind, item = "unknown", {"entity_name": name, "display_name": name}
+        # ship_hardpoints links children to parents by port NAME, which is not
+        # unique across the tree: a ship's matching top/bottom turrets both use
+        # e.g. hardpoint_weapon_left → hardpoint_class_2, so a namesake parent
+        # would otherwise pull in every twin's guns. Dedup children by their own
+        # port_name (each physical slot appears once per parent).
+        # (Proper fix = unique parent paths in the extractor; tracked as follow-up.)
+        seen_ports, child_rows = set(), []
+        for ch in children_map.get((hp["port_name"] or "").lower(), []):
+            key = (ch["port_name"] or "").lower()
+            if key in seen_ports:
+                continue
+            seen_ports.add(key)
+            child_rows.append(ch)
+        children = [_build_node(ch) for ch in child_rows]
+        # Drop non-weapon/non-salvage/non-mining child subtrees (MFDs, seats, …).
+        children = [c for c in children if _has_weapon(c) or _has_salvage(c) or _has_mining(c)]
+        return {
+            "port_name":      hp["port_name"],
+            "port_type":      hp["port_type"],
+            "accepted_types": hp["accepted_types"],
+            "min_size":       hp["min_size"],
+            "max_size":       hp["max_size"],
+            "flags":          hp["flags"],
+            "editable":       "uneditable" not in (hp["flags"] or "").lower(),
+            "installed_name": name,
+            "kind":           kind,
+            "item":           item,
+            "children":       children,
+        }
+
+    def _flatten(nodes):
+        # Promote weapon subtrees out of empty container ports (rooms/seats) so
+        # each group root is a real turret / mount / weapon, not an empty wrapper.
+        out = []
+        for n in nodes:
+            if n["kind"] == "empty":
+                out.extend(_flatten(n["children"]))
+            else:
+                out.append(n)
+        return out
+
+    tops = [_build_node(r) for r in hp_rows if not (r["parent_port"] or "")]
+
+    # Pilot weapon vs crewed/remote/PDC turret — decided by the port's accepted
+    # <Types> (extracted into ship_hardpoints), the exact in-game signal:
+    #   TurretBase:*                          → crewed turret
+    #   Turret:* / UtilityTurret:* (no WeaponGun) → remote/PDC turret
+    #   anything accepting WeaponGun          → pilot-fireable weapon
+    # (Pilot gimbal mounts also use port_type 'turret' but their accepted_types
+    # include WeaponGun, so they correctly stay pilot.)
+    def _is_turret_port(n):
+        pt  = (n.get("port_type") or "").lower()
+        acc = n.get("accepted_types") or ""
+        if pt == "turretbase" or "TurretBase:" in acc:
+            return True
+        if pt in ("turret", "utilityturret") and "WeaponGun" not in acc:
+            return True
+        return False
+
+    def _turret_class(n):
+        # Manned vs remote vs PDC — name-keyword heuristic, default manned.
+        nm = ((n["port_name"] or "") + " " + (n["installed_name"] or "")).lower()
+        if "pdc" in nm or "point_defense" in nm or "pointdefense" in nm:
+            return "pdc"
+        if "remote" in nm or "unmanned" in nm:
+            return "remote"
+        return "manned"
+
+    # Turret tops keep their node as the group root (even an empty turret base
+    # whose default guns are foundry-backfilled) so all-turret ships like the
+    # Hammerhead don't leak into Pilot. Pilot tops are flattened to promote guns
+    # out of empty room/seat wrappers.
+    pilot_tops, turret_tops, utility_tops, salvage_tops, mining_tops = [], [], [], [], []
+    for n in tops:
+        # Salvage gear first: salvage arms (toolarm + salvageMount mount) and
+        # salvage turrets (subtree holds SalvageHead/Modifier items) belong to
+        # the Salvage card, not Weapons/Turrets — mirrors SPViewer's grouping.
+        if _has_salvage(n):
+            it = (n.get("item") or {}).get("item_type") or ""
+            # Filler stations / bare buff ports are placeholder items — the buff
+            # surfaces via salvage_buff below; stations have nothing to show.
+            if it != "SalvageFillerStation" and "buff" not in (n["port_name"] or "").lower():
+                salvage_tops.append(n)
+            continue
+        # Mining gear: MOLE cabs are utilityturret ports holding mining lasers;
+        # Prospector arms are toolarm mounts. Route before the utility branch.
+        if _has_mining(n):
+            mining_tops.append(n)
+            continue
+        if not _has_weapon(n):
+            continue
+        if (n.get("port_type") or "").lower() == "utilityturret":
+            utility_tops.append(n)
+        elif _is_turret_port(n):
+            turret_tops.append(n)
+        else:
+            pilot_tops.append(n)
+
+    weapon_groups = _flatten(pilot_tops)
+    turret_groups = {"manned": [], "remote": [], "pdc": []}
+    for n in turret_tops:
+        turret_groups[_turret_class(n)].append(n)
+    utility_turrets = list(utility_tops)
+    salvage_groups  = list(salvage_tops)
+    mining_groups   = list(mining_tops)
+
+    _wsort = lambda n: (-(n["max_size"] or 0), n["port_name"] or "")
+    weapon_groups.sort(key=_wsort)
+    utility_turrets.sort(key=_wsort)
+    salvage_groups.sort(key=_wsort)
+    mining_groups.sort(key=_wsort)
+    for _b in turret_groups.values():
+        _b.sort(key=_wsort)
+
+    # Ship-wide salvage buff (e.g. Reclaimer's 10× speed / 2.18× radius /
+    # 0.55× efficiency) — installed on an attachable_buff port; values live in
+    # item_salvage_modifiers.
+    salvage_buff = None
+    for r in hp_rows:
+        inst = (r["installed_name"] or "").lower()
+        if "salvage_buff" in inst or "buff_modifier" in inst:
+            row = conn.execute(
+                "SELECT entity_name, salvage_speed_multiplier, radius_multiplier, "
+                "       extraction_efficiency "
+                "FROM item_salvage_modifiers "
+                "WHERE LOWER(entity_name)=LOWER(?) AND patch_version=?",
+                (r["installed_name"], patch)).fetchone()
+            if row:
+                salvage_buff = dict(row)
+                break
+
+    # ── Aggregate DPS + alpha: pilot weapons vs turret/PDC guns (excl. missiles) ──
+    def _weapon_dps_alpha(item):
+        ammo = (item or {}).get("ammo") or {}
+        shot = sum((ammo.get(k) or 0) for k in
+                   ("dmg_physical", "dmg_energy", "dmg_distortion",
+                    "dmg_thermal", "dmg_biochemical", "dmg_stun"))
+        if not shot:
+            return 0.0, 0.0
+        fms = (item or {}).get("fire_modes") or []
+        fm = next((f for f in fms if (f.get("fire_rate") or 0) > 0), None)
+        if not fm:
+            return 0.0, 0.0
+        alpha = shot * (fm.get("pellet_count") or 1)
+        return alpha * (fm["fire_rate"] / 60.0), alpha
+
+    def _sum_dps_alpha(roots):
+        dps, alpha, stack = 0.0, 0.0, list(roots)
+        while stack:
+            n = stack.pop()
+            if n.get("kind") == "weapon":
+                d, a = _weapon_dps_alpha(n.get("item"))
+                dps += d; alpha += a
+            stack.extend(n.get("children") or [])
+        return dps, alpha
+
+    _turret_roots = (turret_groups["manned"] + turret_groups["remote"]
+                     + turret_groups["pdc"])
+    _pd, _pa = _sum_dps_alpha(weapon_groups)
+    _td, _ta = _sum_dps_alpha(_turret_roots)
+    pilot_dps,  pilot_alpha  = round(_pd), round(_pa)
+    turret_dps, turret_alpha = round(_td), round(_ta)
 
     # Missile racks with their missile type looked up from item_missiles
     missile_racks = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.launch_delay, t.detach_velocity_forward,
                t.detach_velocity_right, t.detach_velocity_up,
                t.rack_tag
@@ -1410,17 +1766,52 @@ def get_ship_components(conn, ship_entity, patch):
     missiles = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.arm_time, t.max_lifetime,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
                t.linear_speed, t.fuel_tank_size,
                t.lock_range_max, t.lock_range_min,
-               t.lock_time, t.locking_angle, t.tracking_signal_type
+               t.lock_time, t.locking_angle, t.tracking_signal_type,
+               t.ordnance_type, t.is_dumbfire,
+               t.blast_radius_min, t.blast_radius_max, t.phys_radius_max
         {join("item_missiles")}""")
+
+    # Missiles nested under their parent rack. Each missilelauncher port installs
+    # a rack; the rack's child *_attach ports each hold one missile, so identical
+    # missiles under a rack collapse into one row with a count (×2, ×8, …).
+    _rack_by_name = {r["entity_name"].lower(): r for r in missile_racks}
+    _missile_by_name = {m["entity_name"].lower(): m for m in missiles}
+    missile_groups = []
+    for r in hp_rows:
+        if (r["port_type"] or "").lower() not in ("missilelauncher", "bomblauncher"):
+            continue
+        counts, order = {}, []
+        for ch in children_map.get((r["port_name"] or "").lower(), []):
+            mi = _missile_by_name.get((ch["installed_name"] or "").lower())
+            if not mi:
+                continue
+            key = mi["entity_name"].lower()
+            if key not in counts:
+                counts[key] = {"missile": mi, "count": 0}
+                order.append(key)
+            counts[key]["count"] += 1
+        if not order:
+            continue
+        rack_item = _rack_by_name.get((r["installed_name"] or "").lower())
+        missile_groups.append({
+            "port_name":      r["port_name"],
+            "size":           r["max_size"],
+            "installed_name": r["installed_name"],
+            "rack":           rack_item,
+            "missiles":       [counts[k] for k in order],
+        })
+    missile_groups.sort(key=lambda g: (-(g["size"] or 0), g["port_name"] or ""))
 
     radars = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.power_draw, t.em_signature, t.health, t.aim_assist_min_m,
                t.aim_assist_max_m, t.shutdown_dmg, t.decay_delay_sec, t.decay_rate,
                t.shutdown_time_sec, t.ir_sensitivity, t.em_sensitivity, t.cs_sensitivity, t.db_sensitivity, t.rs_sensitivity,
@@ -1447,6 +1838,7 @@ def get_ship_components(conn, ship_entity, patch):
     lifesupport = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.power_draw, t.lifesupport_output,
                t.em_signature, t.ir_signature, t.health,
                t.power_low, t.power_medium, t.power_high,
@@ -1460,6 +1852,7 @@ def get_ship_components(conn, ship_entity, patch):
     salvage = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.salvage_type, t.power_draw,
                t.salvage_speed_multiplier, t.radius_multiplier, t.extraction_efficiency,
                t.em_signature, t.ir_signature, t.health,
@@ -1471,6 +1864,7 @@ def get_ship_components(conn, ship_entity, patch):
     emp = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.charge_time, t.unleash_time, t.cooldown_time,
                t.distortion_damage,
                t.emp_radius, t.min_emp_radius,
@@ -1485,6 +1879,7 @@ def get_ship_components(conn, ship_entity, patch):
     qed = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.base_power_draw_fraction, t.pulse_power_fraction, t.jammer_power_fraction,
                t.charge_time_secs, t.discharge_time_secs, t.cooldown_time_secs,
                t.radius_meters, t.max_power_draw,
@@ -1502,6 +1897,7 @@ def get_ship_components(conn, ship_entity, patch):
     tool_arms = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.tool_kind, t.ignore_warmup_cooldown,
                t.em_signature, t.ir_signature, t.health,
                t.power_draw,
@@ -1509,16 +1905,52 @@ def get_ship_components(conn, ship_entity, patch):
                t.power_low_start, t.power_medium_start, t.power_high_start
         {join("item_tool_arms")}""")
 
+    # Mining lasers / heads (Prospector, MOLE, Golem, handheld). Only ic.*
+    # columns are selected so this is robust to the item_mining_lasers schema.
+    mining_lasers = q(f"""
+        SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
+               ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
+               t.max_ammo_load, t.overheat_temperature,
+               t.mining_dps, t.module_slots, t.module_slot_size,
+               t.power_draw, t.em_signature, t.ir_signature
+        {join("item_mining_lasers")}""")
+
     # Ground-vehicle wheels controllers (analog to flight_controllers for ships).
     wheels_controllers = q(f"""
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
+               ic.heat_baseline, ic.coolant_consumption,
                t.minimum_power_amount,
                t.em_signature, t.ir_signature, t.health,
                t.power_draw,
                t.power_low, t.power_medium, t.power_high,
                t.power_low_start, t.power_medium_start, t.power_high_start
         {join("item_wheels_controllers")}""")
+
+    # Mining/salvage hardpoint trees carry display-only items (from the generic
+    # component map), but their stats (power_draw, em/ir_signature, mining_dps,
+    # multipliers) live in the flat mining_lasers / salvage lists. Merge those
+    # into the tree node items so the sidebar can derive power/cooling/signature
+    # straight from the trees — which is what swaps mutate.
+    def _merge_tree_stats(groups, by_name):
+        for root in groups:
+            stack = [root]
+            while stack:
+                n = stack.pop()
+                it = n.get("item")
+                ent = (it or {}).get("entity_name")
+                if it and ent:
+                    full = by_name.get(ent.lower())
+                    if full:
+                        for k, v in full.items():
+                            it.setdefault(k, v)   # add stats, keep display fields
+                stack.extend(n.get("children") or [])
+
+    _merge_tree_stats(mining_groups,
+                      {m["entity_name"].lower(): m for m in mining_lasers if m.get("entity_name")})
+    _merge_tree_stats(salvage_groups,
+                      {s["entity_name"].lower(): s for s in salvage if s.get("entity_name")})
 
     return {
         "armor":              armor,
@@ -1533,13 +1965,25 @@ def get_ship_components(conn, ship_entity, patch):
         "flight_controllers": flight_controllers,
         "thrusters":          thrusters,
         "weapons":            weapons,
+        "weapon_groups":      weapon_groups,
+        "turret_groups":      turret_groups,
+        "utility_turrets":    utility_turrets,
+        "pilot_dps":          pilot_dps,
+        "pilot_alpha":        pilot_alpha,
+        "turret_dps":         turret_dps,
+        "turret_alpha":       turret_alpha,
         "missile_racks":      missile_racks,
         "missiles":           missiles,
+        "missile_groups":     missile_groups,
         "radars":             radars,
         "lifesupport":        lifesupport,
         "salvage":            salvage,
+        "salvage_groups":     salvage_groups,
+        "salvage_buff":       salvage_buff,
+        "mining_groups":      mining_groups,
         "emp":                emp,
         "qed":                qed,
+        "mining_lasers":      mining_lasers,
         "tool_arms":          tool_arms,
         "wheels_controllers": wheels_controllers,
     }
@@ -1610,7 +2054,11 @@ def api_ship_detail(entity_name):
         "career":                 clean_career(ship["career"] or ""),
         "role": ship["role_display"] or clean_role(ship["role"] or ""),
         "crew_size":              ship["crew_size"],
-        "cargo_scu":              ship["cargo_scu"],
+        # Display cargo = RSI published capacity when present (authoritative),
+        # else the in-game grid sum. Both raw values exposed for transparency.
+        "cargo_scu":              (ship["rsi_cargo_scu"] or ship["cargo_scu"]),
+        "cargo_game_scu":         ship["cargo_scu"],
+        "cargo_rsi_scu":          ship["rsi_cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
         "personal_scu":           round(personal, 1),
         "length_m":               ship["length_m"],
@@ -1725,14 +2173,19 @@ def get_compatible_components():
     if not table_name:
         return jsonify({"error": f"Unknown component type: {comp_type}"}), 400
     
-    # Query the dedicated component table joined with entities for size
+    # Query the dedicated component table joined with entities for size, plus
+    # item_components for the shared-only fields (heat_baseline, coolant) the
+    # sidebar's cooling model needs but the typed tables don't carry.
     query = f"""
-        SELECT 
+        SELECT
             c.*,
             e.size,
-            e.grade
+            e.grade,
+            ic.heat_baseline,
+            ic.coolant_consumption
         FROM {table_name} c
         JOIN entities e ON c.entity_name = e.entity_name AND c.patch_version = e.patch_version
+        LEFT JOIN item_components ic ON ic.uuid = c.uuid AND ic.patch_version = c.patch_version
         WHERE c.patch_version = ?
           AND e.size = ?
         ORDER BY c.entity_name
@@ -1744,7 +2197,13 @@ def get_compatible_components():
     for row in rows:
         # Convert row to dict
         comp = dict(row)
-        
+
+        # Unit-normalize to match get_ship_components: it serves QD speed as
+        # drive_speed/1000 (km/s). The raw table value is ×1000, so a swapped-in
+        # drive would otherwise read 1000× too fast in the sidebar/card.
+        if comp_type == 'QuantumDrive' and comp.get('drive_speed') is not None:
+            comp['drive_speed'] = comp['drive_speed'] / 1000
+
         # Lookup display_name from localization table
         # Entity format: powr_acom_s02_solarflare_scitem (lowercase, with _scitem)
         # Key formats in DB:
@@ -1784,7 +2243,8 @@ def get_compatible_components():
             f"item_Name_{entity_typo}_SCItem"     # item_Name_COOL_AEGS_S04_IDIRS_SCItem
         )).fetchone()
         
-        display_name = loc_result['value'] if loc_result else comp.get('display_name')
+        display_name = (loc_result['value'] if loc_result else comp.get('display_name')) \
+                       or comp.get('entity_name')
         
         # Add grade letter
         comp['grade_letter'] = comp_grade(comp.get('grade'))
@@ -1815,8 +2275,10 @@ def get_compatible_components():
             stats['power_draw'] = comp.get('power_draw', 0)
             
         elif comp_type == 'QuantumDrive':
-            stats['quantum_fuel_requirement'] = comp.get('quantum_fuel_requirement', 0)
-            stats['speed_mps'] = comp.get('speed', 0)
+            # Use the real column names. drive_speed is already km/s-normalized
+            # above; speed_mps here is the km/s value the card/modal display.
+            stats['quantum_fuel_requirement'] = comp.get('fuel_per_gm_mscu', 0)
+            stats['speed_mps'] = comp.get('drive_speed', 0)
             stats['cooldown_time'] = comp.get('cooldown_time', 0)
             stats['spool_up_time'] = comp.get('spool_up_time', 0)
             stats['em_signature'] = comp.get('em_signature', 0)
@@ -1827,19 +2289,20 @@ def get_compatible_components():
             stats['em_signature'] = comp.get('em_signature', 0)
             stats['power_draw'] = comp.get('power_draw', 0)
         
-        # Build simplified response
-        component = {
-            'uuid': comp.get('uuid'),
-            'entity_name': comp.get('entity_name'),
-            'display_name': display_name,  # ← Use the localized display_name
-            'manufacturer': comp['manufacturer'],
-            'size': comp.get('size'),
-            'grade': comp.get('grade'),
-            'grade_letter': comp['grade_letter'],
-            'class': comp.get('class'),
-            'item_type': comp_type,
-            'stats': stats
-        }
+        # Skip unfinished placeholder items
+        if is_placeholder(display_name):
+            continue
+
+        # Return the full flat row (every typed-table + shared field) so a
+        # swapped-in component is shape-compatible with get_ship_components and
+        # the sidebar's power/cooling/signature math reads it directly. `stats`
+        # is kept for the swap modal's curated per-type display.
+        component = dict(comp)
+        component.update({
+            'display_name': display_name,   # localized
+            'item_type':    comp_type,
+            'stats':        stats,
+        })
         
         components.append(component)
     
@@ -1850,6 +2313,232 @@ def get_compatible_components():
         'count': len(components),
         'components': components
     })
+
+
+@app.route("/api/ship/<entity_name>/port_options")
+def api_port_options(entity_name):
+    """Items installable on a weapon/mount slot, by the SC port-tag rule:
+       size ∈ [min,max]  AND  (item_type, item_sub_type) ∈ port accepted_types
+       AND  item tags satisfy the port's required_tags.
+
+    Modes (one of):
+      ?mount=<entity>        → weapons that fit inside that mount (its child slot)
+      ?missile_size=<n>      → missiles/bombs that fit a rack slot of size n
+      ?port=<port_name>      → mounts/weapons/racks that fit a top hardpoint
+      ?types=A,B&min_size=&max_size= → items of the given item_type(s) in a size
+                               range (mining lasers/modules, salvage heads/modules,
+                               EMP, QED, fuel nozzles, tractor arms, …)
+    """
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+    port         = request.args.get("port")
+    mount        = request.args.get("mount")
+    missile_size = request.args.get("missile_size", type=int)
+    types_param  = request.args.get("types")
+
+    def _tag_ok(item_tags, required_tag):
+        # Port requires a tag (e.g. "$ANVL_Hornet_Base"); item must carry it.
+        if not required_tag:
+            return True
+        need = required_tag.lstrip("$").lower()
+        toks = {t.lstrip("$").lower() for t in (item_tags or "").split()}
+        return need in toks
+
+    def _item_required_ok(item_tags, port_tags):
+        # Reverse direction: a "$"-prefixed tag on the item is *required* — the
+        # port must provide it via port_tags. Bespoke mounts (e.g. $MISC_Starfarer_Base)
+        # only fit ports that advertise that family tag.
+        need = {t.lstrip("$").lower() for t in (item_tags or "").split() if t.startswith("$")}
+        if not need:
+            return True
+        have = {t.lstrip("$").lower() for t in (port_tags or "").split()}
+        return need <= have
+
+    def weapons_by(item_type, smin, smax, subtypes=None, mount_usable=True):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT uuid, entity_name, display_name, size, item_type, item_sub_type, "
+            "       grade_letter, class, tags "
+            "FROM item_components WHERE patch_version=? AND item_type=? "
+            "  AND size BETWEEN ? AND ?", (p, item_type, smin or 0, smax or 99)).fetchall()]
+        if mount_usable and item_type == "WeaponGun":
+            rows = [r for r in rows if "weaponmountusable" in (r.get("tags") or "").lower()]
+        if subtypes:
+            subs = {s.lower() for s in subtypes if s}
+            if subs:
+                rows = [r for r in rows if (r.get("item_sub_type") or "").lower() in subs]
+        kind = "mining" if item_type == "WeaponMining" else "weapon"
+        for r in rows:
+            r["kind"] = kind
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+            _enrich_weapon_stats(r)
+        return rows
+
+    def _enrich_weapon_stats(r):
+        # Precompute dps / max_dmg / power_draw so a swapped weapon card renders
+        # correct numbers without the full ammo/fire-mode structures client-side.
+        w = conn.execute(
+            "SELECT power_draw, max_ammo_load, ammo_uuid FROM item_weapons "
+            "WHERE uuid=? AND patch_version=?", (r["uuid"], p)).fetchone()
+        if not w:
+            return
+        r["power_draw"] = w["power_draw"]
+        r["max_ammo_load"] = w["max_ammo_load"]
+        a = conn.execute(
+            "SELECT dmg_physical,dmg_energy,dmg_distortion,dmg_thermal,dmg_biochemical,dmg_stun "
+            "FROM item_ammo WHERE uuid=? AND patch_version=?", (w["ammo_uuid"], p)).fetchone() if w["ammo_uuid"] else None
+        shot = sum((a[k] or 0) for k in a.keys()) if a else 0
+        fm = conn.execute(
+            "SELECT fire_rate, pellet_count FROM item_weapon_fire_modes "
+            "WHERE uuid=? AND patch_version=? AND fire_rate IS NOT NULL AND fire_rate>0 "
+            "ORDER BY fire_rate DESC LIMIT 1", (r["uuid"], p)).fetchone()
+        if shot and fm and fm["fire_rate"]:
+            pellet = fm["pellet_count"] or 1
+            r["dps"] = round(shot * pellet * (fm["fire_rate"] / 60.0))
+            if w["max_ammo_load"]:
+                r["max_dmg"] = round(shot * pellet * w["max_ammo_load"])
+
+    def mounts_by(smin, smax, subtypes=None, required_tag=None):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT entity_name, display_name, size, mount_type, sub_type, "
+            "       weapon_port_count, weapon_min_size, weapon_max_size, "
+            "       primary_port_type, tags "
+            "FROM item_weapon_mounts WHERE patch_version=? AND size BETWEEN ? AND ?",
+            (p, smin or 0, smax or 99)).fetchall()]
+        if subtypes:
+            subs = {s.lower() for s in subtypes if s}
+            if subs:
+                rows = [r for r in rows if (r.get("sub_type") or "").lower() in subs]
+        rows = [r for r in rows if _tag_ok(r.get("tags"), required_tag)]
+        for r in rows:
+            r["kind"] = "mount"
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+        return rows
+
+    def missiles_by(size):
+        rows = [dict(r) for r in conn.execute(
+            "SELECT ic.entity_name, ic.display_name, ic.size, ic.item_sub_type, "
+            "       m.ordnance_type, m.is_dumbfire, m.tracking_signal_type, "
+            "       m.dmg_physical, m.dmg_energy, m.dmg_distortion, m.dmg_thermal, "
+            "       m.dmg_biochemical, m.dmg_stun, m.blast_radius_min, m.blast_radius_max, "
+            "       m.lock_range_min, m.lock_range_max, m.linear_speed "
+            "FROM item_missiles m JOIN item_components ic "
+            "  ON ic.uuid=m.uuid AND ic.patch_version=m.patch_version "
+            "WHERE m.patch_version=? AND ic.size=?", (p, size)).fetchall()]
+        for r in rows:
+            r["kind"] = "bomb" if (r.get("ordnance_type") or "").lower() == "bomb" else "missile"
+            r["display_name"] = r.get("display_name") or r["entity_name"]
+        return rows
+
+    options, ctx = [], {}
+
+    if mount:
+        m = conn.execute(
+            "SELECT primary_port_type, weapon_min_size, weapon_max_size "
+            "FROM item_weapon_mounts WHERE LOWER(entity_name)=LOWER(?) AND patch_version=?",
+            (mount, p)).fetchone()
+        if m:
+            ppt = (m["primary_port_type"] or "WeaponGun")
+            ctx = {"mode": "weapon_in_mount", "primary_port_type": ppt,
+                   "size_range": [m["weapon_min_size"], m["weapon_max_size"]]}
+            options = weapons_by(ppt if ppt in ("WeaponGun", "WeaponMining") else "WeaponGun",
+                                 m["weapon_min_size"], m["weapon_max_size"])
+    elif missile_size is not None:
+        ctx = {"mode": "missile_in_rack", "size": missile_size}
+        options = missiles_by(missile_size)
+    elif types_param:
+        tlist = [t.strip() for t in types_param.split(",") if t.strip()]
+        smin = request.args.get("min_size", type=int) or 0
+        smax = request.args.get("max_size", type=int) or 99
+        ctx = {"mode": "types", "types": tlist, "size_range": [smin, smax]}
+        qmarks = ",".join("?" * len(tlist))
+        options = [dict(r) for r in conn.execute(
+            f"SELECT uuid, entity_name, display_name, size, item_type, "
+            f"       item_sub_type, grade_letter, class, tags "
+            f"FROM item_components WHERE patch_version=? "
+            f"  AND item_type IN ({qmarks}) AND size BETWEEN ? AND ?",
+            (p, *tlist, smin, smax)).fetchall()]
+        # Per-type stat enrichment so a swapped-in item is field-complete: the
+        # cards render real numbers AND the sidebar (power/cooling/signatures +
+        # per-type damage) recomputes correctly. Every typed table here carries
+        # power_draw + em/ir_signature; item_components adds the cooling fields.
+        TYPE_ENRICH = {
+            "EMP": ("item_emp", [
+                "power_draw", "em_signature", "ir_signature",
+                "distortion_damage", "emp_radius", "charge_time"]),
+            "QuantumInterdictionGenerator": ("item_qed", [
+                "power_draw", "em_signature", "ir_signature",
+                "radius_meters", "charge_time_secs", "cooldown_time_secs"]),
+            "WeaponMining": ("item_mining_lasers", [
+                "power_draw", "em_signature", "ir_signature",
+                "mining_dps", "module_slots", "module_slot_size", "overheat_temperature"]),
+            "SalvageHead": ("item_salvage", [
+                "power_draw", "em_signature", "ir_signature",
+                "salvage_speed_multiplier", "radius_multiplier", "extraction_efficiency"]),
+            "SalvageModifier": ("item_salvage", [
+                "power_draw", "em_signature", "ir_signature",
+                "salvage_speed_multiplier", "radius_multiplier", "extraction_efficiency"]),
+            "ToolArm": ("item_tool_arms", [
+                "power_draw", "em_signature", "ir_signature"]),
+        }
+        for o in options:
+            o["kind"] = "item"
+            o["display_name"] = o.get("display_name") or o["entity_name"]
+            # Shared cooling fields (all categories).
+            ic = conn.execute(
+                "SELECT heat_baseline, coolant_consumption FROM item_components "
+                "WHERE uuid=? AND patch_version=?", (o["uuid"], p)).fetchone()
+            if ic:
+                o.update(dict(ic))
+            enrich = TYPE_ENRICH.get(o["item_type"])
+            if enrich:
+                tbl, fields = enrich
+                row = conn.execute(
+                    f"SELECT {', '.join(fields)} FROM {tbl} "
+                    f"WHERE uuid=? AND patch_version=?", (o["uuid"], p)).fetchone()
+                if row:
+                    o.update(dict(row))
+    elif port:
+        hp = conn.execute(
+            "SELECT accepted_types, required_tags, port_tags, min_size, max_size "
+            "FROM ship_hardpoints WHERE ship_entity_name=? AND port_name=? AND patch_version=?",
+            (entity_name, port, p)).fetchone()
+        if hp:
+            smin, smax = hp["min_size"], hp["max_size"]
+            req = hp["required_tags"]
+            ctx = {"mode": "hardpoint", "accepted_types": hp["accepted_types"],
+                   "required_tags": req, "size_range": [smin, smax]}
+            # accepted_types = 'Turret:Gun,GunTurret|WeaponGun:Gun'
+            for chunk in (hp["accepted_types"] or "").split("|"):
+                if not chunk:
+                    continue
+                typ, _, subs_raw = chunk.partition(":")
+                subs = [s for s in subs_raw.split(",") if s]
+                typ_l = typ.lower()
+                if typ_l in ("turret", "turretbase", "utilityturret"):
+                    options += mounts_by(smin, smax, subs, req)
+                elif typ_l == "weapongun":
+                    options += weapons_by("WeaponGun", smin, smax, subs)
+                elif typ_l in ("missilelauncher", "bomblauncher"):
+                    options += [dict(r, kind="rack") for r in conn.execute(
+                        "SELECT ic.entity_name, ic.display_name, ic.size, ic.item_sub_type, ic.tags "
+                        "FROM item_missile_racks mr JOIN item_components ic "
+                        "  ON ic.uuid=mr.uuid AND ic.patch_version=mr.patch_version "
+                        "WHERE mr.patch_version=? AND ic.size BETWEEN ? AND ?",
+                        (p, smin or 0, smax or 99)).fetchall()]
+                # Module / FlightController / etc. — not weapon-relevant, skipped
+
+            # Reverse tag gate: drop bespoke items the port can't satisfy.
+            options = [o for o in options if _item_required_ok(o.get("tags"), hp["port_tags"])]
+
+    # de-dup by entity_name, keep stable order; drop placeholders; sort size→name
+    seen, uniq = set(), []
+    for o in options:
+        k = (o.get("entity_name") or "").lower()
+        if k and k not in seen and not is_placeholder(o.get("display_name")):
+            seen.add(k); uniq.append(o)
+    uniq.sort(key=lambda o: (o.get("size") or 0, (o.get("display_name") or "")))
+    return jsonify({"entity_name": entity_name, "patch_version": p,
+                    "context": ctx, "count": len(uniq), "options": uniq})
 
 
 @app.route("/api/compare/components")
@@ -2936,6 +3625,251 @@ def api_crafting_blueprint_owners(uuid):
     })
 
 
+# ── API: Claim a ship ─────────────────────────────────────────────────────────
+# POST /api/ship/<entity_name>/claim — current user claims this ship hull.
+# Mirrors blueprint claiming: standalone ship_ownership.db, env-scoped rows.
+
+@app.route('/api/ship/<entity_name>/claim', methods=['POST'])
+@require_org_member
+def api_ship_claim(entity_name):
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    conn = get_db()
+    patch = latest_patch(conn)
+    ship = conn.execute('''
+        SELECT entity_name, display_name
+        FROM ships WHERE entity_name = ? AND patch_version = ?
+    ''', (entity_name, patch)).fetchone()
+    conn.close()
+    if not ship:
+        return jsonify({'error': 'Ship not found'}), 404
+    ship_name = ship['display_name'] or ship['entity_name']
+    own = get_ship_ownership_db()
+    try:
+        own.execute('''
+            INSERT INTO ship_ownership
+                (discord_id, ship_entity, ship_name, patch_version, env)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (discord_id, entity_name, ship_name, patch, env))
+        own.commit()
+    except sqlite3.IntegrityError:
+        own.close()
+        return jsonify({'error': 'Already claimed by you'}), 409
+    finally:
+        try: own.close()
+        except Exception: pass
+    return jsonify({
+        'success': True,
+        'ship_entity': entity_name,
+        'env': env,
+        'discord_id': discord_id,
+        'display_name': session.get('callsign'),
+    })
+
+
+# ── API: Unclaim a ship ───────────────────────────────────────────────────────
+# DELETE /api/ship/<entity_name>/claim — removes only the current user's claim.
+
+@app.route('/api/ship/<entity_name>/claim', methods=['DELETE'])
+@require_org_member
+def api_ship_unclaim(entity_name):
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    own = get_ship_ownership_db()
+    cur = own.execute('''
+        DELETE FROM ship_ownership
+        WHERE ship_entity = ? AND discord_id = ? AND env = ?
+    ''', (entity_name, discord_id, env))
+    own.commit()
+    removed = cur.rowcount
+    own.close()
+    if removed == 0:
+        return jsonify({'error': 'Not claimed by you'}), 404
+    return jsonify({'success': True, 'ship_entity': entity_name, 'env': env})
+
+
+# ── API: Ownership summary for many ships ─────────────────────────────────────
+# GET /api/ships/ownership?entities=a,b,c — one row per claim (multi-owner);
+# the frontend buckets by ship_entity for button state + owner counts.
+
+@app.route('/api/ships/ownership')
+def api_ships_ownership():
+    ents_param = request.args.get('entities', '').strip()
+    if not ents_param:
+        return jsonify([])
+    ents = [e.strip() for e in ents_param.split(',') if e.strip()]
+    if not ents:
+        return jsonify([])
+    env = _current_env()
+    own = get_ship_ownership_db()
+    placeholders = ','.join('?' * len(ents))
+    rows = own.execute(f'''
+        SELECT ship_entity, discord_id, claimed_at
+        FROM ship_ownership
+        WHERE ship_entity IN ({placeholders}) AND env = ?
+    ''', (*ents, env)).fetchall()
+    own.close()
+    return jsonify([{
+        'ship_entity': r['ship_entity'],
+        'discord_id':  r['discord_id'],
+        'claimed_at':  r['claimed_at'],
+    } for r in rows])
+
+
+# ── API: Owner list for a single ship (with Discord names) ───────────────────
+# GET /api/ship/<entity_name>/owners
+
+@app.route('/api/ship/<entity_name>/owners')
+def api_ship_owners(entity_name):
+    env = _current_env()
+    own = get_ship_ownership_db()
+    rows = own.execute('''
+        SELECT discord_id, claimed_at
+        FROM ship_ownership
+        WHERE ship_entity = ? AND env = ?
+        ORDER BY claimed_at ASC
+    ''', (entity_name, env)).fetchall()
+    own.close()
+    discord_ids = [r['discord_id'] for r in rows]
+    name_map = _resolve_discord_display_names(discord_ids)
+    return jsonify({
+        'ship_entity': entity_name,
+        'env':         env,
+        'owners': [{
+            'discord_id':   r['discord_id'],
+            'display_name': name_map.get(r['discord_id']) or r['discord_id'],
+            'claimed_at':   r['claimed_at'],
+        } for r in rows],
+    })
+
+
+# ── API: Saved ship loadouts ─────────────────────────────────────────────────
+# A loadout is a full-state snapshot of the page (components + armament + power
+# grid + master mode). Saving is login-gated and tied to the creator; loading by
+# key is open so a ?loadout=<key> URL works for anyone.
+
+import secrets as _secrets
+
+def _gen_loadout_key(conn):
+    """Short URL-safe share token, unique within the table."""
+    for _ in range(8):
+        key = _secrets.token_urlsafe(6)  # ~8 chars
+        hit = conn.execute(
+            "SELECT 1 FROM saved_loadouts WHERE loadout_key = ?", (key,)).fetchone()
+        if not hit:
+            return key
+    raise RuntimeError("could not generate a unique loadout key")
+
+
+@app.route('/api/ship/<entity_name>/loadout', methods=['POST'])
+@require_org_member
+def api_ship_loadout_save(entity_name):
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    body = request.get_json(silent=True) or {}
+    loadout = body.get('loadout')
+    if not isinstance(loadout, dict):
+        return jsonify({'error': 'Missing loadout state'}), 400
+    name = (body.get('name') or '').strip() or 'Unnamed loadout'
+    name = name[:80]
+    # Validate the ship exists (and grab the patch for provenance).
+    conn = get_db()
+    patch = latest_patch(conn)
+    ship = conn.execute(
+        "SELECT 1 FROM ships WHERE entity_name = ? AND patch_version = ?",
+        (entity_name, patch)).fetchone()
+    conn.close()
+    if not ship:
+        return jsonify({'error': 'Ship not found'}), 404
+    payload = json.dumps(loadout, separators=(',', ':'))
+    # Guard against runaway payloads (full-state snapshots are tens of KB).
+    if len(payload) > 1_000_000:
+        return jsonify({'error': 'Loadout too large'}), 413
+    own = get_ship_ownership_db()
+    key = _gen_loadout_key(own)
+    own.execute('''
+        INSERT INTO saved_loadouts
+            (loadout_key, discord_id, ship_entity, name, loadout_json, patch_version, env)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (key, discord_id, entity_name, name, payload, patch, env))
+    own.commit()
+    own.close()
+    return jsonify({
+        'success': True,
+        'key': key,
+        'name': name,
+        'ship_entity': entity_name,
+        'url': f"/ships/{entity_name}?loadout={key}",
+    })
+
+
+@app.route('/api/loadout/<key>', methods=['GET'])
+def api_loadout_get(key):
+    """Open (no auth) — powers ?loadout=<key> share links."""
+    env = _current_env()
+    own = get_ship_ownership_db()
+    row = own.execute('''
+        SELECT loadout_key, discord_id, ship_entity, name, loadout_json, created_at
+        FROM saved_loadouts WHERE loadout_key = ? AND env = ?
+    ''', (key, env)).fetchone()
+    own.close()
+    if not row:
+        return jsonify({'error': 'Loadout not found'}), 404
+    try:
+        loadout = json.loads(row['loadout_json'])
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Corrupt loadout'}), 500
+    return jsonify({
+        'key':         row['loadout_key'],
+        'ship_entity': row['ship_entity'],
+        'name':        row['name'],
+        'created_at':  row['created_at'],
+        'loadout':     loadout,
+    })
+
+
+@app.route('/api/ship/<entity_name>/loadouts', methods=['GET'])
+@require_org_member
+def api_ship_loadouts_mine(entity_name):
+    """The current user's saved loadouts for this ship (for the Load popup)."""
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    own = get_ship_ownership_db()
+    rows = own.execute('''
+        SELECT loadout_key, name, created_at
+        FROM saved_loadouts
+        WHERE ship_entity = ? AND discord_id = ? AND env = ?
+        ORDER BY created_at DESC
+    ''', (entity_name, discord_id, env)).fetchall()
+    own.close()
+    return jsonify({
+        'ship_entity': entity_name,
+        'loadouts': [{
+            'key':        r['loadout_key'],
+            'name':       r['name'],
+            'created_at': r['created_at'],
+        } for r in rows],
+    })
+
+
+@app.route('/api/loadout/<key>', methods=['DELETE'])
+@require_org_member
+def api_loadout_delete(key):
+    """Delete only the current user's own saved loadout."""
+    discord_id = session.get('discord_id')
+    env = _current_env()
+    own = get_ship_ownership_db()
+    cur = own.execute(
+        "DELETE FROM saved_loadouts WHERE loadout_key = ? AND discord_id = ? AND env = ?",
+        (key, discord_id, env))
+    own.commit()
+    removed = cur.rowcount
+    own.close()
+    if removed == 0:
+        return jsonify({'error': 'Not found or not yours'}), 404
+    return jsonify({'success': True, 'key': key})
+
+
 # ── API: All claims by the current user ──────────────────────────────────────
 # GET /api/crafting/blueprints/my-claims
 # Reserved for a future "My Claims" page — not used by the card UI today,
@@ -3651,6 +4585,85 @@ def _get_nav_graph(conn, patch):
         g = NavGraph(conn, patch)
         _NAV_GRAPH_CACHE[patch] = g
     return g
+
+
+# Systems the starmap models, keyed by the lowercase slug the frontend uses.
+_STARMAP_SYSTEMS = {"stanton": "Stanton", "pyro": "Pyro", "nyx": "Nyx"}
+_STARMAP_BODY_KINDS = ("star", "planet", "moon", "jumppoint")
+# Selectable non-body locations / triangulation references: docking stations,
+# Lagrange points, and orbital markers (OMs). Outposts/landing-zones omitted —
+# players set position relative to stations / L-points / OMs / planets / moons.
+_STARMAP_POI_KINDS  = ("station", "lagrange", "om")
+_BODY_GROUP_KINDS   = ("star", "planet", "moon")
+
+
+@app.route("/api/starmap/<system>/bodies")
+def api_starmap_bodies(system):
+    """Per-system bodies + POIs with real heliocentric coordinates (km, star at
+    origin) for the starmap. Bodies are the star/planets/moons/jump points;
+    POIs are stations/landing zones/outposts/Lagrange points. Used to render the
+    map in true coordinates and to drive the 'set your position' triangulation.
+    """
+    canon = _STARMAP_SYSTEMS.get((system or "").lower())
+    if not canon:
+        return jsonify({"error": f"unknown system '{system}'"}), 404
+
+    conn = get_db()
+    p = PATCH or latest_patch(conn)
+    nav = _get_nav_graph(conn, p)
+
+    # Index this system's nodes by location_key so Lagrange points can be
+    # grouped under their named planet (key "Stanton3_L1" -> "Stanton3").
+    by_key = {n["key"]: n for n in nav.system_nodes(canon) if n["key"]}
+
+    def safe_node(uuid):
+        try:
+            return nav.node(uuid) if uuid else None
+        except Exception:
+            return None
+
+    def parent_info(n):
+        # Bodies group under their orbital parent (moon -> planet); L-points
+        # under the planet named in their key prefix; everything else under the
+        # body it belongs to (station -> planet, OM -> its moon/planet).
+        if n["kind"] in _BODY_GROUP_KINDS:
+            target = safe_node(n.get("parent_uuid"))
+        elif n["kind"] == "lagrange" and "_L" in (n["key"] or ""):
+            target = by_key.get(n["key"].split("_L")[0])
+        else:
+            target = safe_node(n.get("body_uuid") or n.get("parent_uuid"))
+        return (target["key"], target["name"]) if target else (None, None)
+
+    def ser(n, want_radius=False):
+        pkey, pname = parent_info(n)
+        d = {
+            "uuid": n["uuid"],
+            "key":  n["key"],
+            "name": n["name"],
+            "kind": n["kind"],
+            "helio": list(n["helio"]) if n["helio"] else None,
+            "parent_key":  pkey,
+            "parent_name": pname,
+        }
+        if want_radius:
+            d["radius_km"] = n["body_radius_km"]
+            d["lat_deg"]   = n["lat_deg"]
+            d["lon_deg"]   = n["lon_deg"]
+        return d
+
+    def real_name(n):
+        nm = (n["name"] or "").strip()
+        return nm and "UNINITIALIZED" not in nm and not nm.startswith("<=")
+
+    bodies = [ser(n, want_radius=True)
+              for n in nav.system_nodes(canon, _STARMAP_BODY_KINDS)
+              if real_name(n)]
+    # POIs must have a position to be a reference / marker; drop the unplaced
+    # and the placeholder/uninitialised rows.
+    pois = [ser(n) for n in nav.system_nodes(canon, _STARMAP_POI_KINDS)
+            if n["helio"] and real_name(n)]
+
+    return jsonify({"system": canon, "patch": p, "bodies": bodies, "pois": pois})
 
 
 @app.route("/api/cargo/route", methods=["POST"])
