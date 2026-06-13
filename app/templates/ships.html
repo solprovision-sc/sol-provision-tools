@@ -337,6 +337,34 @@
   .ship-claim-btn.owned:hover { color: #c44545; border-color: #c44545; }
   .ship-claim-btn:disabled { opacity: 0.45; cursor: default; }
   .ship-claim-btn:disabled:hover { color: #9A8C64; border-color: rgba(154,140,100,0.4); }
+  /* Claim source picker */
+  .csrc-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center; z-index: 2000;
+  }
+  .csrc-modal {
+    background: #15100c; border: 1px solid rgba(126,38,25,0.6); border-radius: 6px;
+    padding: 22px; width: 340px; max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+  .csrc-title {
+    font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 700;
+    color: #fff; letter-spacing: 1px; text-align: center; margin-bottom: 16px;
+  }
+  .csrc-btns { display: flex; flex-direction: column; gap: 10px; }
+  .csrc-btn {
+    padding: 13px; cursor: pointer;
+    background: #1a1410; border: 1px solid rgba(126,38,25,0.5); border-radius: 4px;
+    color: #CBB8AA; font-family: 'Orbitron', sans-serif; font-size: 11px;
+    font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .csrc-btn:hover { background: #7E2619; color: #fff; border-color: #7E2619; }
+  .csrc-cancel {
+    display: block; margin: 14px auto 0; background: none; border: none;
+    color: #9A8C64; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+    cursor: pointer;
+  }
+  .csrc-cancel:hover { color: #CBB8AA; }
   .ship-name {
     font-family: 'Orbitron', sans-serif;
     font-weight: 700;
@@ -498,6 +526,18 @@
   </main>
 
 </div>
+
+<!-- ── Claim source picker ─────────────────────────────────────────────── -->
+<div id="claim-source-overlay" class="csrc-overlay" style="display:none;">
+  <div class="csrc-modal">
+    <div class="csrc-title">Where did you get this ship?</div>
+    <div class="csrc-btns">
+      <button class="csrc-btn" id="claim-src-pledge">Pledge Store</button>
+      <button class="csrc-btn" id="claim-src-ingame">In-Game Purchase</button>
+    </div>
+    <button class="csrc-cancel" id="claim-src-cancel">Cancel</button>
+  </div>
+</div>
 {% endblock %}
 
 {% block page_script %}
@@ -650,18 +690,47 @@
     });
   }
 
+  // Promise-based source picker: resolves 'pledge' | 'in-game' | null (cancel).
+  function askClaimSource() {
+    return new Promise(resolve => {
+      const ov = document.getElementById('claim-source-overlay');
+      const pledge = document.getElementById('claim-src-pledge');
+      const ingame = document.getElementById('claim-src-ingame');
+      const cancel = document.getElementById('claim-src-cancel');
+      const done = val => {
+        ov.style.display = 'none';
+        pledge.onclick = ingame.onclick = cancel.onclick = ov.onclick = null;
+        resolve(val);
+      };
+      pledge.onclick = () => done('pledge');
+      ingame.onclick = () => done('in-game');
+      cancel.onclick = () => done(null);
+      ov.onclick = e => { if (e.target === ov) done(null); };
+      ov.style.display = 'flex';
+    });
+  }
+
   async function toggleShipClaim(entity, btn, ev) {
     // The button lives inside the card's <a> — don't navigate.
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
     if (!currentUser) return;
     const st = ownershipByShip.get(entity) || { count: 0, ownedByMe: false };
-    const method = st.ownedByMe ? 'DELETE' : 'POST';
+    const claiming = !st.ownedByMe;
+    let source = null;
+    if (claiming) {
+      source = await askClaimSource();
+      if (!source) return;   // cancelled
+    }
     btn.disabled = true;
     try {
-      const r = await fetch(`/api/ship/${encodeURIComponent(entity)}/claim`, { method });
+      const opts = claiming
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source }) }
+        : { method: 'DELETE' };
+      const r = await fetch(`/api/ship/${encodeURIComponent(entity)}/claim`, opts);
       if (!r.ok && r.status !== 409 && r.status !== 404) {
         const err = await r.json().catch(() => ({}));
-        alert(err.error || `Failed to ${st.ownedByMe ? 'unclaim' : 'claim'} ship`);
+        alert(err.error || `Failed to ${claiming ? 'claim' : 'unclaim'} ship`);
         btn.disabled = false;
         return;
       }

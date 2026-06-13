@@ -245,6 +245,7 @@ SHIP_OWNERSHIP_SCHEMA = """
         claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
         notes TEXT,
+        source TEXT,            -- how the owner got it: 'pledge' | 'in-game'
         UNIQUE(discord_id, ship_entity, patch_version)
     )
 """
@@ -282,6 +283,10 @@ def get_ship_ownership_db():
     conn.row_factory = sqlite3.Row
     conn.execute(SHIP_OWNERSHIP_SCHEMA)
     conn.execute(SAVED_LOADOUTS_SCHEMA)
+    # Migration: add `source` to ship_ownership tables created before it existed.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(ship_ownership)")}
+    if "source" not in cols:
+        conn.execute("ALTER TABLE ship_ownership ADD COLUMN source TEXT")
     conn.commit()
     return conn
 
@@ -3634,6 +3639,13 @@ def api_crafting_blueprint_owners(uuid):
 def api_ship_claim(entity_name):
     discord_id = session.get('discord_id')
     env = _current_env()
+    # Where the owner got the ship: 'pledge' (RSI pledge store) or 'in-game'
+    # (bought with aUEC). Optional for back-compat; unknown values stored as-is
+    # only if valid, else NULL.
+    body = request.get_json(silent=True) or {}
+    source = body.get('source')
+    if source not in ('pledge', 'in-game'):
+        source = None
     conn = get_db()
     patch = latest_patch(conn)
     ship = conn.execute('''
@@ -3648,9 +3660,9 @@ def api_ship_claim(entity_name):
     try:
         own.execute('''
             INSERT INTO ship_ownership
-                (discord_id, ship_entity, ship_name, patch_version, env)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (discord_id, entity_name, ship_name, patch, env))
+                (discord_id, ship_entity, ship_name, patch_version, env, source)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (discord_id, entity_name, ship_name, patch, env, source))
         own.commit()
     except sqlite3.IntegrityError:
         own.close()
@@ -3662,6 +3674,7 @@ def api_ship_claim(entity_name):
         'success': True,
         'ship_entity': entity_name,
         'env': env,
+        'source': source,
         'discord_id': discord_id,
         'display_name': session.get('callsign'),
     })

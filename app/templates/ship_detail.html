@@ -149,6 +149,17 @@
 .lo-row-del:hover { color: #c44545; }
 .lo-empty { color: #6a5d4a; font-size: 12px; text-align: center; padding: 16px 0; }
 
+/* Claim source picker buttons */
+.claim-src-btns { display: flex; flex-direction: column; gap: 10px; }
+.claim-src-btn {
+  padding: 14px; cursor: pointer;
+  background: #1a1410; border: 1px solid rgba(126,38,25,0.5); border-radius: 4px;
+  color: #CBB8AA; font-family: 'Orbitron', sans-serif; font-size: 12px;
+  font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.claim-src-btn:hover { background: #7E2619; color: #fff; border-color: #7E2619; }
+
 /* Sidebar Stats */
 .sb-stats { 
   display: flex; 
@@ -2446,6 +2457,22 @@ body::before {
     </div>
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeLoadLoadout()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Claim source picker ─────────────────────────────────────────────── -->
+<div id="claim-source-overlay" class="modal-overlay" style="display: none;">
+  <div class="modal-content lo-modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3>Where did you get this ship?</h3>
+      <button class="modal-close" id="claim-src-cancel">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="claim-src-btns">
+        <button class="claim-src-btn" id="claim-src-pledge">Pledge Store</button>
+        <button class="claim-src-btn" id="claim-src-ingame">In-Game Purchase</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5827,15 +5854,44 @@ body::before {
     else                      { btn.textContent = 'Claim';   btn.classList.remove('owned'); }
   }
 
+  // Promise-based source picker: resolves 'pledge' | 'in-game' | null (cancel).
+  function askClaimSource() {
+    return new Promise(resolve => {
+      const ov = document.getElementById('claim-source-overlay');
+      const pledge = document.getElementById('claim-src-pledge');
+      const ingame = document.getElementById('claim-src-ingame');
+      const cancel = document.getElementById('claim-src-cancel');
+      const done = val => {
+        ov.style.display = 'none';
+        pledge.onclick = ingame.onclick = cancel.onclick = ov.onclick = null;
+        resolve(val);
+      };
+      pledge.onclick = () => done('pledge');
+      ingame.onclick = () => done('in-game');
+      cancel.onclick = () => done(null);
+      ov.onclick = e => { if (e.target === ov) done(null); };
+      ov.style.display = 'flex';
+    });
+  }
+
   async function toggleShipClaim(btn) {
     if (!claimUser) return;
-    const method = claimState.ownedByMe ? 'DELETE' : 'POST';
+    const claiming = !claimState.ownedByMe;
+    let source = null;
+    if (claiming) {
+      source = await askClaimSource();
+      if (!source) return;   // cancelled — leave unclaimed, button untouched
+    }
     btn.disabled = true;
     try {
-      const r = await fetch(`/api/ship/${encodeURIComponent(ENTITY_NAME)}/claim`, { method });
+      const opts = claiming
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source }) }
+        : { method: 'DELETE' };
+      const r = await fetch(`/api/ship/${encodeURIComponent(ENTITY_NAME)}/claim`, opts);
       if (!r.ok && r.status !== 409 && r.status !== 404) {
         const err = await r.json().catch(() => ({}));
-        alert(err.error || `Failed to ${claimState.ownedByMe ? 'unclaim' : 'claim'} ship`);
+        alert(err.error || `Failed to ${claiming ? 'claim' : 'unclaim'} ship`);
       }
     } catch (_) {
       alert('Network error — try again.');
