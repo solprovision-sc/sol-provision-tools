@@ -1297,6 +1297,58 @@ def api_ships():
         sort_by = "entity_name"
     sort_by = f"s.{sort_by}"
 
+    # ── Master catalog path (RSI matrix) — all ships incl. concepts. ──────────
+    # Falls back to the legacy ships_index path below if the catalog isn't in
+    # this DB yet (so the app can deploy before the catalog-bearing DB lands).
+    have_catalog = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ship_catalog'").fetchone() \
+        and conn.execute(
+            "SELECT 1 FROM ship_catalog WHERE patch_version=? LIMIT 1", (p,)).fetchone()
+    if have_catalog:
+        crows = conn.execute("""
+            SELECT sc.rsi_id, sc.rsi_name, sc.manufacturer, sc.focus, sc.type,
+                   sc.production_status, sc.flyable, sc.data_name,
+                   sc.size AS rsi_size, sc.cargo_scu AS rsi_cargo,
+                   sc.length_m AS rsi_length, sc.max_crew,
+                   s.display_name AS game_name, s.career AS game_career,
+                   s.crew_size AS game_crew, s.cargo_scu AS game_cargo,
+                   s.length_m AS game_length, s.size_class,
+                   COALESCE(vr.display_name, s.role) AS game_role
+            FROM ship_catalog sc
+            LEFT JOIN ships s ON s.entity_name = sc.data_name AND s.patch_version = ?
+            LEFT JOIN vehicle_roles vr ON vr.role_key = s.role
+            WHERE sc.patch_version = ?
+            ORDER BY sc.manufacturer, sc.rsi_name
+        """, (p, p)).fetchall()
+        conn.close()
+        out = []
+        for r in crows:
+            disp = r["rsi_name"] or r["game_name"] or ""
+            if search and search not in disp.lower() \
+               and search not in (r["manufacturer"] or "").lower():
+                continue
+            flyable = bool(r["flyable"])
+            out.append({
+                "rsi_id":            r["rsi_id"],
+                "entity_name":       r["data_name"],          # null for concepts
+                "display_name":      disp,
+                "manufacturer":      r["manufacturer"],
+                "flyable":           flyable,
+                "production_status": r["production_status"],
+                # RSI classification (present for every ship, incl. concepts)
+                "type":              r["type"],
+                "focus":             r["focus"],
+                "size":              r["rsi_size"],
+                # game-data fields when flyable (else RSI/None)
+                "career":            r["game_career"],
+                "role":              r["game_role"],
+                "size_class":        r["size_class"],
+                "crew_size":         r["game_crew"] if flyable else r["max_crew"],
+                "cargo_scu":         r["rsi_cargo"] if r["rsi_cargo"] is not None else r["game_cargo"],
+                "length_m":          r["game_length"] if flyable else r["rsi_length"],
+            })
+        return jsonify(out[:limit])
+
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
                  s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
                  s.rsi_cargo_scu,

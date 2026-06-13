@@ -298,6 +298,11 @@
   }
   .ship-card:hover { border-color: rgba(126,38,25,0.55); transform: translateY(-2px); }
   .ship-card:hover .ship-card-bar { background: #7E2619; }
+  /* Concept ships: no game data, not clickable to detail */
+  .ship-card.concept { cursor: default; opacity: 0.82; }
+  .ship-card.concept:hover { transform: none; border-color: rgba(126,38,25,0.22); }
+  .ship-card.concept:hover .ship-card-bar { background: inherit; }
+  .ship-card.concept .ship-card-bar { background: #4a4036; }
   .ship-card-bar {
     height: 2px;
     background: rgba(126,38,25,0.3);
@@ -408,6 +413,7 @@
   }
   .ship-tag.career { border-color: rgba(126,38,25,0.5); color: #E8855C; }
   .ship-tag.size   { border-color: rgba(154,140,100,0.4); color: #9A8C64; }
+  .ship-tag.concept { border-color: rgba(120,130,170,0.6); color: #8aa0d0; background: rgba(120,130,170,0.1); }
 
   /* ── Empty state ── */
   .empty-state {
@@ -572,10 +578,12 @@
   const SIZE_ORDER  = ['Snub / Vehicle','Small','Medium','Large','Capital'];
   function sizeLabel(sc){ return SIZE_LABELS[sc] || null; }
 
-  function shipCareer(s){ return toTitleCase(cleanCareer(s.career)) || ''; }
-  function shipRole(s){ return toTitleCase(cleanRole(s.role)) || ''; }
-  function shipMfr(s){ return getMfr(s.entity_name); }
-  function shipSize(s){ return sizeLabel(s.size_class); }
+  // Facets come from the RSI catalog fields (present for every ship incl.
+  // concepts) so the filters cover the whole roster, not just game-data ships.
+  function shipCareer(s){ return toTitleCase(s.type || '') || ''; }
+  function shipRole(s){ return s.focus || ''; }
+  function shipMfr(s){ return s.manufacturer || getMfr(s.entity_name || ''); }
+  function shipSize(s){ return toTitleCase(s.size || '') || ''; }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 
   // --- Filtering ---
@@ -611,22 +619,26 @@
     const grid = document.getElementById('ship-grid');
     if (!ships.length) { grid.innerHTML = `<div class="grid-empty">No ships match your filters.</div>`; return; }
     grid.innerHTML = ships.map(s => {
-      const name   = s.display_name || s.entity_name.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      const name   = s.display_name || (s.entity_name || '').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
       const mfr    = shipMfr(s);
       const career = shipCareer(s);
       const role   = shipRole(s);
       const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
       const crew   = s.crew_size ? `${s.crew_size}` : '—';
-      const len    = s.length_rsi_m ? `${s.length_rsi_m}m` : (s.length_m ? `${s.length_m}m` : '—');
+      const len    = s.length_m ? `${s.length_m}m` : '—';
       const size   = shipSize(s);
-      return `
-        <a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}">
+      const flyable = !!s.flyable;
+      // Concept ships (no game data) aren't claimable until the claim layer
+      // moves to the catalog id (Phase 3) — disabled with a hint for now.
+      const claimAttr = flyable
+        ? `onclick="toggleShipClaim('${s.entity_name}', this, event)"`
+        : `disabled title="Concept ship — claiming coming soon"`;
+      const inner = `
           <div class="ship-card-bar"></div>
           <div class="ship-card-body">
             <div class="ship-card-hdr-row">
               <div class="ship-mfr">${mfr}</div>
-              <button type="button" class="ship-claim-btn" disabled
-                      onclick="toggleShipClaim('${s.entity_name}', this, event)">Claim</button>
+              <button type="button" class="ship-claim-btn" disabled ${claimAttr}>Claim</button>
             </div>
             <div class="ship-name">${name}</div>
             <div class="ship-stats">
@@ -636,11 +648,14 @@
               <div><div class="ship-stat-label">Role</div><div class="ship-stat-value">${role || career || '—'}</div></div>
             </div>
             <div class="ship-tags">
+              ${flyable ? '' : `<span class="ship-tag concept">Concept</span>`}
               ${career ? `<span class="ship-tag career">${career}</span>` : ''}
               ${size ? `<span class="ship-tag size">${size}</span>` : ''}
             </div>
-          </div>
-        </a>`;
+          </div>`;
+      return flyable
+        ? `<a class="ship-card" href="/ships/${s.entity_name}" data-entity="${s.entity_name}">${inner}</a>`
+        : `<div class="ship-card concept" data-rsi="${s.rsi_id}">${inner}</div>`;
     }).join('');
     paintAllShipOwnership();
   }
@@ -675,6 +690,13 @@
     document.querySelectorAll('.ship-card').forEach(card => {
       const btn = card.querySelector('.ship-claim-btn');
       if (!btn) return;
+      // Concept cards have no data-entity — not claimable yet (Phase 3).
+      if (!card.dataset.entity) {
+        btn.textContent = 'Claim';
+        btn.disabled = true;
+        btn.title = 'Concept ship — claiming coming soon';
+        return;
+      }
       const st = ownershipByShip.get(card.dataset.entity) || { count: 0, ownedByMe: false };
       if (!currentUser) {
         btn.textContent = 'Claim';
