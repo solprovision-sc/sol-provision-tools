@@ -4,19 +4,17 @@
 //  Two modes:
 //   • At a location — pick a system + a known location (planet/moon/
 //     station/L-point/OM) → marker dropped at its real coordinates.
-//   • Triangulate — pick 3 references + distances → 2D trilateration
-//     solves the real position; marker dropped there with a fix-quality
-//     readout.
+//   • From in-game coords — paste the `/showlocation` chat output
+//     (Coordinates: x:… y:… z:…) → marker dropped at those real coords.
 //
 //  Owns its DOM; talks to the map only through the callbacks passed to
 //  initPosition(). The orchestrator converts the real (x,y) km we hand it
 //  into a scene position and manages the marker.
 // ═══════════════════════════════════════════════════════════════════
 
-import { trilaterate2D } from '../util/trilaterate.js';
+import { parseGameCoords, fmtGm } from '../util/gamecoords.js';
 
-const UNIT_KM = { Gm: 1e6, Mm: 1e3, km: 1 };
-const TRI = '__triangulate__';
+const COORDS = '__coords__';
 
 let cb = null;
 let locations = [];          // current system's selectable locations
@@ -24,11 +22,11 @@ let locations = [];          // current system's selectable locations
 const $ = id => document.getElementById(id);
 
 // Build <optgroup>s grouped by parent body. `placeholder` is the first option.
-function fillLocationSelect(sel, placeholder, withTriangulate) {
+function fillLocationSelect(sel, placeholder) {
   sel.innerHTML = '';
   const ph = new Option(placeholder, '');
   ph.disabled = false; sel.add(ph);
-  if (withTriangulate) sel.add(new Option('⊕ Triangulate my position…', TRI));
+  sel.add(new Option('⊕ Set from in-game coords…', COORDS));
 
   const groups = new Map();
   locations.forEach((loc, i) => {
@@ -44,20 +42,6 @@ function fillLocationSelect(sel, placeholder, withTriangulate) {
   }
 }
 
-function refRows() {
-  return [1, 2, 3].map(n => ({
-    body: $(`pos-ref-body-${n}`),
-    dist: $(`pos-ref-dist-${n}`),
-    unit: $(`pos-ref-unit-${n}`),
-  }));
-}
-
-function fmtDist(km) {
-  if (km >= 1e6) return (km / 1e6).toFixed(3) + ' Gm';
-  if (km >= 1e3) return (km / 1e3).toFixed(1) + ' Mm';
-  return Math.round(km) + ' km';
-}
-
 function setStatus(msg, cls = '') {
   const el = $('pos-status');
   el.textContent = msg || '';
@@ -65,15 +49,21 @@ function setStatus(msg, cls = '') {
   $('pos-clear').hidden = !msg;
 }
 
-function showTriangulate(on) {
-  $('pos-triangulate').hidden = !on;
-  if (on) { $('pos-result').textContent = ''; $('pos-result').className = ''; }
+function setResult(html, cls = '') {
+  const el = $('pos-result');
+  el.innerHTML = html || '';
+  el.className = cls;
+}
+
+function showCoords(on) {
+  $('pos-coords').hidden = !on;
+  if (on) setResult('');
 }
 
 function onLocationChange() {
   const v = $('pos-location').value;
-  if (v === TRI) { showTriangulate(true); return; }
-  showTriangulate(false);
+  if (v === COORDS) { showCoords(true); return; }
+  showCoords(false);
   if (v === '') { return; }
   const loc = locations[Number(v)];
   if (!loc || !loc.helio) return;
@@ -81,47 +71,24 @@ function onLocationChange() {
   setStatus(`Position set: ${loc.name}`, 'ok');
 }
 
-function solve() {
-  const rows = refRows();
-  const refs = [];
-  const used = new Set();
-  for (const r of rows) {
-    const idx = r.body.value;
-    if (idx === '') { setStatus('Pick all three reference bodies.', 'warn'); return; }
-    if (used.has(idx)) { setStatus('Reference bodies must be different.', 'warn'); return; }
-    used.add(idx);
-    const loc = locations[Number(idx)];
-    const val = parseFloat(r.dist.value);
-    if (!(val > 0)) { setStatus('Enter a positive distance for each reference.', 'warn'); return; }
-    const km = val * (UNIT_KM[r.unit.value] || 1);
-    refs.push({ x: loc.helio[0], y: loc.helio[1], d: km });
-  }
-
-  const res = trilaterate2D(refs);
-  const out = $('pos-result');
-  if (!res.ok) {
-    out.className = 'warn';
-    out.textContent = res.warnings.join(' ');
+function setFromCoords() {
+  const raw = $('pos-coords-input').value;
+  const c = parseGameCoords(raw);
+  if (!c) {
+    setResult('Couldn’t read coordinates. Paste the full <b>/showlocation</b> line.', 'warn');
     return;
   }
-  cb.onPlace(res.x, res.y, 'Triangulated position');
-
-  const qcls = res.quality === 'good' ? 'ok' : res.quality === 'fair' ? 'warn' : 'bad';
-  const lines = [
-    `Fix: ${res.quality.toUpperCase()} · residual ±${fmtDist(res.residualKm)}`,
-  ];
-  if (res.zAbs > res.residualKm) lines.push(`Height off plane ≈ ${fmtDist(res.zAbs)} (above/below unknown)`);
-  for (const w of res.warnings) lines.push('⚠ ' + w);
-  out.className = qcls;
-  out.innerHTML = lines.map(l => `<div>${l}</div>`).join('');
-  setStatus('Position set: triangulated', 'ok');
+  cb.onPlace(c.x, c.y, 'Your position');
+  const zNote = Math.abs(c.z) >= 1
+    ? `<div>height ${c.z >= 0 ? '+' : '−'}${fmtGm(Math.abs(c.z))} off plane</div>` : '';
+  setResult(`<div>x ${fmtGm(c.x)} · y ${fmtGm(c.y)}</div>${zNote}`, 'ok');
+  setStatus('Position set: in-game coords', 'ok');
 }
 
-// Repopulate every location-bearing select for the active system.
+// Repopulate the location select for the active system.
 function populate() {
-  fillLocationSelect($('pos-location'), '— Select location —', true);
-  for (const r of refRows()) fillLocationSelect(r.body, '— Reference —', false);
-  showTriangulate(false);
+  fillLocationSelect($('pos-location'), '— Select location —');
+  showCoords(false);
 }
 
 export function initPosition(callbacks) {
@@ -132,17 +99,17 @@ export function initPosition(callbacks) {
     await cb.onSwitchSystem(e.target.value);   // map switch + reload happens via setSystem()
   });
   $('pos-location').addEventListener('change', onLocationChange);
-  $('pos-solve').addEventListener('click', solve);
+  $('pos-coords-set').addEventListener('click', setFromCoords);
   $('pos-clear').addEventListener('click', () => {
     cb.onClear();
     $('pos-location').value = '';
-    showTriangulate(false);
+    showCoords(false);
     setStatus('');
   });
 
   return {
     // Called by the orchestrator whenever the active system changes (top
-    // selector or panel) so the panel + its dropdowns stay in sync.
+    // selector or panel) so the panel + its dropdown stay in sync.
     async setSystem(systemKey) {
       $('pos-system').value = systemKey;
       locations = (await cb.getLocations(systemKey)) || [];

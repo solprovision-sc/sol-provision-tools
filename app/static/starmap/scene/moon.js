@@ -7,8 +7,7 @@ import { makeOrbitRing } from './primitives.js';
 import { loadBodyTextures, applyTexturesToMesh } from '../data/textures.js';
 import { addCloudLayer } from './clouds.js';
 import { addAtmosphere } from './atmosphere.js';
-
-const MOON_R = 6;
+import { MOON_R } from './sizes.js';
 
 export function addMoon(world, body, systemConfig) {
   const bd       = world.bodyIndex[body.id];

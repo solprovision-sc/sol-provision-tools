@@ -13,25 +13,32 @@ import { createCameraController }                        from './core/camera.js'
 import { createLoop }                                    from './core/loop.js';
 
 import { makeStarfield }       from './scene/starfield.js';
-import { makeEclipticGrid }    from './scene/grid.js';
 import { makeNebula }          from './scene/nebula.js';
 import { addStar }             from './scene/star.js';
 import { addPlanet, addCapturedPlanet } from './scene/planet.js';
 import { addMoon }             from './scene/moon.js';
 import { addJumpPoint }        from './scene/jumppoint.js';
 import { addAsteroidBelt }     from './scene/asteroid.js';
+import { addLagrangePoints }   from './scene/lagrange.js';
 import { rotateClouds }        from './scene/clouds.js';
 import { setMarker, clearMarker, updateMarker } from './scene/marker.js';
 
 import { SYSTEMS }                       from './data/systems.js';
 import { loadManifest }                  from './data/textures.js';
 import { loadSystemCoords }              from './data/coords.js';
-import { auToScene, moonAuToScene }      from './util/scale.js';
+import { auToScene, moonAuToScene, moonOrbitRadius, ORBIT_SCALE_EXP } from './util/scale.js';
+import { planetRadiusFor }               from './scene/sizes.js';
 
 // 1 AU in km — used to seed the systems.js→km fallback factor for bodies the
 // DB doesn't position (asteroid belts, unmodelled jump points).
 const AU_KM = 149597870.7;
-const SCENE_BASE_R = 700;   // scene radius of the outermost star-direct body
+const SCENE_BASE_R = 1050;  // scene radius of the outermost star-direct body (1.5× the old 700, to spread orbits out)
+
+// Helio +Y maps to scene Z. Under the default top-down camera (+Y up, looking
+// down), a raw +Z would render the system mirrored vs. how players read the
+// map, so we flip the sign. Applied at EVERY helio→scene Z derivation below
+// (global transform, body placement, orbit animation, marker) so they agree.
+const ECLIPTIC_Z_SIGN = -1;
 
 import { initHud, setActiveSystem, setOrbitToggle, flashTransition } from './ui/hud.js';
 import { initInfoClose, showInfo, closeInfo }                        from './ui/info-panel.js';
@@ -62,7 +69,7 @@ const world = {
   labelSprites:   [],   // billboarded every frame
   orbitObjects:   [],   // for orbit-ring filter
   cloudMeshes:    [],   // rotated each frame + follows body in orbit motion
-  filterState:    { PLANET:true, SATELLITE:true, orbits:true, labels:true, JUMPPOINT:true, ASTEROID_BELT:true },
+  filterState:    { PLANET:true, SATELLITE:true, orbits:true, labels:true, JUMPPOINT:true, ASTEROID_BELT:true, LAGRANGE:true },
   activeSystem:   'stanton',
   orbitAnimating: false,
   refAU:          1,
@@ -110,7 +117,7 @@ function placeAll(systemConfig) {
     b.position.set(
       pp.x + r * Math.cos(lat) * Math.cos(b.orbitAngle),
       pp.y + r * Math.sin(lat),
-      pp.z + r * Math.cos(lat) * Math.sin(b.orbitAngle),
+      pp.z + ECLIPTIC_Z_SIGN * r * Math.cos(lat) * Math.sin(b.orbitAngle),
     );
     return b.position;
   }
@@ -135,14 +142,17 @@ function computeLegacyPositions(systemConfig) {
   world.helioToScene = (x, y) => {
     const r = Math.hypot(x, y), a = Math.atan2(y, x);
     const R = auToScene(r / AU_KM, world.refAU);
-    return new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a));
+    return new THREE.Vector3(R * Math.cos(a), 0, ECLIPTIC_Z_SIGN * R * Math.sin(a));
   };
 
   for (const b of systemConfig.bodies) {
-    const parentIsPlanet = b.parent && systemConfig.bodies
-      .some(x => x.id === b.parent && x.type === 'PLANET');
-    const r = parentIsPlanet ? moonAuToScene(b.dist, world.moonRefAU)
-                             : auToScene(b.dist, world.refAU);
+    const parentBody = b.parent ? systemConfig.bodies.find(x => x.id === b.parent) : null;
+    const parentIsPlanet = parentBody && parentBody.type === 'PLANET';
+    // Moons hug their planet (tight band); captured planets keep the wider
+    // legacy exaggeration; everything else uses the star-relative orbit scale.
+    const r = !parentIsPlanet              ? auToScene(b.dist, world.refAU)
+            : b.type === 'SATELLITE'       ? moonOrbitRadius(planetRadiusFor(parentBody), b.dist, world.moonRefAU)
+            :                                moonAuToScene(b.dist, world.moonRefAU);
     world.bodyIndex[b.id] = {
       ...b, position: new THREE.Vector3(), helio: null, dbUuid: null,
       orbitAngle: b.lon * Math.PI / 180, orbitRadiusScene: r,
@@ -195,10 +205,10 @@ function computeInitialPositions(systemConfig, coords) {
     if (bd.helio) refKm = Math.max(refKm, Math.hypot(bd.helio[0], bd.helio[1]));
   }
   world.refKm = refKm > 0 ? refKm : AU_KM;
-  const scaleR = km => Math.sqrt(Math.max(km, 0) / world.refKm) * SCENE_BASE_R;
+  const scaleR = km => Math.pow(Math.max(km, 0) / world.refKm, ORBIT_SCALE_EXP) * SCENE_BASE_R;
   world.helioToScene = (x, y) => {
     const r = Math.hypot(x, y), a = Math.atan2(y, x), R = scaleR(r);
-    return new THREE.Vector3(R * Math.cos(a), 0, R * Math.sin(a));
+    return new THREE.Vector3(R * Math.cos(a), 0, ECLIPTIC_Z_SIGN * R * Math.sin(a));
   };
 
   // Median km-per-AU factor from matched star-direct bodies, for the gaps.
@@ -235,7 +245,9 @@ function computeInitialPositions(systemConfig, coords) {
     const bd = world.bodyIndex[b.id];
     const pbd = b.parent ? world.bodyIndex[b.parent] : null;
     if (!pbd || pbd.type !== 'PLANET') continue;
-    bd.orbitRadiusScene = moonAuToScene(b.dist, world.moonRefAU);
+    bd.orbitRadiusScene = b.type === 'SATELLITE'
+      ? moonOrbitRadius(planetRadiusFor(pbd), b.dist, world.moonRefAU)   // tight cluster
+      : moonAuToScene(b.dist, world.moonRefAU);                          // captured planet (wider)
     if (bd.helio && pbd.helio) {
       bd.orbitAngle = Math.atan2(bd.helio[1] - pbd.helio[1], bd.helio[0] - pbd.helio[0]);
     }
@@ -255,15 +267,11 @@ async function buildSystem(systemKey) {
 
   const starId = sys.bodies.find(b => b.type === 'STAR').id;
 
-  // Backdrop nebula + ecliptic reference grid go in first so bodies draw over them.
+  // Backdrop nebula goes in first so bodies draw over it. (The polar ecliptic
+  // grid was removed — only the planets' orbit rings convey the plane now.)
   const nebula = makeNebula(sys.gridColor || '#3fe0ff');
   scene.add(nebula);
   world.sceneObjects.push(nebula);
-
-  const gridOuter = SCENE_BASE_R * 1.12;
-  const grid = makeEclipticGrid(gridOuter, sys.gridColor || '#3fe0ff');
-  scene.add(grid);
-  world.sceneObjects.push(grid);
 
   addStar(world, world.bodyIndex[starId], sys);
 
@@ -274,6 +282,8 @@ async function buildSystem(systemKey) {
     else if (b.type === 'JUMPPOINT')                        addJumpPoint(world, b, sys);
     else if (b.type === 'ASTEROID_BELT' || b.type === 'ASTEROID_FIELD') addAsteroidBelt(world, b, sys);
   }
+
+  addLagrangePoints(world, coords, sys);
 
   applyFilters();
 }
@@ -299,6 +309,12 @@ function applyFilters() {
       o.visible = world.filterState['JUMPPOINT'];
     }
   }
+  // Lagrange-point marker sprites (their labels are filtered via labelSprites).
+  for (const o of world.sceneObjects) {
+    if (o.userData.bodyType === 'LAGRANGE' && o.userData.type !== 'label') {
+      o.visible = world.filterState['LAGRANGE'];
+    }
+  }
 }
 
 function orbitSpeedFor(b) {
@@ -321,7 +337,7 @@ function updateOrbits(dt) {
     bd.position.set(
       pp.x + r * Math.cos(lat) * Math.cos(bd.orbitAngle),
       pp.y + r * Math.sin(lat),
-      pp.z + r * Math.cos(lat) * Math.sin(bd.orbitAngle),
+      pp.z + ECLIPTIC_Z_SIGN * r * Math.cos(lat) * Math.sin(bd.orbitAngle),
     );
     bd.mesh.position.copy(bd.position);
     if (bd.orbitRing) bd.orbitRing.position.copy(pp);
@@ -341,7 +357,7 @@ function updateOrbits(dt) {
 // Labels are authored for the overview camera distance. Scale each inversely
 // with its screen-space distance (relative to the default view) so they hold a
 // roughly constant on-screen size — no more giant text when fly-to zooms in.
-const LABEL_REF_DIST = 900;
+const LABEL_REF_DIST = 1350;   // 1.5× the old 900, matching the SCENE_BASE_R / camera spread
 function billboardLabels() {
   for (const s of world.labelSprites) {
     s.quaternion.copy(camera.quaternion);
@@ -394,7 +410,7 @@ function realToScene(x, y) {
       return new THREE.Vector3(
         nearest.position.x + (x - nearest.helio[0]) * K,
         0,
-        nearest.position.z + (y - nearest.helio[1]) * K,
+        nearest.position.z + ECLIPTIC_Z_SIGN * (y - nearest.helio[1]) * K,
       );
     }
   }

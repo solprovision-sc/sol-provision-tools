@@ -1,4 +1,4 @@
-// Jump point — wireframe octahedron marker + dashed line back to the star.
+// Jump point — wireframe octahedron marker.
 // P4 will swap the octahedron for CIG's actual starmap jump-gate CGFm model.
 
 import * as THREE from 'three';
@@ -30,13 +30,4 @@ export function addJumpPoint(world, body, systemConfig) {
   world.scene.add(label);
   world.sceneObjects.push(label);
   world.labelSprites.push(label);
-
-  const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), bd.position.clone()]);
-  const line = new THREE.Line(lineGeo, new THREE.LineDashedMaterial({
-    color: systemConfig.jumpLine, dashSize: 14, gapSize: 10, transparent: true, opacity: 0.18,
-  }));
-  line.computeLineDistances();
-  line.userData = { bodyType: 'JUMPPOINT' };
-  world.scene.add(line);
-  world.sceneObjects.push(line);
 }

@@ -8,7 +8,11 @@
 
 import * as THREE from 'three';
 
-const DEFAULT_VIEW = { theta: 0.3, phi: 1.1, r: 1050 };
+// theta is the azimuth around the vertical (Y) axis. Offset by +90° from the
+// original 0.3 so the system starts rotated a quarter-turn in view.
+// r was scaled 1.5× (1050→1575) alongside SCENE_BASE_R so the larger system
+// still frames the same on load.
+const DEFAULT_VIEW = { theta: 0.3 + Math.PI / 2, phi: 1.1, r: 1575 };
 const R_MIN = 60;
 const R_MAX = 12000;
 
