@@ -21,6 +21,9 @@ firebase-service-account.json
 .DS_Store
 Thumbs.db
 
+# MS Office lock/temp files (e.g. ~$solprovision-mining-tool.xlsx)
+~$*
+
 # IDE
 .vscode/
 .idea/
