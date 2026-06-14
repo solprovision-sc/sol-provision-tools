@@ -184,7 +184,7 @@
 
   /* ── CONTROLS PANEL ── */
   #controls {
-    position: fixed; bottom: 26px; left: 26px; z-index: 20;
+    position: fixed; bottom: 74px; right: 26px; z-index: 20;
     padding: 15px 19px; min-width: 220px; transition: border-color 0.4s;
   }
   #controls::before {
@@ -294,6 +294,83 @@
   #pos-result.bad, #pos-status.bad { color: var(--hud-red); }
   #pos-result.ok, #pos-status.ok { color: var(--accent); }
 
+  /* ── ORE CONCENTRATIONS PANEL ── */
+  #ore-panel {
+    position: fixed; left: 26px; top: 470px; z-index: 20;   /* top refined at runtime by relayout() */
+    width: 240px; padding: 13px 15px;
+    transition: border-color 0.4s;
+  }
+  #ore-panel::before {
+    content: 'ORE CONCENTRATIONS'; display: block;
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
+    color: var(--accent-dim); margin-bottom: 11px;
+    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
+  }
+  /* master on/off toggle */
+  #ore-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none; margin-bottom: 10px;
+    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
+    color: var(--accent-dim); transition: color 0.2s;
+  }
+  #ore-toggle:hover { color: var(--accent); }
+  #ore-toggle.active { color: var(--accent-2); }
+  .ore-switch {
+    width: 30px; height: 15px; border-radius: 8px; position: relative;
+    background: var(--accent-faint); border: 1px solid var(--accent-dim); transition: all 0.2s;
+  }
+  .ore-switch::after {
+    content: ''; position: absolute; top: 1px; left: 1px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--accent-dim); transition: all 0.2s;
+  }
+  #ore-toggle.active .ore-switch { background: rgba(95,227,255,0.18); border-color: var(--accent); }
+  #ore-toggle.active .ore-switch::after { left: 16px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* gradient legend */
+  #ore-legend { margin-bottom: 11px; opacity: 0.55; transition: opacity 0.2s; }
+  #ore-panel.on #ore-legend { opacity: 1; }
+  #ore-legend-bar {
+    height: 7px; border-radius: 2px;
+    background: linear-gradient(90deg, hsl(0,85%,50%), hsl(60,85%,50%), hsl(120,85%,50%));
+    border: 1px solid var(--panel-border);
+  }
+  #ore-legend-labels {
+    display: flex; justify-content: space-between; margin-top: 3px;
+    font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 1px;
+    color: var(--accent-dim);
+  }
+
+  /* ore checkbox list */
+  #ore-list {
+    max-height: 38vh; overflow-y: auto; padding-right: 4px;
+    opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
+  }
+  #ore-panel.on #ore-list { opacity: 1; pointer-events: auto; }
+  .ore-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+    cursor: pointer; user-select: none;
+    font-size: 12px; letter-spacing: 0.5px; color: var(--accent-dim);
+    transition: color 0.15s;
+  }
+  .ore-row:hover { color: var(--accent); }
+  .ore-row.checked { color: var(--accent-2); }
+  .ore-box {
+    width: 12px; height: 12px; flex: 0 0 auto; border-radius: 2px;
+    background: var(--accent-faint); border: 1px solid var(--accent-dim);
+    position: relative; transition: all 0.15s;
+  }
+  .ore-row.checked .ore-box { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .ore-row.checked .ore-box::after {
+    content: ''; position: absolute; left: 3px; top: 0px;
+    width: 4px; height: 8px; border: solid var(--bg);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  #ore-empty {
+    font-family: 'Share Tech Mono', monospace; font-size: 9px; line-height: 1.4;
+    color: var(--accent-dim); margin-top: 8px;
+  }
+
   /* ── TOOLTIP ── */
   #tooltip {
     position: fixed; z-index: 30; pointer-events: none;
@@ -367,6 +444,16 @@
   </div>
   <div id="pos-status"></div>
   <button id="pos-clear" class="pos-btn pos-clear" hidden>CLEAR POSITION</button>
+</div>
+
+<!-- ORE CONCENTRATIONS -->
+<div id="ore-panel" class="panel">
+  <div id="ore-toggle"><span>HEAT MAP OVERLAY</span><span class="ore-switch"></span></div>
+  <div id="ore-legend">
+    <div id="ore-legend-bar"></div>
+    <div id="ore-legend-labels"><span>LOW</span><span>CONCENTRATION</span><span>HIGH</span></div>
+  </div>
+  <div id="ore-list"></div>
 </div>
 
 <!-- CONTROLS -->
