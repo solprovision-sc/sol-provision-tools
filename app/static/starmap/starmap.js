@@ -22,6 +22,7 @@ import { addAsteroidBelt }     from './scene/asteroid.js';
 import { addLagrangePoints }   from './scene/lagrange.js';
 import { rotateClouds }        from './scene/clouds.js';
 import { setMarker, clearMarker, updateMarker } from './scene/marker.js';
+import { buildOreHeat, clearOreHeat } from './scene/oreheat.js';
 
 import { SYSTEMS }                       from './data/systems.js';
 import { loadManifest }                  from './data/textures.js';
@@ -44,6 +45,7 @@ import { initHud, setActiveSystem, setOrbitToggle, flashTransition } from './ui/
 import { initInfoClose, showInfo, closeInfo }                        from './ui/info-panel.js';
 import { initPicker }                                                from './ui/tooltip.js';
 import { initPosition }                                             from './ui/position.js';
+import { initOreHeat }                                              from './ui/oreheat.js';
 import { bodyToSlug, findBodyBySlug, parseUrl, pushState, replaceState, onPopState } from './util/url.js';
 
 // ─── World ────────────────────────────────────────────────────────
@@ -79,7 +81,13 @@ const world = {
   refKm:          1,
   helioToScene:   null,   // (xKm, yKm) → THREE.Vector3 scene position on the plane
   coords:         null,   // raw /api/starmap payload for the active system
+  oreHeat:        null,   // ore-concentration overlay { group, tex } (managed in scene/oreheat.js)
 };
+
+// Current ore-heatmap selection (driven by the Ore Concentrations panel),
+// kept at module scope so a system switch can rebuild the overlay for it.
+let oreSelection = new Set();
+function rebuildOreHeat() { buildOreHeat(world, oreSelection); }
 
 // ─── Per-system build / clear ─────────────────────────────────────
 function clearScene() {
@@ -100,6 +108,7 @@ function clearScene() {
   world.labelSprites.length  = 0;
   world.orbitObjects.length  = 0;
   world.cloudMeshes.length   = 0;
+  clearOreHeat(world);   // overlay group lives outside sceneObjects
   closeInfo();
 }
 
@@ -286,6 +295,7 @@ async function buildSystem(systemKey) {
   addLagrangePoints(world, coords, sys);
 
   applyFilters();
+  rebuildOreHeat();   // re-drop the ore overlay for the new system + current selection
 }
 
 // ─── Per-frame systems ────────────────────────────────────────────
@@ -504,6 +514,10 @@ positionUI = initPosition({
   onSwitchSystem: key => switchSystem(key),
   onPlace:        placePosition,
   onClear:        () => clearMarker(world),
+});
+
+initOreHeat({
+  onChange: sel => { oreSelection = sel; rebuildOreHeat(); },
 });
 
 // ─── Init ─────────────────────────────────────────────────────────
