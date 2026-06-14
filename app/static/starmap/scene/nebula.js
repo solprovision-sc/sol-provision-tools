@@ -66,12 +66,12 @@ const FRAG = /* glsl */`
     vec3  cloudCol = mix(uAccent, uAccent2, band);
 
     // Very dark base; faint clouds; a few brighter cores; subtle horizon lift.
-    vec3  baseDark = vec3(0.003, 0.006, 0.012);
-    float horizon  = smoothstep(0.6, 0.0, abs(d.y)) * 0.03;
+    vec3  baseDark = vec3(0.002, 0.004, 0.008);
+    float horizon  = smoothstep(0.6, 0.0, abs(d.y)) * 0.02;
 
     vec3 col = baseDark
-             + cloudCol * dens * 0.16
-             + cloudCol * pow(dens, 4.0) * 0.10
+             + cloudCol * dens * 0.115
+             + cloudCol * pow(dens, 4.0) * 0.072
              + uAccent  * horizon;
 
     gl_FragColor = vec4(col, 1.0);

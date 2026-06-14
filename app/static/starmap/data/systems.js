@@ -49,7 +49,7 @@ export const SYSTEMS = {
       { id:1689, parent:1691, type:'JUMPPOINT', name:'Pyro Jump',   designation:'', dist:1.8,  lat:-5,  lon:130,  size:0, color:'#FF8844', description:'Jump point connecting Stanton to the Pyro system.', period:null, faction:null },
       { id:1690, parent:1691, type:'JUMPPOINT', name:'Magnus Jump', designation:'', dist:4.85, lat:15,  lon:45,   size:0, color:'#FF8844', description:'Jump point connecting Stanton to the Magnus system.', period:null, faction:null },
       { id:1699, parent:1691, type:'JUMPPOINT', name:'Terra Jump',  designation:'', dist:4.1,  lat:-20, lon:-135, size:0, color:'#FF8844', description:'Jump point connecting Stanton to the Terra system.', period:null, faction:null },
-      { id:2843, parent:1691, type:'JUMPPOINT', name:'Nyx Jump',    designation:'', dist:3.3,  lat:0,   lon:-78,  size:0, color:'#FF8844', description:'Jump point connecting Stanton to the Nyx system. Temporarily redirected from Nyx-Castra as of CitizenCon 2025.', period:null, faction:null },
+      { id:2843, parent:1691, type:'JUMPPOINT', name:'Nyx Jump',    designation:'', dist:3.3,  lat:0,   lon:102,  size:0, color:'#FF8844', description:'Jump point connecting Stanton to the Nyx system. Temporarily redirected from Nyx-Castra as of CitizenCon 2025.', period:null, faction:null },
       { id:1698, parent:1691, type:'ASTEROID_BELT', name:'Aaron Halo', designation:'Stanton Belt Alpha', dist:1.563, lat:0, lon:0, size:0, color:'#888866',
         description:'Though Crusader Industries argues the belt was part of their purchase of Stanton II, the legal confusion created a massive rush of independent miners staking claims.', period:null, faction:null },
     ]

@@ -256,18 +256,24 @@
     color: var(--accent-dim); margin-bottom: 11px;
     border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
   }
-  .pos-select, .pos-dist, .pos-unit {
+  .pos-select, .pos-coords-input {
     font-family: 'Share Tech Mono', monospace; font-size: 11px;
     background: rgba(8,18,30,0.72); color: var(--accent-2);
     border: 1px solid var(--panel-border); border-radius: 2px;
     padding: 5px 6px; outline: none; color-scheme: dark;
   }
-  .pos-select:focus, .pos-dist:focus, .pos-unit:focus { border-color: var(--accent); }
+  .pos-select:focus, .pos-coords-input:focus { border-color: var(--accent); }
   .pos-select { width: 100%; margin-bottom: 8px; }
-  .pos-ref { display: flex; gap: 5px; margin-bottom: 6px; }
-  .pos-ref .pos-ref-body { flex: 1 1 auto; width: auto; min-width: 0; margin-bottom: 0; }
-  .pos-dist { width: 56px; -moz-appearance: textfield; }
-  .pos-unit { width: 54px; }
+  .pos-hint {
+    font-size: 11px; line-height: 1.45; color: var(--accent-dim);
+    letter-spacing: 0.5px; margin-bottom: 7px;
+  }
+  .pos-hint b { color: var(--accent-2); font-weight: 600; }
+  .pos-coords-input {
+    width: 100%; resize: vertical; min-height: 48px; line-height: 1.4;
+    margin-bottom: 6px;
+  }
+  .pos-coords-input::placeholder { color: var(--accent-dim); opacity: 0.55; }
   .pos-btn {
     width: 100%; margin-top: 6px; cursor: pointer; user-select: none;
     font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
@@ -341,6 +347,7 @@
   <div class="filter-btn active" data-type="labels"       ><div class="filter-dot"></div>LABELS</div>
   <div class="filter-btn active" data-type="JUMPPOINT"    ><div class="filter-dot"></div>JUMP POINTS</div>
   <div class="filter-btn active" data-type="ASTEROID_BELT"><div class="filter-dot"></div>ASTEROID FIELDS</div>
+  <div class="filter-btn active" data-type="LAGRANGE"     ><div class="filter-dot"></div>LAGRANGE POINTS</div>
 </div>
 
 <!-- SET POSITION -->
@@ -351,23 +358,11 @@
     <option value="nyx">NYX</option>
   </select>
   <select id="pos-location" class="pos-select"></select>
-  <div id="pos-triangulate" hidden>
-    <div class="pos-ref">
-      <select id="pos-ref-body-1" class="pos-select pos-ref-body"></select>
-      <input  id="pos-ref-dist-1" class="pos-dist" type="number" min="0" step="any" placeholder="dist">
-      <select id="pos-ref-unit-1" class="pos-unit"><option>Gm</option><option>Mm</option><option>km</option></select>
-    </div>
-    <div class="pos-ref">
-      <select id="pos-ref-body-2" class="pos-select pos-ref-body"></select>
-      <input  id="pos-ref-dist-2" class="pos-dist" type="number" min="0" step="any" placeholder="dist">
-      <select id="pos-ref-unit-2" class="pos-unit"><option>Gm</option><option>Mm</option><option>km</option></select>
-    </div>
-    <div class="pos-ref">
-      <select id="pos-ref-body-3" class="pos-select pos-ref-body"></select>
-      <input  id="pos-ref-dist-3" class="pos-dist" type="number" min="0" step="any" placeholder="dist">
-      <select id="pos-ref-unit-3" class="pos-unit"><option>Gm</option><option>Mm</option><option>km</option></select>
-    </div>
-    <button id="pos-solve" class="pos-btn">TRIANGULATE</button>
+  <div id="pos-coords" hidden>
+    <div class="pos-hint">Type <b>/showlocation</b> in in-game chat, then paste the result:</div>
+    <textarea id="pos-coords-input" class="pos-coords-input" rows="3"
+              placeholder="Coordinates: x:-19023432445.8 y:-2613543032.8 z:-2189.7"></textarea>
+    <button id="pos-coords-set" class="pos-btn">SET MARKER</button>
     <div id="pos-result"></div>
   </div>
   <div id="pos-status"></div>

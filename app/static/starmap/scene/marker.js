@@ -1,6 +1,7 @@
 // ═══════════════════════════════════════════════════════════════════
 //  "You are here" marker — a billboarded reticle + label dropped at the
-//  player's set/triangulated position. Managed outside world.sceneObjects
+//  player's set position (known location or pasted in-game coords).
+//  Managed outside world.sceneObjects
 //  (it isn't a body and must survive per-frame rebuilds of nothing, but is
 //  cleared explicitly on system switch / clear). One marker at a time.
 // ═══════════════════════════════════════════════════════════════════

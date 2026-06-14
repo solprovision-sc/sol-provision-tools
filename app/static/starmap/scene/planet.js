@@ -13,21 +13,7 @@ import { makeOrbitRing } from './primitives.js';
 import { loadBodyTextures, applyTexturesToMesh } from '../data/textures.js';
 import { addCloudLayer } from './clouds.js';
 import { addAtmosphere } from './atmosphere.js';
-
-// Render radii. ~2x the v1 values so textures are legible without needing to fly
-// in. Proportions kept so the overview still reads (Crusader > Super-Earth > rocky).
-const PLANET_R = {
-  'Super-Earth':       19,
-  'Gas Giant':         38,
-  'Terrestrial Rocky': 16,
-  'Smog Planet':       16,
-  'Ice Giant':         29,
-  'Protoplanet':       10,
-  default:             17,
-};
-
-// Captured-planet radius is fixed — these are small enough not to warrant per-subtype tuning.
-const CAPTURED_PLANET_R = 13;
+import { PLANET_R, CAPTURED_PLANET_R } from './sizes.js';
 
 export function addPlanet(world, body, systemConfig) {
   const bd  = world.bodyIndex[body.id];
