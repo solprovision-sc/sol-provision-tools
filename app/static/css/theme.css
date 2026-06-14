@@ -121,6 +121,7 @@
   /* ----------  SEMANTIC: STATUS  ---------- */
   --positive: #7c8a4e;  /* olive-green, on-brand */
   --warning:  var(--terracotta);
+  --warning2: #FFD800;
   --danger:   #b8472f;
   --info:     var(--khaki);
 
