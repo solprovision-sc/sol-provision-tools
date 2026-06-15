@@ -92,6 +92,13 @@ CREATE TABLE IF NOT EXISTS activity_log (
     session_id     TEXT
 );
 
+"""
+
+# Indexes are applied AFTER custom_migrations() — several reference discord_id,
+# which a pre-discord_id table only gains during migration. Running them in the
+# same executescript as the CREATE TABLEs would abort on "no such column" before
+# the heal could add it.
+INDEXES = """
 CREATE INDEX IF NOT EXISTS idx_stacks_user      ON mission_stacks(discord_id, updated_utc DESC);
 CREATE INDEX IF NOT EXISTS idx_stacks_active    ON mission_stacks(discord_id, is_active_draft, is_archived);
 CREATE INDEX IF NOT EXISTS idx_missions_stack   ON missions(stack_id, seq);
@@ -133,9 +140,30 @@ def custom_migrations(conn: sqlite3.Connection) -> list[str]:
         conn.execute("PRAGMA foreign_keys=ON")
         applied.append("users table rebuilt with discord_id primary key")
 
+    # mission_stacks / activity_log created before discord_id became the user key
+    # need the column back-filled. It's added nullable (ALTER can't add a NOT NULL
+    # column to a populated table without a default); new inserts always supply it,
+    # and any pre-existing rows orphan harmlessly (they match no user's query).
+    for table in ("mission_stacks", "activity_log"):
+        if add_column_if_missing(conn, table, "discord_id", "TEXT"):
+            applied.append(f"{table}.discord_id added")
+
     # Example for future column additions (non-destructive):
     # if add_column_if_missing(conn, 'legs', 'estimated_payout_uec', 'INTEGER'):
     #     applied.append("legs.estimated_payout_uec added")
+    return applied
+
+
+def ensure_schema(conn: sqlite3.Connection) -> list[str]:
+    """Bring a connection's cargo schema fully up to date, in the right order:
+    create tables (IF NOT EXISTS) → heal old-shape tables (add missing columns)
+    → create indexes (which may reference just-added columns). Idempotent.
+    Shared by init_db() and the Flask app's lazy schema-ensure so there is one
+    source of truth. Returns the list of migrations that ran."""
+    conn.executescript(SCHEMA)
+    applied = custom_migrations(conn)
+    conn.executescript(INDEXES)
+    conn.commit()
     return applied
 
 
@@ -152,9 +180,7 @@ def init_db(db_path: Path) -> None:
     try:
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA foreign_keys=ON")
-        conn.executescript(SCHEMA)
-        applied = custom_migrations(conn)
-        conn.commit()
+        applied = ensure_schema(conn)
         print(f"  ✓ Schema ensured at {db_path}")
         for line in applied:
             print(f"    migrated: {line}")

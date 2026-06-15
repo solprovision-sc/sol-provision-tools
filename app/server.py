@@ -421,14 +421,14 @@ def _resolve_cargo_db_path():
 
 def _ensure_cargo_schema(conn):
     """Apply the canonical schema from tools/init_cargo_planner_db.py so the
-    server is self-sufficient (no separate init step needed in deploys)."""
+    server is self-sufficient (no separate init step needed in deploys).
+    ensure_schema() runs tables → column heals → indexes in that order, so a DB
+    whose tables pre-date a column (e.g. mission_stacks.discord_id) self-heals."""
     import importlib.util
     init_path = Path(__file__).resolve().parent.parent / "tools" / "init_cargo_planner_db.py"
     spec = importlib.util.spec_from_file_location("init_cargo_planner_db", init_path)
     mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-    conn.executescript(mod.SCHEMA)
-    mod.custom_migrations(conn)   # heal tables that pre-date the current schema
-    conn.commit()
+    mod.ensure_schema(conn)
 
 def get_cargo_db():
     global _cargo_schema_ready
