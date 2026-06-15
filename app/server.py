@@ -532,12 +532,30 @@ EXCLUDE = """entity_name NOT LIKE '%_pu_ai%' AND entity_name NOT LIKE '%_ea_ai%'
   AND entity_name NOT LIKE '%_bombless' AND entity_name NOT LIKE '%_teach'"""
 
 def ensure_columns(db_path):
-    """Add display_name/description columns if not present (pre-localization DBs)."""
+    """Add columns the app's queries need but an older/leaner dataforge.db may
+    lack, so a freshly-deployed DB can't 500 the page. Idempotent."""
     conn = sqlite3.connect(db_path)
     migrations = [
         ("ships",    "display_name", "TEXT"),
         ("entities", "display_name", "TEXT"),
         ("entities", "description",  "TEXT"),
+        # Per-component thermal params for the power-management cooling model.
+        # Populated by tools/backfill_thermal_params.py from the game records;
+        # added here (NULL) so a DB that hasn't been backfilled yet still serves
+        # the ship page — the cooling panel just shows no thermal data until the
+        # backfilled DB is deployed. Keep in sync with that script's THERMAL_COLUMNS.
+        ("item_components", "heat_gen_rate",              "REAL"),
+        ("item_components", "overheat_temperature",       "REAL"),
+        ("item_components", "overheat_warning_temp",      "REAL"),
+        ("item_components", "overheat_recovery_temp",     "REAL"),
+        ("item_components", "min_cooling_temperature",    "REAL"),
+        ("item_components", "cooling_equalization_rate",  "REAL"),
+        ("item_components", "cooling_equalization_tdiff", "REAL"),
+        ("item_components", "powered_ambient_cool_mult",  "REAL"),
+        ("item_components", "overheat_enabled",           "INTEGER"),
+        ("item_components", "thermal_enabled",            "INTEGER"),
+        ("item_components", "temperature_to_ir",          "REAL"),
+        ("item_components", "min_temperature_for_ir",     "REAL"),
     ]
     for table, col, defn in migrations:
         existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
