@@ -790,9 +790,19 @@ def item_collection_page(): return render_template("item_collection.html", activ
 @require_page_login
 def base_builder_page(): return render_template("base_builder.html", active_page="/base-builder")
 
+@app.route("/refinery")
+@require_page_login
+def refinery_page(): return render_template("refinery_session.html", active_page="/refinery")
+
 @app.route("/starmap")
 @app.route("/starmap/<system>")
 @app.route("/starmap/<system>/<body>")
+# /solmap = branded alias for the same page. The starmap JS (util/url.js) parses
+# system/body from path segments 1+2 regardless of segment 0, so deep links work;
+# it canonicalizes the address bar back to /starmap once loaded.
+@app.route("/solmap")
+@app.route("/solmap/<system>")
+@app.route("/solmap/<system>/<body>")
 @require_page_login
 def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
@@ -1477,6 +1487,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.signal_cross_section, t.signal_electromagnetic, t.signal_infrared,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
@@ -1491,6 +1505,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.max_shield_health, t.max_shield_regen,
                t.damaged_regen_delay, t.downed_regen_delay,
                t.decay_ratio, t.reserve_drain_ratio,
@@ -1511,6 +1529,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.power_draw, t.cooling_output,
                t.em_signature, t.ir_signature, t.health,
                t.power_low, t.power_medium, t.power_high
@@ -1520,6 +1542,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.power_output, t.em_signature, t.health,
                t.power_low, t.power_medium, t.power_high
         {join("item_powerplants")}""")
@@ -1528,6 +1554,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.drive_speed / 1000 as drive_speed, t.stage_one_accel_mps2 as accel1,
                t.stage_two_accel_mps2 as accel2,t.spool_up_time, t.cooldown_time,
                t.calibration_rate, t.calibration_delay,
@@ -1549,6 +1579,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.scm_speed, t.max_speed,
                t.boost_speed_forward, t.boost_speed_backward,
                t.max_pitch_speed, t.max_roll_speed, t.max_yaw_speed,
@@ -1582,6 +1616,10 @@ def get_ship_components(conn, ship_entity, patch):
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.item_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.heat_rate_online, t.power_active_cooldown,
                t.overheat_temperature, t.cooling_per_second,
                t.time_till_cooling_starts, t.overheat_fix_time,
@@ -1867,6 +1905,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.launch_delay, t.detach_velocity_forward,
                t.detach_velocity_right, t.detach_velocity_up,
                t.rack_tag
@@ -1877,6 +1919,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.arm_time, t.max_lifetime,
                t.dmg_physical, t.dmg_energy, t.dmg_distortion,
                t.dmg_thermal, t.dmg_biochemical, t.dmg_stun,
@@ -1922,6 +1968,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.power_draw, t.em_signature, t.health, t.aim_assist_min_m,
                t.aim_assist_max_m, t.shutdown_dmg, t.decay_delay_sec, t.decay_rate,
                t.shutdown_time_sec, t.ir_sensitivity, t.em_sensitivity, t.cs_sensitivity, t.db_sensitivity, t.rs_sensitivity,
@@ -1949,6 +1999,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.power_draw, t.lifesupport_output,
                t.em_signature, t.ir_signature, t.health,
                t.power_low, t.power_medium, t.power_high,
@@ -1963,6 +2017,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.salvage_type, t.power_draw,
                t.salvage_speed_multiplier, t.radius_multiplier, t.extraction_efficiency,
                t.em_signature, t.ir_signature, t.health,
@@ -1975,6 +2033,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.charge_time, t.unleash_time, t.cooldown_time,
                t.distortion_damage,
                t.emp_radius, t.min_emp_radius,
@@ -1990,6 +2052,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.base_power_draw_fraction, t.pulse_power_fraction, t.jammer_power_fraction,
                t.charge_time_secs, t.discharge_time_secs, t.cooldown_time_secs,
                t.radius_meters, t.max_power_draw,
@@ -2008,6 +2074,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.tool_kind, t.ignore_warmup_cooldown,
                t.em_signature, t.ir_signature, t.health,
                t.power_draw,
@@ -2021,6 +2091,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.max_ammo_load, t.overheat_temperature,
                t.mining_dps, t.module_slots, t.module_slot_size,
                t.power_draw, t.em_signature, t.ir_signature
@@ -2031,6 +2105,10 @@ def get_ship_components(conn, ship_entity, patch):
         SELECT ic.entity_name, ic.display_name, ic.size, ic.grade,
                ic.grade_letter, ic.class, ic.description, ic.item_sub_type,
                ic.heat_baseline, ic.coolant_consumption,
+               ic.heat_gen_rate, ic.overheat_temperature, ic.overheat_warning_temp,
+               ic.overheat_recovery_temp, ic.min_cooling_temperature,
+               ic.cooling_equalization_rate, ic.cooling_equalization_tdiff,
+               ic.powered_ambient_cool_mult, ic.overheat_enabled,
                t.minimum_power_amount,
                t.em_signature, t.ir_signature, t.health,
                t.power_draw,
@@ -2311,7 +2389,16 @@ def get_compatible_components():
             e.size,
             e.grade,
             ic.heat_baseline,
-            ic.coolant_consumption
+            ic.coolant_consumption,
+            ic.heat_gen_rate,
+            ic.overheat_temperature,
+            ic.overheat_warning_temp,
+            ic.overheat_recovery_temp,
+            ic.min_cooling_temperature,
+            ic.cooling_equalization_rate,
+            ic.cooling_equalization_tdiff,
+            ic.powered_ambient_cool_mult,
+            ic.overheat_enabled
         FROM {table_name} c
         JOIN entities e ON c.entity_name = e.entity_name AND c.patch_version = e.patch_version
         LEFT JOIN item_components ic ON ic.uuid = c.uuid AND ic.patch_version = c.patch_version

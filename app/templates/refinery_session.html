@@ -1,0 +1,541 @@
+{% extends "base.html" %}
+{% block title %}The Refinery — Sol Provision{% endblock %}
+
+{% block extra_css %}
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── REFINERY TOOL STYLING (scoped vars — distinct from theme.css) ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --cr: #7E2619; --kh: #9A8C64; --bn: #E8855C; --pc: #CBB8AA;
+      --d1: #0d0b0a; --d2: #1a1512; --d3: #231e1a;
+      --bdr: rgba(126,38,25,0.22);
+      --fh: 'Orbitron', sans-serif;
+      --fm: 'Share Tech Mono', monospace;
+      --discord: #5865F2;
+      --success: #2e7d32;
+    }
+
+    /* Scope the tool's body styling to the page-content wrapper so it doesn't
+       fight the shared header / theme.css body rules. */
+    .page-content { color: var(--pc); font-family: var(--fm); font-size: 14px; }
+    .page-content::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
+
+    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 112px); padding: 40px 20px; }
+    .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
+
+    .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
+    .splash-btn:hover { background: var(--cr); color: #fff; }
+    .discord-btn { background: var(--discord); color: #fff; border: none; padding: 20px; width: 100%; font-family: var(--fh); font-weight: 700; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; }
+
+    .btn-add { background: transparent; border: 1px solid var(--kh); color: var(--kh); font-family: var(--fh); font-size: 9px; padding: 8px 12px; text-transform: uppercase; cursor: pointer; }
+    .btn-calc { background: var(--cr); color: #fff; font-family: var(--fh); font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; border: none; padding: 20px; width: 100%; cursor: pointer; margin-top: 20px;}
+    .btn-util { background: #333; color: var(--kh); border: 1px solid var(--kh); padding: 10px 15px; font-family: var(--fh); font-size: 10px; cursor: pointer; text-transform: uppercase; }
+
+    #app input, #app select, .panel input, .panel select { background: #000; border: 1px solid var(--bdr); color: var(--pc); font-family: var(--fm); padding: 10px; font-size: 13px; width: 100%; }
+    #app input:focus, #app select:focus, .panel input:focus, .panel select:focus { border-color: var(--bn); outline: none; }
+    .page-content label { font-size: 9px; color: var(--kh); text-transform: uppercase; display: block; margin-bottom: 5px; letter-spacing: 1px; }
+
+    #app { display: none; width: 95%; max-width: 1400px; margin: 20px auto; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); padding: 25px; }
+    .session-bar { display: flex; justify-content: space-between; align-items: center; background: #000; padding: 12px; border: 1px solid var(--bdr); margin-bottom: 20px; }
+    .sec { background: var(--d3); border: 1px solid var(--bdr); padding: 20px; margin-bottom: 20px; }
+    .sec-title { font-family: var(--fh); font-size: 11px; letter-spacing: 2px; color: var(--kh); text-transform: uppercase; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; }
+    .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--bdr); }
+    .row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+
+    .highlight { color: var(--bn); font-weight: bold; }
+    .status-done { color: var(--success); font-weight: bold; }
+
+    .ledger-table { width: 100%; margin-top: 25px; border-collapse: collapse; font-size: 12px; }
+    .ledger-table th { font-family: var(--fh); color: var(--kh); text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 1px solid var(--cr); }
+    .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
+    .util-bar { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+  </style>
+{% endblock %}
+
+{% block body %}
+<div class="page-content">
+
+  <div id="splash" class="panel">
+    <h2 style="margin-bottom:30px; font-family:var(--fh); letter-spacing:4px;">SOL PROVISION</h2>
+    <button class="discord-btn" onclick="loginWithDiscord()">Login with Discord</button>
+  </div>
+
+  <div id="registerScreen" class="panel">
+    <h2 style="margin-bottom:30px; color:var(--bn); font-family:var(--fh);">REGISTER CALL SIGN</h2>
+    <input type="text" id="newCallSign" placeholder="ENTER CALL SIGN" style="text-align:center; padding:15px; margin-bottom:15px;">
+    <button class="splash-btn" onclick="registerCallSign()">Lock In</button>
+  </div>
+
+  <div id="lobby" class="panel">
+    <div style="font-family:var(--fh); color:var(--bn); margin-bottom:20px; letter-spacing:2px;">WELCOME, <span id="lobbyName"></span></div>
+    <button class="splash-btn" onclick="initiateMission()">+ Initiate Refinery Order</button>
+    <div style="margin:20px 0; opacity:0.3; font-size:10px;">— OR SYNC TO EXISTING —</div>
+    <div class="row" style="justify-content:center;">
+      <input type="text" id="joinIdInput" placeholder="ORDER ID" style="width:150px; text-align:center;">
+      <button class="btn-add" style="padding:12px;" onclick="joinMission()">Sync</button>
+    </div>
+    <div id="activeMissionsList" style="margin-top:25px; text-align:left; max-height:300px; overflow-y:auto;"></div>
+    <button class="btn-add" style="margin-top:20px; border-color:#ff4444; color:#ff4444;" onclick="auth.signOut()">Logout</button>
+  </div>
+
+  <div id="app">
+    <div class="session-bar">
+      <div style="display:flex; align-items:center; gap:15px; font-family:var(--fh); font-size:11px; color:var(--kh);">
+        <div>ORDER ID: <span id="sessionId" class="highlight" style="font-size:16px;">----</span></div>
+        <button class="btn-add" id="topCopyBtn" onclick="copyActiveSessionId()">Copy ID</button>
+        <span id="userIdentity" style="border:1px solid var(--kh); padding:2px 5px; margin-left:10px;">----</span>
+      </div>
+      <button class="btn-add" onclick="exitToLobby()">Exit to Lobby</button>
+    </div>
+
+    <h2 style="font-family:var(--fh); letter-spacing:4px; margin-bottom:20px; border-bottom:1px solid var(--bdr); padding-bottom:10px;">REFINERY OPERATIONS</h2>
+
+    <section class="sec">
+      <div class="sec-title">00. Facility Data</div>
+      <div class="row">
+        <div style="flex:1;"><label>System</label><input type="text" id="intel-system" oninput="pushState()" placeholder="Stanton"></div>
+        <div style="flex:2;"><label>Refinery Facility / Ship</label><input type="text" id="intel-facility" oninput="pushState()" placeholder="ARC-L1 Wide Forest or MISC Expanse"></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <div class="sec-title">01. Stage New Work Order</div>
+
+      <div style="background:#000; padding:15px; border:1px dashed var(--bdr);">
+        <div class="row" style="margin-bottom:15px;">
+          <div style="flex:1.5;"><label>Ore Type</label><input type="text" id="draft-ore" placeholder="Quantanium"></div>
+          <div style="flex:1;"><label>Raw cSCU</label><input type="number" id="draft-scu" placeholder="0" oninput="renderDraftUI()"></div>
+          <div style="flex:1;"><label>Quality Index</label><input type="number" id="draft-qual" placeholder="0-1000"></div>
+          <button class="btn-add" style="margin-top:14px;" onclick="addDraftOre()">+ Add Ore</button>
+        </div>
+
+        <div id="draft-container" style="padding:10px; border:1px solid var(--d3); margin-bottom:15px; min-height:40px; font-size:12px; color:var(--kh);">
+          <em>No ores staged yet. Add materials above.</em>
+        </div>
+
+        <div class="row" style="border-top:1px dashed var(--bdr); padding-top:15px;">
+          <div style="flex:1.5;"><label>Method</label>
+              <select id="new-method" onchange="renderDraftUI()">
+                  <option value="Dinyx Solventation">Dinyx Solventation</option>
+                  <option value="Ferron Exchange">Ferron Exchange</option>
+                  <option value="Pyrometric">Pyrometric</option>
+                  <option value="Cormack Method">Cormack Method</option>
+                  <option value="Electrostatic Yielding">Electrostatic Yielding</option>
+                  <option value="Gaskin Process">Gaskin Process</option>
+                  <option value="Kryogen-Kraene">Kryogen-Kraene</option>
+                  <option value="Thermatic Deposition">Thermatic Deposition</option>
+                  <option value="XCR Method">XCR Method</option>
+              </select>
+          </div>
+          <div style="flex:1;">
+            <label>Duration (HH : MM)</label>
+            <div style="display:flex; gap:5px;">
+              <input type="number" id="duration-hours" placeholder="Hrs" min="0">
+              <input type="number" id="duration-minutes" placeholder="Min" min="0" max="59">
+            </div>
+          </div>
+          <button class="btn-add" style="margin-top:14px; background:var(--d3); color:var(--bn); border-color:var(--bn); font-weight:bold;" onclick="submitJob()">+ SUBMIT WORK ORDER</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec">
+        <div class="sec-title">02. Active Work Orders</div>
+        <div id="jobContainer"></div>
+    </section>
+
+    <button id="calcBtn" class="btn-calc" onclick="runCalculation()">GENERATE REFINERY MANIFEST</button>
+    <div id="ledgerOutput"></div>
+
+    <div id="utilButtons" class="util-bar" style="display:none;">
+      <button class="btn-util" style="background:var(--bn); color:#000; border:none; font-weight:bold;" onclick="copyDiscordImage()">Copy Work Order Image</button>
+    </div>
+  </div>
+
+</div>
+
+<div id="render-receipt" style="display:none; position:absolute; top:-9999px; left:-9999px; width:750px; background:#1a1512; padding:40px; font-family:'Share Tech Mono', monospace; color:#CBB8AA; box-sizing:border-box; border:1px solid rgba(126,38,25,0.22); border-top:3px solid #7E2619;">
+  <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:40px; border-bottom:1px solid rgba(154,140,100,0.2); padding-bottom:20px;">
+    <div>
+      <div style="font-family:'Orbitron',sans-serif; font-weight:900; font-size:32px; color:#E8855C; letter-spacing:2px; margin-bottom:5px;">SOL PROVISION</div>
+      <div style="font-size:14px; letter-spacing:1px; color:#9A8C64;">ACQUISITIONS | REFINERY WORK ORDER</div>
+    </div>
+    <div style="font-family:'Orbitron',sans-serif; font-weight:700; font-size:20px; color:#E8855C;">ID: <span id="img-session-id"></span></div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:30px; font-size:16px;">
+    <div><span style="color:#9A8C64; width:120px; display:inline-block;">FACILITY:</span> <span id="img-location" style="color:#CBB8AA; font-weight:bold; font-family:'Orbitron',sans-serif;"></span></div>
+  </div>
+
+  <div style="position:relative; padding:20px; margin-bottom:40px; display:flex; justify-content:space-between; background:#0d0b0a;">
+    <div style="position:absolute; top:-10px; left:20px; background:#1a1512; padding:0 10px; color:#E8855C; font-size:12px;">YIELD INTELLIGENCE</div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">TOTAL PROJECTED SCU</div><div style="color:#CBB8AA; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-total-scu">0</div></div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">AVG QUALITY INDEX</div><div style="color:#E8855C; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-avg-qi">0</div></div>
+    <div style="text-align:left;"><div style="color:#9A8C64; font-size:12px; margin-bottom:8px;">ACTIVE JOBS</div><div style="color:#7E2619; font-size:22px; font-family:'Orbitron',sans-serif;" id="img-active-jobs">0</div></div>
+  </div>
+
+  <div style="font-family:'Orbitron',sans-serif; font-size:18px; color:#E8855C; border-bottom:1px solid #7E2619; padding-bottom:10px; margin-bottom:15px;">JOB MANIFEST</div>
+  <div id="img-manifest" style="margin-bottom:20px; font-size:14px;"></div>
+</div>
+{% endblock %}
+
+{% block page_script %}
+  // --- FIREBASE CONFIG ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E",
+    authDomain: "sp-ledger.firebaseapp.com",
+    databaseURL: "https://sp-ledger-default-rtdb.firebaseio.com",
+    projectId: "sp-ledger",
+    storageBucket: "sp-ledger.firebasestorage.app",
+    messagingSenderId: "1013635822544",
+    appId: "1:1013635822544:web:727ce761d058b5f7127fd5"
+  };
+
+  if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+  const db = firebase.database();
+  const auth = firebase.auth();
+
+  let myUid = null, myName = "", activeID = null, isCommander = false, remoteUpdateInProgress = false, isFirstPull = true;
+  let activeJobsData = [];
+  let tickerInterval = null;
+  let draftOres = [];
+
+  // Yield multipliers dictionary
+  const methodMultipliers = {
+      "Dinyx Solventation": 0.45, "Ferron Exchange": 0.45, "Pyrometric": 0.45,
+      "Cormack Method": 0.30, "Electrostatic Yielding": 0.35, "Gaskin Process": 0.35,
+      "Kryogen-Kraene": 0.30, "Thermatic Deposition": 0.35, "XCR Method": 0.30
+  };
+
+  // --- IDENTITY & LOBBY ---
+  auth.onAuthStateChanged(user => {
+    hideAllPanels();
+    if (user) {
+      myUid = user.uid;
+      db.ref('users/' + myUid).once('value').then(snap => {
+        if (snap.exists() && snap.val().callsign) {
+          myName = snap.val().callsign;
+          document.getElementById('lobbyName').textContent = myName;
+          document.getElementById('lobby').style.display = 'block';
+          loadMissions();
+        } else { document.getElementById('registerScreen').style.display = 'block'; }
+      });
+    } else { document.getElementById('splash').style.display = 'block'; }
+  });
+
+  function loginWithDiscord() { auth.signInWithPopup(new firebase.auth.OAuthProvider('oidc.discord')); }
+  function registerCallSign() { const cs = document.getElementById('newCallSign').value.trim().toUpperCase(); if(cs.length >= 2) db.ref('users/'+myUid).set({callsign:cs}).then(()=>location.reload()); }
+
+  function loadMissions() { db.ref('refinery_sessions').on('value', snap => {
+    let h = ""; Object.keys(snap.val() || {}).forEach(id => {
+      const s = snap.val()[id];
+      if(s.commander === myName) {
+        h += `<div class="row" style="background:var(--d3); padding:10px; border:1px solid var(--bdr); justify-content:space-between; margin-bottom:10px;">
+                <span style="color:var(--bn); font-family:var(--fh);">${id}</span>
+                <div style="display:flex; gap:5px;">
+                    <button class="btn-add" onclick="resumeMission('${id}', true)">Resume</button>
+                    <button class="btn-add" style="color:red; border-color:rgba(255,0,0,0.3);" onclick="killSession('${id}')">Kill</button>
+                </div>
+              </div>`;
+      }
+    });
+    document.getElementById('activeMissionsList').innerHTML = h || "<div style='font-size:10px; opacity:0.5;'>No active work orders.</div>";
+  }); }
+
+  function killSession(id) { if(confirm("Permanently delete this refinery order?")) db.ref('refinery_sessions/'+id).remove(); }
+  function initiateMission() { isCommander = true; activeID = "REF-" + Math.floor(1000 + Math.random() * 9000); db.ref('refinery_sessions/'+activeID).set({commander:myName, createdAt:Date.now(), lastUpdatedBy:myName}).then(()=>{showApp(); syncWithFirebase();}); }
+  function resumeMission(id, cmd) { activeID = id; isCommander = cmd; isFirstPull = true; showApp(); syncWithFirebase(); }
+  function joinMission() { const code = document.getElementById('joinIdInput').value.trim().toUpperCase(); if(!code) return; db.ref('refinery_sessions/'+code).once('value').then(snap => { if(!snap.exists()){alert("ID Not Found"); return;} activeID = code; isCommander = (snap.val().commander===myName); showApp(); syncWithFirebase(); }); }
+
+  function showApp() {
+    hideAllPanels();
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('sessionId').textContent = activeID;
+    document.getElementById('userIdentity').textContent = myName + (isCommander ? " (CMD)" : "");
+    startTicker();
+  }
+
+  function exitToLobby() { clearInterval(tickerInterval); location.reload(); }
+  function hideAllPanels() { ['splash','registerScreen','lobby','app'].forEach(id => document.getElementById(id).style.display = 'none'); }
+  function copyActiveSessionId() { navigator.clipboard.writeText(activeID).then(() => { const btn = document.getElementById('topCopyBtn'); btn.textContent = "COPIED!"; setTimeout(()=>btn.textContent="Copy ID", 1500); }); }
+
+  // --- REFINERY SPECIFIC LOGIC ---
+
+  // 1. Staging Ores
+  function addDraftOre() {
+      const ore = document.getElementById('draft-ore').value;
+      const rawScu = parseFloat(document.getElementById('draft-scu').value);
+      const qual = document.getElementById('draft-qual').value || "0";
+
+      if(!ore || !rawScu) { alert("Ore Type and Raw cSCU are required to add to draft."); return; }
+
+      draftOres.push({ ore, rawScu, qual });
+
+      document.getElementById('draft-ore').value = '';
+      document.getElementById('draft-scu').value = '';
+      document.getElementById('draft-qual').value = '';
+
+      renderDraftUI();
+  }
+
+  function renderDraftUI() {
+      const container = document.getElementById('draft-container');
+      if(draftOres.length === 0) {
+          container.innerHTML = "<em>No ores staged yet. Add materials above.</em>";
+          return;
+      }
+
+      const method = document.getElementById('new-method').value;
+      const yieldPercent = methodMultipliers[method] || 0.45;
+
+      let h = "";
+      draftOres.forEach((o, index) => {
+          const projectedScu = ((parseFloat(o.rawScu) / 100) * yieldPercent).toFixed(2);
+
+          h += `<div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--bdr);">
+                  <span><strong style="color:var(--pc); font-size:14px;">${o.ore.toUpperCase()}</strong> | <span style="color:var(--kh)">${o.rawScu} cSCU</span> ➔ <strong style="color:var(--bn); font-size:14px;">${projectedScu} SCU (Est)</strong> | QI: ${o.qual}</span>
+                  <button class="btn-add" style="padding:2px 6px; font-size:8px;" onclick="removeDraftOre(${index})">X</button>
+                </div>`;
+      });
+      container.innerHTML = h;
+  }
+
+  function removeDraftOre(index) {
+      draftOres.splice(index, 1);
+      renderDraftUI();
+  }
+
+  // 2. Submitting the Job
+  function submitJob() {
+    const method = document.getElementById('new-method').value;
+    const hrs = parseInt(document.getElementById('duration-hours').value) || 0;
+    const mins = parseInt(document.getElementById('duration-minutes').value) || 0;
+
+    if(draftOres.length === 0) { alert("You must add at least one ore batch to the draft before submitting."); return; }
+    if(hrs === 0 && mins === 0) { alert("A valid Duration is required."); return; }
+
+    const yieldPercent = methodMultipliers[method] || 0.45;
+
+    // Process all ores to finalize their specific yield
+    const processedOres = draftOres.map(o => {
+        return {
+            ore: o.ore,
+            rawScu: o.rawScu,
+            qual: o.qual,
+            yieldScu: ((parseFloat(o.rawScu) / 100) * yieldPercent).toFixed(2)
+        };
+    });
+
+    const durationMs = (hrs * 60 * 60 * 1000) + (mins * 60 * 1000);
+    const completesAt = Date.now() + durationMs;
+    const jobId = 'JOB-' + Math.floor(Math.random() * 100000);
+
+    db.ref('refinery_sessions/'+activeID+'/jobs/'+jobId).set({
+      method: method,
+      completesAt: completesAt,
+      ores: processedOres
+    });
+
+    // Clear Draft and Duration
+    draftOres = [];
+    renderDraftUI();
+    document.getElementById('duration-hours').value = '';
+    document.getElementById('duration-minutes').value = '';
+  }
+
+  function deleteJob(jobId) {
+    if(confirm("Delete this work order?")) db.ref('refinery_sessions/'+activeID+'/jobs/'+jobId).remove();
+  }
+
+  function pushState() {
+    if(!activeID || remoteUpdateInProgress) return;
+    db.ref('refinery_sessions/'+activeID).update({
+      system: document.getElementById('intel-system').value,
+      facility: document.getElementById('intel-facility').value,
+      lastUpdatedBy: myName
+    });
+  }
+
+  function syncWithFirebase() {
+    db.ref('refinery_sessions/'+activeID).on('value', snap => {
+      const d = snap.val(); if(!d) return;
+      remoteUpdateInProgress = true;
+      document.getElementById('intel-system').value = d.system||"";
+      document.getElementById('intel-facility').value = d.facility||"";
+
+      activeJobsData = [];
+      if(d.jobs) {
+          Object.keys(d.jobs).forEach(key => {
+              activeJobsData.push({...d.jobs[key], id: key});
+          });
+      }
+
+      renderJobsUI();
+      isFirstPull = false; remoteUpdateInProgress = false;
+    });
+  }
+
+  function formatTimeLeft(ms) {
+    if (ms <= 0) return "READY TO HAUL";
+    let totalSeconds = Math.floor(ms / 1000);
+    let hours = Math.floor(totalSeconds / 3600);
+    let minutes = Math.floor((totalSeconds % 3600) / 60);
+    let seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  function renderJobsUI() {
+    let h = "";
+    activeJobsData.forEach(job => {
+      const timeLeftStr = formatTimeLeft(job.completesAt - Date.now());
+      const isDone = (job.completesAt - Date.now()) <= 0;
+
+      let oresHtml = "";
+      let totalYield = 0;
+
+      if(job.ores) {
+          job.ores.forEach(o => {
+              oresHtml += `
+                <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px solid rgba(255,255,255,0.05); padding:6px 0;">
+                    <span>${o.ore.toUpperCase()} (QI: ${o.qual})</span>
+                    <span><span style="color:var(--kh)">${o.rawScu} cSCU</span> ➔ <strong style="color:var(--pc)">${o.yieldScu} SCU</strong></span>
+                </div>`;
+              totalYield += parseFloat(o.yieldScu);
+          });
+      }
+
+      h += `
+        <div style="background:var(--d3); padding:15px; border:1px solid var(--bdr); border-left: 3px solid ${isDone ? 'var(--success)' : 'var(--bn)'}; margin-bottom:15px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px; border-bottom:1px solid var(--bdr); padding-bottom:10px;">
+             <div>
+               <div class="highlight" style="font-size:14px;">${job.method.toUpperCase()}</div>
+             </div>
+             <div style="text-align:right;">
+               <div class="${isDone ? 'status-done' : ''}" style="font-family:var(--fm); font-size:16px;" id="timer-${job.id}">${timeLeftStr}</div>
+             </div>
+          </div>
+          ${oresHtml}
+          <div style="display:flex; justify-content:space-between; margin-top:10px; align-items:center;">
+             <span style="font-size:12px; color:var(--kh); font-weight:bold;">TOTAL JOB YIELD: ${totalYield.toFixed(2)} SCU</span>
+             <button class="btn-add" style="padding:4px 8px; border-color:rgba(255,0,0,0.4); color:rgba(255,0,0,0.8);" onclick="deleteJob('${job.id}')">Remove Order</button>
+          </div>
+        </div>
+      `;
+    });
+    document.getElementById('jobContainer').innerHTML = h || "<div style='opacity:0.3; font-size:12px;'>No active work orders.</div>";
+  }
+
+  function startTicker() {
+    if(tickerInterval) clearInterval(tickerInterval);
+    tickerInterval = setInterval(() => {
+      activeJobsData.forEach(job => {
+        const el = document.getElementById(`timer-${job.id}`);
+        if(el) {
+          const msRemaining = job.completesAt - Date.now();
+          el.textContent = formatTimeLeft(msRemaining);
+          if (msRemaining <= 0) {
+            el.classList.add('status-done');
+            el.parentElement.parentElement.parentElement.style.borderLeft = "3px solid var(--success)";
+          }
+        }
+      });
+    }, 1000);
+  }
+
+  function runCalculation() {
+    let h = `<table class="ledger-table"><thead><tr><th>ORE</th><th>RAW cSCU</th><th>PROJECTED SCU</th><th style="text-align:right;">STATUS</th></tr></thead><tbody>`;
+
+    activeJobsData.forEach(job => {
+        const isDone = (job.completesAt - Date.now()) <= 0;
+        const statusText = isDone ? 'READY' : 'PROCESSING';
+        const statusClass = isDone ? 'status-done' : 'highlight';
+
+        if(job.ores) {
+            job.ores.forEach(o => {
+                h += `<tr>
+                    <td><div>${o.ore.toUpperCase()}</div><div style="font-size:10px; color:var(--kh);">${job.method}</div></td>
+                    <td style="color:var(--kh)">${o.rawScu}</td>
+                    <td style="font-weight:bold;">${o.yieldScu}</td>
+                    <td style="text-align:right;" class="${statusClass}">${statusText}</td>
+                </tr>`;
+            });
+        }
+    });
+    document.getElementById('ledgerOutput').innerHTML = h + `</tbody></table>`;
+    document.getElementById('utilButtons').style.display = 'flex';
+  }
+
+function copyDiscordImage() {
+    const loc = `${document.getElementById('intel-system').value} > ${document.getElementById('intel-facility').value}`;
+
+    let totalScu = 0;
+    let totalQi = 0;
+    let oreCount = 0;
+
+    activeJobsData.forEach(j => {
+        if(j.ores) {
+            j.ores.forEach(o => {
+                totalScu += parseFloat(o.yieldScu)||0;
+                totalQi += parseFloat(o.qual)||0;
+                oreCount++;
+            });
+        }
+    });
+
+    const avgQi = oreCount > 0 ? Math.round(totalQi / oreCount) : 0;
+
+    document.getElementById('img-session-id').innerText = activeID;
+    document.getElementById('img-location').innerText = loc.toUpperCase();
+    document.getElementById('img-total-scu').innerText = totalScu.toFixed(2);
+    document.getElementById('img-avg-qi').innerText = avgQi;
+    document.getElementById('img-active-jobs').innerText = activeJobsData.length;
+
+    let mHtml = '';
+    activeJobsData.forEach(j => {
+        const isDone = (j.completesAt - Date.now()) <= 0;
+        const statusText = isDone ? "READY TO HAUL" : "PROCESSING";
+        const statusColor = isDone ? "#2e7d32" : "#E8855C";
+
+        let jobTotalScu = 0;
+        let jobOresHtml = '';
+        if(j.ores) {
+            j.ores.forEach(o => {
+                jobTotalScu += parseFloat(o.yieldScu)||0;
+                jobOresHtml += `
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:6px; color:#CBB8AA;">
+                    <span>${o.ore.toUpperCase()}</span>
+                    <span><span style="color:#9A8C64; margin-right:8px;">[ QI: ${o.qual} ]</span> ${o.rawScu} cSCU ➔ <b style="color:#fff">${o.yieldScu} SCU</b></span>
+                </div>`;
+            });
+        }
+
+        mHtml += `
+        <div style="border-bottom:1px solid rgba(154,140,100,0.1); padding:16px 5px; color:#CBB8AA;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="font-weight:bold; color:#E8855C; font-size:16px;">
+                    ${j.method.toUpperCase()}
+                    <span style="color:#9A8C64; font-size:12px; margin-left:10px;">[ ${jobTotalScu.toFixed(2)} SCU ]</span>
+                </div>
+                <div style="text-align:right; color:${statusColor}; font-weight:bold; font-size:12px;">${statusText}</div>
+            </div>
+            <div style="padding-left:10px; border-left:1px solid #7E2619;">
+                ${jobOresHtml}
+            </div>
+        </div>`;
+    });
+    document.getElementById('img-manifest').innerHTML = mHtml;
+
+    const el = document.getElementById('render-receipt'); el.style.display = 'block';
+    html2canvas(el, {backgroundColor:'#1a1512', scale:2}).then(canvas => {
+      el.style.display = 'none';
+      canvas.toBlob(blob => { const item = new ClipboardItem({'image/png': blob}); navigator.clipboard.write([item]).then(()=>alert("WORK ORDER COPIED! Paste into Discord.")); });
+    });
+  }
+{% endblock %}

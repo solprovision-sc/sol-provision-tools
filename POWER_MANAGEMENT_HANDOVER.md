@@ -1,6 +1,6 @@
 # Ship Power Management Display — Handover
 
-_Last updated: 2026-05-28_
+_Last updated: 2026-06-14_
 
 This document captures the multi-session effort to build a SPViewer-style
 **power management panel** on the ship detail page, plus all the supporting
@@ -73,6 +73,26 @@ On `item_shields / coolers / powerplants / quantum_drives / radars / flight_cont
   size**; the rest are adjustable segments.
 
 `item_weapons` also gained: `ammo_uuid` (FK to item_ammo), and the power columns.
+
+### Thermal columns on `item_components` (added 2026-06-14)
+The cooling display's real heat data. Populated from each scitem's `<temperature>`
+block by `tools/backfill_thermal_params.py` (parse logic in `parse_temperature_params`):
+
+- `heat_gen_rate` — `baselineTemperatureChange` (°C/s while powered, resource=Power).
+- `overheat_temperature / overheat_warning_temp / overheat_recovery_temp`.
+- `min_cooling_temperature` — the thermal floor the item cools toward.
+- `cooling_equalization_rate / cooling_equalization_tdiff` — passive cooling (rate
+  quoted at that temperature difference; `rate/tdiff` ≈ a universal 3.75/400).
+- `powered_ambient_cool_mult`, `overheat_enabled`, `thermal_enabled`,
+  `temperature_to_ir`, `min_temperature_for_ir`.
+
+Coverage in 4.8.1: shields/powerplants/QDs/radars/lifesupport 100%; coolers carry
+none (they don't self-heat); weapons use their own `item_weapons` heat fields.
+
+⚠️ **Not yet in the pipeline.** `backfill_thermal_params.py` updates the live DB
+directly but a fresh extractor run rebuilds `dataforge.db` **without** these columns.
+The parse function must be folded into `dataforge_scitems.py` so patches carry it
+forward (see §8 TODO). Until then: after every extraction, re-run the backfill.
 
 ### Where dimensions come from (separate earlier task)
 - `ships.length_m / beam_m / height_m` — fixed to use **sorted bbox** (largest=length).
@@ -228,6 +248,44 @@ likely thing to need refinement (see TODO).
   raw `ship.components`, so swaps reflect immediately while non-swappable buckets
   still read from the payload.
 
+### 6.9 ⭐ Thermal model — the cooling display (rewritten 2026-06-14)
+
+**The old cooling bar was broken at the data level.** It computed a single
+`demand / supply` ratio where demand came from `item_components.heat_baseline` /
+`coolant_consumption` — columns that are **100% NULL**. Investigation of the raw
+4.8.1 records showed why: the coolant-as-a-resource model is **dormant** — every
+component declares `<consumption resource="Coolant"> standardResourceUnits="0"`.
+So the bar only ever moved from weapon-fire heat, reading a misleading ~15% on a
+fully-powered ship (e.g. Avenger Stalker) because the powerplant / shields / QD /
+radar contributed nothing.
+
+**The real 4.8.x heat model is a per-component temperature sim** (`<temperature>`
+block): each powered item heats at `baselineTemperatureChange` °C/s, cools toward
+a `minCoolingTemperature` floor via `coolingEqualization`, and overheats past
+`overheatTemperature`. We now extract those fields (see §3 / `backfill_thermal_params.py`)
+into `item_components` and model steady-state temperature per subsystem.
+
+JS lives in `ship_detail.html` (search `computeThermalModel`):
+- `thermalUnits()` — gathers every powered heat-generating unit (grid categories
+  with `heat_gen_rate`, plus the power plant scaled by load fraction) and the ship
+  coolant budget (`Σ cooling_output × cooler throttle`). The quantum drive defaults
+  **off** in the grid (not quantum-traveling), so an idle QD correctly adds no heat.
+- `computeThermalModel()` — `adequacy = PM_COOLING_GAIN × shipCoolant / totalHeat`;
+  each unit's temp above floor = `rawRise / (1 + adequacy)` where
+  `rawRise = heatIn / passiveK`. Multiplicative (not subtractive) so a well-cooled
+  capital ship stays differentiated instead of collapsing to a flat 0%. Groups by
+  subsystem (hottest wins) → `% to overheat`.
+- `updateCoolingSummary()` — renders the per-subsystem `.pmt-row` bars (header =
+  hottest subsystem) with cyan→amber→orange→red tiers + an overheat redline.
+
+**`PM_COOLING_GAIN` (currently 0.14) is the ONE calibrated constant** — the game's
+coolant→cooling conversion is engine-internal and not in the records. Tuned so the
+Avenger Stalker (all systems on) sits ~43% to overheat; capital ships read low
+(Idris-P ~4%), small/utility ships higher (MOLE ~30%). Reactive: shedding a cooler
+or adding hotter (stealth) parts climbs the bars; killing all coolers overheats.
+
+Verified end-to-end (DB → API → headless-Edge render) across 9 ships, no JS errors.
+
 ---
 
 ## 7. How the 13 slots were discovered
@@ -244,9 +302,22 @@ vs active columns. Confirmed mapping is in section 6.1. Notable quirks found:
 1. **Reconcile the extractor branch** — merge `feature/ship-dimensions-rsi` into the
    star-citizen-tools `main`/`dev` line so future patch extraction regenerates the
    new tables. (Highest priority — without this the data is a one-off.)
+   **Now includes folding `parse_temperature_params` (from `tools/backfill_thermal_params.py`)
+   into `dataforge_scitems.py` + the thermal columns into `item_components` SCHEMA, so
+   the thermal data regenerates with the pipeline instead of needing the backfill.**
+   The backfill script also added `heat_gen_rate` etc. via ALTER on the deployed DB,
+   which the feature-branch SCHEMA doesn't declare — reconcile both.
 2. **Bespoke icons** for Wheels, EMP, QED slots (currently placeholders).
 3. **Refine `powerModifier` math** — validate the segment→multiplier blend against
    SPViewer's actual numbers; the real curve may be stepped, not linear.
+3b. **Weapon firing heat in the thermal model** — the steady-state thermal sim
+   (§6.9) currently covers avionics/shields/power only. Weapons self-cool via their
+   own `item_weapons.cooling_per_second` / `heat_per_shot`, independent of ship
+   coolers; add a Weapons thermal entry (the legacy `cellHeatDemand`/
+   `computeCoolingSummary` fns kept in `ship_detail.html` have the fire-heat math).
+   This is what pushes a ship toward overheat in real gameplay.
+3c. **Tune `PM_COOLING_GAIN`** — the one calibrated constant (0.14). If we ever get
+   ground-truth in-game temperatures, fit it; for now it's eyeballed off the Stalker.
 4. **Verify multi-shield gating visually** on a real 2-shield ship (Idris-P) — the
    gating logic is written but should be eyeballed in the browser.
 5. **Mining column power** — MOLE shows 3 mining-head bars in SPViewer; confirm our
