@@ -146,7 +146,21 @@ def require_page_login(f):
 # ══════════════════════════════════════════════════════════════════════
 # DATABASE HELPERS
 # ══════════════════════════════════════════════════════════════════════
+_dataforge_schema_ready = False
+
 def get_db():
+    # ensure_columns() only runs from __main__ (direct `python server.py`), so
+    # under gunicorn/WSGI a freshly-deployed dataforge.db never gets the columns
+    # the app's queries expect (e.g. item_components thermal columns) → 500s.
+    # Heal once, lazily, on the first connection; guarded + best-effort so a
+    # migration hiccup can never block reads.
+    global _dataforge_schema_ready
+    if not _dataforge_schema_ready:
+        try:
+            ensure_columns(DB_PATH)
+        except Exception as e:
+            print(f"  [warn] dataforge column ensure skipped: {e}")
+        _dataforge_schema_ready = True
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -557,7 +571,11 @@ def ensure_columns(db_path):
         ("item_components", "temperature_to_ir",          "REAL"),
         ("item_components", "min_temperature_for_ir",     "REAL"),
     ]
+    tables = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     for table, col, defn in migrations:
+        if table not in tables:
+            continue   # skip tables a partial/empty DB doesn't have yet
         existing = {r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         if col not in existing:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {defn}")
