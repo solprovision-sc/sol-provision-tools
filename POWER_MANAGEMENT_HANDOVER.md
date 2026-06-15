@@ -89,10 +89,13 @@ block by `tools/backfill_thermal_params.py` (parse logic in `parse_temperature_p
 Coverage in 4.8.1: shields/powerplants/QDs/radars/lifesupport 100%; coolers carry
 none (they don't self-heat); weapons use their own `item_weapons` heat fields.
 
-⚠️ **Not yet in the pipeline.** `backfill_thermal_params.py` updates the live DB
-directly but a fresh extractor run rebuilds `dataforge.db` **without** these columns.
-The parse function must be folded into `dataforge_scitems.py` so patches carry it
-forward (see §8 TODO). Until then: after every extraction, re-run the backfill.
+✅ **Now in the extractor pipeline** (star-citizen-tools, branch
+`feature/component-thermal-params`, off `main`): `parse_temperature_params` added to
+`dataforge_scitems.py` (SCHEMA + parse_identity) and the columns to
+`dataforge_db._MIGRATIONS`. Once merged to `main` and re-extracted, `dataforge.db`
+carries the thermal data natively and `backfill_thermal_params.py` can be retired.
+Until that merge+extract, fresh DBs still need the backfill (the app self-heals the
+*columns* — empty — via `get_db`→`ensure_columns`, so it won't 500 meanwhile).
 
 ### Where dimensions come from (separate earlier task)
 - `ships.length_m / beam_m / height_m` — fixed to use **sorted bbox** (largest=length).
