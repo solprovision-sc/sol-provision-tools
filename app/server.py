@@ -27,11 +27,16 @@ app.config['DB_PATH'] = DB_PATH  # consumed by the officer_db blueprint
 PATCH = None
 
 # Detect environment. Three cases:
-#   - Linux + /var/www/sol-provision-tools-dev exists → 'dev'
-#   - Linux otherwise                                  → 'prod'
-#   - Windows (local dev)                              → 'local' (uses dev Firebase project)
+#   - Linux, this app installed under /var/www/sol-provision-tools-dev → 'dev'
+#   - Linux otherwise                                                   → 'prod'
+#   - Windows (local dev)                                               → 'local' (uses dev Firebase project)
+# NOTE: judge this process by ITS OWN install path, not by whether the dev
+# directory exists anywhere on the box. Dev and prod are co-located on the
+# same VPS, so os.path.exists('/var/www/sol-provision-tools-dev') is True for
+# the prod process too — which previously made prod wrongly apply the dev-only
+# rank-4+ gate and locked everyone out.
 is_local = os.name == 'nt'
-is_dev   = (not is_local) and os.path.exists('/var/www/sol-provision-tools-dev')
+is_dev   = (not is_local) and str(Path(__file__).resolve()).startswith('/var/www/sol-provision-tools-dev')
 app.config['IS_DEV'] = is_dev  # consumed by the officer_db blueprint's auth gate
 
 # The dev deployment is restricted to ranks 4+; everyone else sees this.
