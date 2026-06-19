@@ -239,12 +239,14 @@ SHIP_OWNERSHIP_SCHEMA = """
     CREATE TABLE IF NOT EXISTS ship_ownership (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         discord_id TEXT NOT NULL,
+        rsi_id INTEGER,          -- catalog identity (the claim key; concept-safe)
         ship_entity TEXT NOT NULL,
         ship_name TEXT NOT NULL,
         patch_version TEXT NOT NULL,
         claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         env TEXT NOT NULL CHECK(env IN ('prod', 'dev')),
         notes TEXT,
+        source TEXT,            -- how the owner got it: 'pledge' | 'in-game'
         UNIQUE(discord_id, ship_entity, patch_version)
     )
 """
@@ -282,6 +284,12 @@ def get_ship_ownership_db():
     conn.row_factory = sqlite3.Row
     conn.execute(SHIP_OWNERSHIP_SCHEMA)
     conn.execute(SAVED_LOADOUTS_SCHEMA)
+    # Migrations: add columns introduced after the table first shipped.
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(ship_ownership)")}
+    if "source" not in cols:
+        conn.execute("ALTER TABLE ship_ownership ADD COLUMN source TEXT")
+    if "rsi_id" not in cols:
+        conn.execute("ALTER TABLE ship_ownership ADD COLUMN rsi_id INTEGER")
     conn.commit()
     return conn
 
@@ -341,6 +349,56 @@ def _migrate_legacy_ownership_rows():
     except sqlite3.Error as e:
         # Swallow so a half-set-up local dev env doesn't crash the whole app.
         print(f"  Ownership legacy migration skipped: {e}")
+
+
+_CLAIM_RSI_MIGRATION_DONE = False
+
+def _migrate_claims_rsi_id():
+    """Backfill rsi_id on existing ship_ownership rows by mapping their
+    ship_entity (dataforge name) to the catalog's rsi_id. Idempotent — only
+    touches rows still missing rsi_id. Needs both DBs (catalog in dataforge.db,
+    claims in the standalone ownership DB)."""
+    global _CLAIM_RSI_MIGRATION_DONE
+    if _CLAIM_RSI_MIGRATION_DONE:
+        return
+    _CLAIM_RSI_MIGRATION_DONE = True
+    try:
+        own = get_ship_ownership_db()
+        pending = own.execute(
+            "SELECT id, ship_entity FROM ship_ownership "
+            "WHERE rsi_id IS NULL AND ship_entity IS NOT NULL").fetchall()
+        if not pending:
+            own.close()
+            return
+        df = sqlite3.connect(DB_PATH); df.row_factory = sqlite3.Row
+        if not df.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ship_catalog'").fetchone():
+            df.close(); own.close()
+            return
+        patch = latest_patch(df)
+        # A data_name may back several catalog rows (editions aliased to a base
+        # ship). Order so the genuine matched base (rsi_id stamped on the ship
+        # row) is last and wins the dict overwrite — legacy claims migrate to it.
+        name_to_id = {r["data_name"]: r["rsi_id"] for r in df.execute(
+            """SELECT sc.data_name, sc.rsi_id
+               FROM ship_catalog sc
+               LEFT JOIN ships s ON s.entity_name = sc.data_name
+                                AND s.patch_version = sc.patch_version
+               WHERE sc.patch_version=? AND sc.data_name IS NOT NULL
+               ORDER BY (sc.rsi_id = s.rsi_ship_id) ASC""",
+            (patch,))}
+        df.close()
+        fixed = 0
+        for row in pending:
+            rid = name_to_id.get(row["ship_entity"])
+            if rid is not None:
+                own.execute("UPDATE ship_ownership SET rsi_id=? WHERE id=?", (rid, row["id"]))
+                fixed += 1
+        own.commit(); own.close()
+        if fixed:
+            print(f"  Backfilled rsi_id on {fixed} ship_ownership rows")
+    except sqlite3.Error as e:
+        print(f"  Claim rsi_id migration skipped: {e}")
+
 
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
@@ -1292,6 +1350,58 @@ def api_ships():
         sort_by = "entity_name"
     sort_by = f"s.{sort_by}"
 
+    # ── Master catalog path (RSI matrix) — all ships incl. concepts. ──────────
+    # Falls back to the legacy ships_index path below if the catalog isn't in
+    # this DB yet (so the app can deploy before the catalog-bearing DB lands).
+    have_catalog = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ship_catalog'").fetchone() \
+        and conn.execute(
+            "SELECT 1 FROM ship_catalog WHERE patch_version=? LIMIT 1", (p,)).fetchone()
+    if have_catalog:
+        crows = conn.execute("""
+            SELECT sc.rsi_id, sc.rsi_name, sc.manufacturer, sc.focus, sc.type,
+                   sc.production_status, sc.flyable, sc.data_name,
+                   sc.size AS rsi_size, sc.cargo_scu AS rsi_cargo,
+                   sc.length_m AS rsi_length, sc.max_crew,
+                   s.display_name AS game_name, s.career AS game_career,
+                   s.crew_size AS game_crew, s.cargo_scu AS game_cargo,
+                   s.length_m AS game_length, s.size_class,
+                   COALESCE(vr.display_name, s.role) AS game_role
+            FROM ship_catalog sc
+            LEFT JOIN ships s ON s.entity_name = sc.data_name AND s.patch_version = ?
+            LEFT JOIN vehicle_roles vr ON vr.role_key = s.role
+            WHERE sc.patch_version = ?
+            ORDER BY sc.manufacturer, sc.rsi_name
+        """, (p, p)).fetchall()
+        conn.close()
+        out = []
+        for r in crows:
+            disp = r["rsi_name"] or r["game_name"] or ""
+            if search and search not in disp.lower() \
+               and search not in (r["manufacturer"] or "").lower():
+                continue
+            flyable = bool(r["flyable"])
+            out.append({
+                "rsi_id":            r["rsi_id"],
+                "entity_name":       r["data_name"],          # null for concepts
+                "display_name":      disp,
+                "manufacturer":      r["manufacturer"],
+                "flyable":           flyable,
+                "production_status": r["production_status"],
+                # RSI classification (present for every ship, incl. concepts)
+                "type":              r["type"],
+                "focus":             r["focus"],
+                "size":              r["rsi_size"],
+                # game-data fields when flyable (else RSI/None)
+                "career":            r["game_career"],
+                "role":              r["game_role"],
+                "size_class":        r["size_class"],
+                "crew_size":         r["game_crew"] if flyable else r["max_crew"],
+                "cargo_scu":         r["rsi_cargo"] if r["rsi_cargo"] is not None else r["game_cargo"],
+                "length_m":          r["game_length"] if flyable else r["rsi_length"],
+            })
+        return jsonify(out[:limit])
+
     sql = f"""SELECT s.uuid, s.entity_name, s.display_name, s.vehicle_name,
                  s.career, COALESCE(vr.display_name, s.role) AS role, s.crew_size, s.cargo_scu,
                  s.rsi_cargo_scu,
@@ -2044,11 +2154,30 @@ def api_ship_detail(entity_name):
     personal    = sum(g["scu"] or 0 for g in grids if g["is_personal"])
 
     components = get_ship_components(conn, entity_name, p)
+    # Catalog rsi_id (the claim key) for this hull, if the catalog is present.
+    rsi_id = None
+    try:
+        # A data_name may back several catalog rows (editions/bundles aliased to
+        # a base ship). Prefer the genuine matched base — the rsi_id the matcher
+        # stamped onto the ship row — over any alias sharing the same data_name.
+        crow = conn.execute(
+            """SELECT sc.rsi_id FROM ship_catalog sc
+               WHERE sc.data_name = ? AND sc.patch_version = ?
+               ORDER BY (sc.rsi_id = (SELECT s.rsi_ship_id FROM ships s
+                                      WHERE s.entity_name = ? AND s.patch_version = ?)) DESC,
+                        sc.rsi_id ASC
+               LIMIT 1""",
+            (entity_name, p, entity_name, p)).fetchone()
+        if crow:
+            rsi_id = crow["rsi_id"]
+    except sqlite3.Error:
+        pass
     conn.close()
 
     return jsonify({
         "uuid":                   ship["uuid"],
         "entity_name":            entity_name,
+        "rsi_id":                 rsi_id,
         "display_name":           best_name(ship["display_name"], entity_name),
         "manufacturer":           get_mfr(entity_name),
         "career":                 clean_career(ship["career"] or ""),
@@ -3629,116 +3758,132 @@ def api_crafting_blueprint_owners(uuid):
 # POST /api/ship/<entity_name>/claim — current user claims this ship hull.
 # Mirrors blueprint claiming: standalone ship_ownership.db, env-scoped rows.
 
-@app.route('/api/ship/<entity_name>/claim', methods=['POST'])
+# Claims key on the catalog rsi_id (stable, per-variant) so BOTH flyable and
+# concept ships are claimable. ship_entity is kept for display/back-compat
+# (dataforge name when flyable, else the rsi slug).
+
+@app.route('/api/ship/<int:rsi_id>/claim', methods=['POST'])
 @require_org_member
-def api_ship_claim(entity_name):
+def api_ship_claim(rsi_id):
+    _migrate_claims_rsi_id()
     discord_id = session.get('discord_id')
     env = _current_env()
+    # 'pledge' (RSI pledge store) or 'in-game' (aUEC); invalid → NULL.
+    body = request.get_json(silent=True) or {}
+    source = body.get('source')
+    if source not in ('pledge', 'in-game'):
+        source = None
     conn = get_db()
     patch = latest_patch(conn)
-    ship = conn.execute('''
-        SELECT entity_name, display_name
-        FROM ships WHERE entity_name = ? AND patch_version = ?
-    ''', (entity_name, patch)).fetchone()
+    cat = conn.execute('''
+        SELECT rsi_name, rsi_slug, data_name
+        FROM ship_catalog WHERE rsi_id = ? AND patch_version = ?
+    ''', (rsi_id, patch)).fetchone()
     conn.close()
-    if not ship:
+    if not cat:
         return jsonify({'error': 'Ship not found'}), 404
-    ship_name = ship['display_name'] or ship['entity_name']
+    ship_name = cat['rsi_name'] or cat['rsi_slug'] or str(rsi_id)
+    ship_entity = cat['data_name'] or cat['rsi_slug'] or f'rsi-{rsi_id}'
     own = get_ship_ownership_db()
-    try:
-        own.execute('''
-            INSERT INTO ship_ownership
-                (discord_id, ship_entity, ship_name, patch_version, env)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (discord_id, entity_name, ship_name, patch, env))
-        own.commit()
-    except sqlite3.IntegrityError:
+    # Dedup on the claim key (rsi_id), env-scoped — app-level so concept claims
+    # (NULL ship_entity historically) can't slip past the legacy UNIQUE.
+    if own.execute('SELECT 1 FROM ship_ownership WHERE discord_id=? AND rsi_id=? AND env=?',
+                   (discord_id, rsi_id, env)).fetchone():
         own.close()
         return jsonify({'error': 'Already claimed by you'}), 409
-    finally:
-        try: own.close()
-        except Exception: pass
+    own.execute('''
+        INSERT INTO ship_ownership
+            (discord_id, rsi_id, ship_entity, ship_name, patch_version, env, source)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (discord_id, rsi_id, ship_entity, ship_name, patch, env, source))
+    own.commit()
+    own.close()
     return jsonify({
         'success': True,
-        'ship_entity': entity_name,
+        'rsi_id': rsi_id,
         'env': env,
+        'source': source,
         'discord_id': discord_id,
         'display_name': session.get('callsign'),
     })
 
 
 # ── API: Unclaim a ship ───────────────────────────────────────────────────────
-# DELETE /api/ship/<entity_name>/claim — removes only the current user's claim.
+# DELETE /api/ship/<rsi_id>/claim — removes only the current user's claim.
 
-@app.route('/api/ship/<entity_name>/claim', methods=['DELETE'])
+@app.route('/api/ship/<int:rsi_id>/claim', methods=['DELETE'])
 @require_org_member
-def api_ship_unclaim(entity_name):
+def api_ship_unclaim(rsi_id):
     discord_id = session.get('discord_id')
     env = _current_env()
     own = get_ship_ownership_db()
-    cur = own.execute('''
-        DELETE FROM ship_ownership
-        WHERE ship_entity = ? AND discord_id = ? AND env = ?
-    ''', (entity_name, discord_id, env))
+    cur = own.execute(
+        'DELETE FROM ship_ownership WHERE rsi_id = ? AND discord_id = ? AND env = ?',
+        (rsi_id, discord_id, env))
     own.commit()
     removed = cur.rowcount
     own.close()
     if removed == 0:
         return jsonify({'error': 'Not claimed by you'}), 404
-    return jsonify({'success': True, 'ship_entity': entity_name, 'env': env})
+    return jsonify({'success': True, 'rsi_id': rsi_id, 'env': env})
 
 
 # ── API: Ownership summary for many ships ─────────────────────────────────────
-# GET /api/ships/ownership?entities=a,b,c — one row per claim (multi-owner);
-# the frontend buckets by ship_entity for button state + owner counts.
+# GET /api/ships/ownership?ids=1,2,3 — one row per claim (multi-owner);
+# the frontend buckets by rsi_id for button state + owner counts.
 
 @app.route('/api/ships/ownership')
 def api_ships_ownership():
-    ents_param = request.args.get('entities', '').strip()
-    if not ents_param:
+    _migrate_claims_rsi_id()
+    ids_param = request.args.get('ids', '').strip()
+    if not ids_param:
         return jsonify([])
-    ents = [e.strip() for e in ents_param.split(',') if e.strip()]
-    if not ents:
+    try:
+        ids = [int(x) for x in ids_param.split(',') if x.strip()]
+    except ValueError:
+        return jsonify([])
+    if not ids:
         return jsonify([])
     env = _current_env()
     own = get_ship_ownership_db()
-    placeholders = ','.join('?' * len(ents))
+    placeholders = ','.join('?' * len(ids))
     rows = own.execute(f'''
-        SELECT ship_entity, discord_id, claimed_at
+        SELECT rsi_id, discord_id, claimed_at
         FROM ship_ownership
-        WHERE ship_entity IN ({placeholders}) AND env = ?
-    ''', (*ents, env)).fetchall()
+        WHERE rsi_id IN ({placeholders}) AND env = ?
+    ''', (*ids, env)).fetchall()
     own.close()
     return jsonify([{
-        'ship_entity': r['ship_entity'],
-        'discord_id':  r['discord_id'],
-        'claimed_at':  r['claimed_at'],
+        'rsi_id':     r['rsi_id'],
+        'discord_id': r['discord_id'],
+        'claimed_at': r['claimed_at'],
     } for r in rows])
 
 
 # ── API: Owner list for a single ship (with Discord names) ───────────────────
-# GET /api/ship/<entity_name>/owners
+# GET /api/ship/<rsi_id>/owners
 
-@app.route('/api/ship/<entity_name>/owners')
-def api_ship_owners(entity_name):
+@app.route('/api/ship/<int:rsi_id>/owners')
+def api_ship_owners(rsi_id):
     env = _current_env()
     own = get_ship_ownership_db()
     rows = own.execute('''
-        SELECT discord_id, claimed_at
+        SELECT discord_id, claimed_at, source
         FROM ship_ownership
-        WHERE ship_entity = ? AND env = ?
+        WHERE rsi_id = ? AND env = ?
         ORDER BY claimed_at ASC
-    ''', (entity_name, env)).fetchall()
+    ''', (rsi_id, env)).fetchall()
     own.close()
     discord_ids = [r['discord_id'] for r in rows]
     name_map = _resolve_discord_display_names(discord_ids)
     return jsonify({
-        'ship_entity': entity_name,
-        'env':         env,
+        'rsi_id': rsi_id,
+        'env':    env,
         'owners': [{
             'discord_id':   r['discord_id'],
             'display_name': name_map.get(r['discord_id']) or r['discord_id'],
             'claimed_at':   r['claimed_at'],
+            'source':       r['source'],
         } for r in rows],
     })
 
