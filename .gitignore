@@ -34,8 +34,6 @@ Thumbs.db
 # Batch Files
 *.bat
 
-# Claude Code
-.claude/
 
 # Local dev runner — kept out of git so commits/pulls don't drop it again
 tools/run_local.py
