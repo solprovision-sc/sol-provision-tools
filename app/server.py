@@ -445,6 +445,32 @@ def get_cargo_db():
         _cargo_schema_ready = True
     return conn
 
+
+# ── UEX live commodity-price feed DB (read side) ──────────────────────────────
+# Populated by the 15-min cron writer (tools/pull_uex_prices.py). The web app is
+# a reader; we self-heal the schema once so a missing table never 500s the page.
+_uex_schema_ready = False
+
+def _resolve_uex_db_path():
+    """uex_feed.db sits at the repo root (matches tools/init_uex_feed_db.py's
+    DEFAULT_DB_PATH) unless overridden by UEX_FEED_DB."""
+    return os.environ.get('UEX_FEED_DB') or \
+        str(Path(__file__).resolve().parent.parent / 'uex_feed.db')
+
+def get_uex_db():
+    global _uex_schema_ready
+    conn = sqlite3.connect(_resolve_uex_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")  # ride out the 15-min writer's lock
+    if not _uex_schema_ready:
+        import importlib.util
+        init_path = Path(__file__).resolve().parent.parent / "tools" / "init_uex_feed_db.py"
+        spec = importlib.util.spec_from_file_location("init_uex_feed_db", init_path)
+        mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        mod.ensure_schema(conn)
+        _uex_schema_ready = True
+    return conn
+
 def _utc_now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -812,6 +838,107 @@ def refinery_page(): return render_template("refinery_session.html", active_page
 def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
     return render_template("starmap.html", active_page="/starmap")
+
+
+@app.route("/trade")
+@app.route("/trade/<view>")
+@require_page_login
+def trade_page(view=None):
+    # Live UEX commodity feed. Multiple views are toggled client-side via the
+    # left sidebar; the optional <view> segment just deep-links the initial one.
+    return render_template("trade.html", active_page="/trade")
+
+
+@app.route("/api/trade/commodities")
+def api_trade_commodities():
+    """Commodity board: every commodity in the feed, with its current network
+    sell price (avg of the latest non-zero sell across terminals) and a 10-day
+    price trend.
+
+    "Current" and "baseline" are both derived from our own snapshot history so
+    they stay consistent. The time axis is `pulled_at` (when WE observed a price),
+    NOT `date_modified` (UEX's source-edit time, which legitimately spans days
+    across terminals): trend means "how the price moved over the 10 days we've
+    been watching." Baseline = the earliest observation per terminal inside the
+    window. Until the feed has accrued >1 day of our own history the trend is
+    reported as 'pending' rather than a misleading flat arrow.
+    """
+    window_days = 10
+    flat_eps = 0.5  # |%| below this reads as flat, not up/down
+    cutoff = int(time.time()) - window_days * 86400
+
+    conn = get_uex_db()
+    rows = conn.execute("""
+        WITH snap AS (
+            SELECT id_commodity, id_terminal, price_sell, pulled_at
+            FROM price_snapshots
+            WHERE price_sell IS NOT NULL AND price_sell > 0
+        ),
+        latest AS (
+            SELECT id_commodity, price_sell,
+                   ROW_NUMBER() OVER (PARTITION BY id_commodity, id_terminal
+                                      ORDER BY pulled_at DESC) rn
+            FROM snap
+        ),
+        cur AS (
+            SELECT id_commodity, AVG(price_sell) AS cur_price, COUNT(*) AS terminals
+            FROM latest WHERE rn = 1 GROUP BY id_commodity
+        ),
+        windowed AS (
+            SELECT id_commodity, price_sell,
+                   ROW_NUMBER() OVER (PARTITION BY id_commodity, id_terminal
+                                      ORDER BY pulled_at ASC) rn
+            FROM snap WHERE pulled_at >= ?
+        ),
+        base AS (
+            SELECT id_commodity, AVG(price_sell) AS base_price
+            FROM windowed WHERE rn = 1 GROUP BY id_commodity
+        ),
+        span AS (
+            SELECT id_commodity, MIN(pulled_at) AS first_pa,
+                                 MAX(pulled_at) AS last_pa
+            FROM snap GROUP BY id_commodity
+        )
+        SELECT cm.id_commodity, cm.code, cm.name,
+               cur.cur_price, cur.terminals,
+               base.base_price, span.first_pa, span.last_pa
+        FROM commodities cm
+        JOIN (SELECT DISTINCT id_commodity FROM price_snapshots) feed
+             ON feed.id_commodity = cm.id_commodity
+        LEFT JOIN cur  ON cur.id_commodity  = cm.id_commodity
+        LEFT JOIN base ON base.id_commodity = cm.id_commodity
+        LEFT JOIN span ON span.id_commodity = cm.id_commodity
+        ORDER BY cm.name COLLATE NOCASE
+    """, (cutoff,)).fetchall()
+    as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    conn.close()
+
+    out = []
+    for r in rows:
+        cur_price, base_price = r["cur_price"], r["base_price"]
+        first_pa, last_pa = r["first_pa"], r["last_pa"]
+        # Only call a direction once we've actually watched it for >1 day.
+        has_span = first_pa is not None and last_pa is not None and (last_pa - first_pa) >= 86400
+        if has_span and cur_price and base_price:
+            pct = (cur_price - base_price) / base_price * 100.0
+            state = "flat" if abs(pct) < flat_eps else ("up" if pct > 0 else "down")
+            trend = {"state": state, "pct": round(pct, 1)}
+        else:
+            trend = {"state": "pending", "pct": None}
+        out.append({
+            "code": r["code"] or (r["name"] or "")[:4].upper(),
+            "name": r["name"],
+            "price": round(cur_price, 2) if cur_price is not None else None,
+            "terminals": r["terminals"] or 0,
+            "trend": trend,
+        })
+
+    return jsonify({
+        "as_of": as_of,
+        "window_days": window_days,
+        "count": len(out),
+        "commodities": out,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════
