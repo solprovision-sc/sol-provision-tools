@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+{% block title %}Trade — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Trade page · view-toggle sidebar + live commodity board ───────────── */
+
+  /* Sidebar view nav */
+  .view-nav { display: flex; flex-direction: column; gap: 2px; }
+  .view-link {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-align: left;
+    padding: 9px 11px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-left: 2px solid transparent;
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .view-link:hover:not([disabled]) { background: var(--bg-hover); color: var(--text); }
+  .view-link.active {
+    background: var(--accent-dim);
+    border-left-color: var(--accent);
+    color: var(--gold);
+  }
+  .view-link[disabled] { color: var(--text3); cursor: default; opacity: 0.65; }
+  .view-link .soon {
+    font-family: var(--font-mono);
+    font-size: 8px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text3); border: 1px solid var(--border); padding: 1px 5px;
+  }
+
+  .sort-row { display: flex; gap: 6px; }
+  .sort-row .sort-btn { flex: 1; }
+
+  /* ── Main header ── */
+  .trade-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 24px; flex-wrap: wrap;
+  }
+  .trade-eyebrow {
+    font-family: var(--font-ui);
+    font-size: 9px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--accent);
+  }
+  .trade-title {
+    font-family: var(--font-display, var(--font-ui));
+    font-size: var(--text-2xl); line-height: 1.05; margin: 4px 0 6px;
+    color: var(--text);
+  }
+  .trade-sub { font-family: var(--font-mono); font-size: 11px; color: var(--text3); }
+  .trade-sub .live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: #7bbf6a; margin-right: 6px; vertical-align: middle;
+    box-shadow: 0 0 6px rgba(123,191,106,0.7);
+  }
+
+  /* Powered-by UEX badge — smallish but prominent, top-right of the board */
+  .powered-by { display: inline-block; opacity: 0.9; transition: opacity 0.15s; }
+  .powered-by:hover { opacity: 1; }
+  .powered-by img { width: 150px; height: auto; display: block; }
+
+  /* Trend-pending notice */
+  .trend-note {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text3);
+    background: var(--bg2); border: 1px solid var(--border);
+    border-left: 2px solid var(--accent2);
+    padding: 8px 12px;
+  }
+
+  /* ── Commodity board ── */
+  .cmdy-board {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+    gap: 8px;
+  }
+  .board-empty {
+    grid-column: 1 / -1; text-align: center; color: var(--text3);
+    font-family: var(--font-mono); font-size: 13px; padding: 48px 0;
+  }
+
+  .cmdy-tile {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--border2);
+    padding: 10px 12px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .cmdy-tile:hover { border-color: var(--border2); border-left-color: var(--accent); background: var(--bg3); }
+
+  .cmdy-id { min-width: 0; }
+  .cmdy-code {
+    font-family: var(--font-mono); font-weight: 700;
+    font-size: 16px; letter-spacing: 0.06em; color: var(--text);
+    display: block; line-height: 1.1;
+  }
+  .cmdy-name {
+    font-family: var(--font-ui); font-size: 10.5px; color: var(--text3);
+    display: block; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
+  }
+
+  .cmdy-metrics { text-align: right; flex-shrink: 0; }
+  .cmdy-price {
+    font-family: var(--font-mono); font-size: 14px; color: var(--text);
+    display: block; line-height: 1.1;
+  }
+  .cmdy-price .unit { font-size: 8px; color: var(--text3); margin-left: 3px; letter-spacing: 0.05em; }
+  .cmdy-price.null { color: var(--text3); }
+
+  .cmdy-trend {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em;
+    display: block; margin-top: 3px;
+  }
+  .cmdy-trend.up      { color: #7bbf6a; }
+  .cmdy-trend.down    { color: #d76b5a; }
+  .cmdy-trend.flat    { color: var(--text2); }
+  .cmdy-trend.pending { color: var(--text3); opacity: 0.7; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="layout">
+
+  <aside>
+    <div class="sidebar-section">
+      <span class="section-label">Views</span>
+      <nav class="view-nav">
+        <button class="view-link active" data-view="commodities">Commodities</button>
+        <button class="view-link" disabled>Terminals <span class="soon">soon</span></button>
+        <button class="view-link" disabled>Best Trades <span class="soon">soon</span></button>
+        <button class="view-link" disabled>Price History <span class="soon">soon</span></button>
+      </nav>
+    </div>
+
+    <div class="sidebar-section">
+      <span class="section-label">Search</span>
+      <input type="text" id="cmdy-search" placeholder="Filter by code or name…" autocomplete="off">
+    </div>
+
+    <div class="sidebar-section">
+      <span class="section-label">Sort</span>
+      <div class="sort-row">
+        <button class="sort-btn active" data-sort="name">A–Z</button>
+        <button class="sort-btn" data-sort="price">Price</button>
+        <button class="sort-btn" data-sort="trend">Trend</button>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="trade-head">
+      <div>
+        <div class="trade-eyebrow">Live Economy · UEX Feed</div>
+        <h1 class="trade-title">Commodities</h1>
+        <div class="trade-sub" id="trade-sub">Loading…</div>
+      </div>
+      <a class="powered-by" href="https://uexcorp.space" target="_blank" rel="noopener"
+         title="Live commodity data powered by UEX Corp">
+        <img src="/static/img/poweredBy.svg" alt="Powered by UEX">
+      </a>
+    </div>
+
+    <div class="trend-note" id="trend-note" style="display:none;"></div>
+
+    <div id="cmdy-board" class="cmdy-board">
+      <div class="board-empty">Loading commodities…</div>
+    </div>
+  </main>
+
+</div>
+{% endblock %}
+
+{% block page_script %}
+  // ── Trade · Commodities view ───────────────────────────────────────────
+  let CMDY = [];                 // full dataset from the API
+  let sortKey = 'name';          // name | price | trend
+  let filterText = '';
+
+  const board    = document.getElementById('cmdy-board');
+  const subEl     = document.getElementById('trade-sub');
+  const noteEl    = document.getElementById('trend-note');
+  const searchEl  = document.getElementById('cmdy-search');
+
+  function fmtPrice(n) {
+    if (n === null || n === undefined) return '—';
+    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+    if (n >= 1e4) return Math.round(n).toLocaleString();
+    return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function trendHTML(t) {
+    if (!t || t.state === 'pending')
+      return `<span class="cmdy-trend pending" title="Trend builds as the feed accrues 10 days of history">— building</span>`;
+    const glyph = t.state === 'up' ? '▲' : t.state === 'down' ? '▼' : '▬';
+    const sign  = t.pct > 0 ? '+' : '';
+    return `<span class="cmdy-trend ${t.state}">${glyph} ${sign}${t.pct}%</span>`;
+  }
+
+  function relTime(unixSec) {
+    if (!unixSec) return 'no data yet';
+    const mins = Math.max(0, Math.round((Date.now() / 1000 - unixSec) / 60));
+    if (mins < 1)  return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    return hrs < 24 ? `${hrs} hr ago` : `${Math.round(hrs / 24)} d ago`;
+  }
+
+  function trendRank(t) {
+    // For "Trend" sort: up first (by magnitude desc), then flat, then down, pending last.
+    if (!t || t.state === 'pending') return -1e9;
+    if (t.state === 'up')   return  1000 + (t.pct || 0);
+    if (t.state === 'down') return -1000 + (t.pct || 0);
+    return 0;
+  }
+
+  function render() {
+    const f = filterText.trim().toLowerCase();
+    let list = CMDY.filter(c =>
+      !f || (c.code && c.code.toLowerCase().includes(f)) || (c.name && c.name.toLowerCase().includes(f))
+    );
+
+    list.sort((a, b) => {
+      if (sortKey === 'price') return (b.price ?? -1) - (a.price ?? -1);
+      if (sortKey === 'trend') return trendRank(b.trend) - trendRank(a.trend);
+      return (a.name || '').localeCompare(b.name || '');   // default A–Z
+    });
+
+    if (!list.length) {
+      board.innerHTML = `<div class="board-empty">No commodities match “${f}”.</div>`;
+      return;
+    }
+
+    board.innerHTML = list.map(c => `
+      <div class="cmdy-tile">
+        <div class="cmdy-id">
+          <span class="cmdy-code">${c.code}</span>
+          <span class="cmdy-name" title="${c.name || ''}">${c.name || ''}</span>
+        </div>
+        <div class="cmdy-metrics">
+          <span class="cmdy-price ${c.price === null ? 'null' : ''}">${fmtPrice(c.price)}${c.price !== null ? '<span class="unit">aUEC</span>' : ''}</span>
+          ${trendHTML(c.trend)}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function load() {
+    try {
+      const res = await fetch('/api/trade/commodities');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      CMDY = data.commodities || [];
+
+      subEl.innerHTML = `<span class="live-dot"></span>Live · updated ${relTime(data.as_of)} · `
+                      + `${data.count} commodities · trend vs ${data.window_days} days`;
+
+      const pending = CMDY.filter(c => !c.trend || c.trend.state === 'pending').length;
+      if (pending) {
+        noteEl.style.display = 'block';
+        noteEl.textContent = `Trend direction needs ${data.window_days} days of history to compute — `
+                           + `${pending} of ${CMDY.length} commodities are still collecting. `
+                           + `Current prices are live now; arrows will populate as the feed matures.`;
+      }
+      render();
+    } catch (e) {
+      board.innerHTML = `<div class="board-empty">Couldn’t load commodity prices (${e.message}).</div>`;
+      subEl.textContent = 'Feed unavailable';
+    }
+  }
+
+  // Sidebar controls
+  searchEl.addEventListener('input', e => { filterText = e.target.value; render(); });
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sortKey = btn.dataset.sort;
+      render();
+    });
+  });
+
+  load();
+{% endblock %}

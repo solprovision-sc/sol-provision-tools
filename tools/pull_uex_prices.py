@@ -35,7 +35,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from init_uex_feed_db import DEFAULT_DB_PATH, ensure_schema  # noqa: E402
 
-API_URL = "https://api.uexcorp.uk/2.0/commodities_prices_all/"
+BASE_URL = "https://api.uexcorp.uk/2.0/"
+PRICES_ENDPOINT = "commodities_prices_all"
+# Dedicated reference endpoints carry the real 4-letter codes the bulk price
+# feed omits (it denormalizes only the name). Refreshed best-effort each pull.
+REFERENCE_ENDPOINTS = (
+    ("commodities", "commodities", "id_commodity"),
+    ("terminals", "terminals", "id_terminal"),
+)
 HTTP_TIMEOUT = 60  # seconds; the bulk payload is large but served from cache
 # UEX sits behind Cloudflare, which 403s the default "Python-urllib" UA with
 # error 1010. Identify ourselves with a real User-Agent so the request is served.
@@ -54,12 +61,11 @@ SNAPSHOT_COLS = (
 )
 
 
-def fetch(token: str, client_version: str | None) -> tuple[str, list[dict]]:
-    """Call the bulk endpoint. Returns (http_status, data_rows).
+def _get_json(endpoint: str, token: str, client_version: str | None) -> tuple[str, list]:
+    """GET BASE_URL/<endpoint>/ and return (http_status, data list).
 
-    Raises on transport/protocol failure or a non-ok API status so the caller
-    logs the failure and exits without writing a partial batch."""
-    req = urllib.request.Request(API_URL)
+    Raises on transport/protocol failure or a non-ok API status."""
+    req = urllib.request.Request(f"{BASE_URL}{endpoint}/")
     req.add_header("User-Agent", USER_AGENT)
     req.add_header("Authorization", f"Bearer {token}")
     if client_version:
@@ -76,7 +82,18 @@ def fetch(token: str, client_version: str | None) -> tuple[str, list[dict]]:
     if payload.get("status") != "ok":
         raise RuntimeError(f"API status != ok: {payload.get('status')!r}")
     data = payload.get("data") or []
-    if not isinstance(data, list) or not data:
+    if not isinstance(data, list):
+        raise RuntimeError("API returned non-list data")
+    return http_status, data
+
+
+def fetch(token: str, client_version: str | None) -> tuple[str, list[dict]]:
+    """Call the bulk price endpoint. Returns (http_status, data_rows).
+
+    Raises (incl. on empty data) so the caller logs the failure and exits
+    without writing a partial batch."""
+    http_status, data = _get_json(PRICES_ENDPOINT, token, client_version)
+    if not data:
         raise RuntimeError("API returned empty data")
     return http_status, data
 
@@ -164,6 +181,37 @@ def upsert_reference(conn: sqlite3.Connection, data: list[dict], pulled_at: int)
     )
 
 
+def refresh_reference_tables(conn: sqlite3.Connection, token: str,
+                             client_version: str | None, pulled_at: int) -> str | None:
+    """Best-effort: pull real codes from the dedicated /commodities & /terminals
+    endpoints (the bulk price feed omits commodity_code, so names come from the
+    price upsert but codes only exist here). Upserts id/name/code/slug.
+
+    Never raises — a reference hiccup must not sink the price pull. Returns a
+    short note describing any failure (folded into pull_log), else None."""
+    note = None
+    for endpoint, table, id_col in REFERENCE_ENDPOINTS:
+        try:
+            _, rows = _get_json(endpoint, token, client_version)
+            payload = []
+            for r in rows:
+                rid = _int(r.get("id"))
+                if rid is None:
+                    continue
+                payload.append((rid, r.get("name"), r.get("code"), r.get("slug"), pulled_at))
+            conn.executemany(
+                f"""INSERT INTO {table} ({id_col}, name, code, slug, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT({id_col}) DO UPDATE SET
+                        name=COALESCE(excluded.name, name), code=COALESCE(excluded.code, code),
+                        slug=COALESCE(excluded.slug, slug), updated_at=excluded.updated_at""",
+                payload,
+            )
+        except (RuntimeError, sqlite3.Error) as e:
+            note = (f"{note}; " if note else "") + f"{endpoint} refresh failed: {e}"
+    return note
+
+
 def log_pull(conn: sqlite3.Connection, pulled_at: int, rows_fetched: int,
              rows_inserted: int, http_status: str, note: str | None) -> None:
     conn.execute(
@@ -210,9 +258,13 @@ def run(db_path: Path, token: str, client_version: str | None, pulled_at: int) -
         rows_inserted = conn.total_changes - before
 
         upsert_reference(conn, data, pulled_at)
+        ref_note = refresh_reference_tables(conn, token, client_version, pulled_at)
         conn.commit()
 
-        note = f"skipped {skipped} rows missing ids" if skipped else None
+        note = "; ".join(n for n in (
+            f"skipped {skipped} rows missing ids" if skipped else None,
+            ref_note,
+        ) if n) or None
         log_pull(conn, pulled_at, len(data), rows_inserted, http_status, note)
         print(f"  [ok] {http_status} - fetched {len(data)}, inserted {rows_inserted}"
               + (f", skipped {skipped}" if skipped else ""))
