@@ -154,9 +154,9 @@
 /* Size box — copied exactly from .comp-size-h in ship_detail.html. */
 .comp-size-h {
   font-size: 11px;
-  color: #9A8C64;
+  color: var(--gold);
   letter-spacing: 1px;
-  border: 1px solid #9A8C64;
+  border: 1px solid var(--gold);
   padding: 2px;
   border-radius: 1px;
   line-height: 1;
@@ -195,8 +195,8 @@
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 1px;
-  color: #9A8C64;
-  border: 1px solid #9A8C64;
+  color: var(--gold);
+  border: 1px solid var(--gold);
   background: transparent;
   padding: 2px 7px;
   border-radius: 1px;
@@ -213,21 +213,21 @@
   border-color: var(--accent); }
 
 .bp-claim-btn.owned { 
-  color: #4ea35b;
-  border-color: #4ea35b;
+  color: var(--positive);
+  border-color: var(--positive);
   }
 
 .bp-claim-btn.owned:hover { 
-  color: #c44545;
-  border-color: #c44545; }
+  color: var(--status-red);
+  border-color: var(--status-red); }
 
 .bp-claim-btn:disabled { 
   cursor: not-allowed;
   opacity: 0.5; }
 
 .bp-claim-btn:disabled:hover { 
-  color: #9A8C64;
-  border-color: #9A8C64;
+  color: var(--gold);
+  border-color: var(--gold);
   }
 
 .bp-card-tags {  
@@ -371,13 +371,13 @@
 }
 
 .lawful-dot.lawful   { 
-  background: #4ea35b;
-  box-shadow: 0 0 4px rgba(78,163,91,0.5);
+  background: var(--positive);
+  box-shadow: 0 0 4px var(--status-green-glow);
   }
 
 .lawful-dot.unlawful { 
-  background: #c44545;
-  box-shadow: 0 0 4px rgba(196,69,69,0.5);
+  background: var(--status-red);
+  box-shadow: 0 0 4px var(--status-red-glow);
   }
 
 .lawful-dot.unknown  { 
@@ -769,11 +769,11 @@
 }
 
 .predicted-stat-delta.up   { 
-  color: #4ea35b;
+  color: var(--positive);
   }
 
 .predicted-stat-delta.down { 
-  color: #c44545;
+  color: var(--status-red);
   }
 
 /* ── Sidebar filters ───────────────────────────────────────────────── */
@@ -1115,7 +1115,7 @@
 }
 
 .mission-var {
-  color: #E8855C;
+  color: var(--accent);
   font-weight: 600;
 }
 
