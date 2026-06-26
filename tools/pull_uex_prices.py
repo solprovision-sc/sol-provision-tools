@@ -33,16 +33,10 @@ from pathlib import Path
 
 # Reuse the schema as the single source of truth so a fresh/stale db self-heals.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from init_uex_feed_db import DEFAULT_DB_PATH, ensure_schema  # noqa: E402
+from init_uex_feed_db import DEFAULT_DB_PATH, TERMINAL_META_COLS, ensure_schema  # noqa: E402
 
 BASE_URL = "https://api.uexcorp.uk/2.0/"
 PRICES_ENDPOINT = "commodities_prices_all"
-# Dedicated reference endpoints carry the real 4-letter codes the bulk price
-# feed omits (it denormalizes only the name). Refreshed best-effort each pull.
-REFERENCE_ENDPOINTS = (
-    ("commodities", "commodities", "id_commodity"),
-    ("terminals", "terminals", "id_terminal"),
-)
 HTTP_TIMEOUT = 60  # seconds; the bulk payload is large but served from cache
 # UEX sits behind Cloudflare, which 403s the default "Python-urllib" UA with
 # error 1010. Identify ourselves with a real User-Agent so the request is served.
@@ -57,6 +51,7 @@ SNAPSHOT_COLS = (
     "scu_buy", "scu_buy_avg", "scu_sell_stock", "scu_sell_stock_avg",
     "scu_sell", "scu_sell_avg",
     "status_buy", "status_sell", "quality",
+    "container_sizes",
     "date_modified", "pulled_at",
 )
 
@@ -141,6 +136,7 @@ def row_to_snapshot(row: dict, pulled_at: int) -> tuple | None:
         _num(row.get("scu_sell")), _num(row.get("scu_sell_avg")),
         _int(row.get("status_buy")), _int(row.get("status_sell")),
         _int(row.get("quality")),
+        row.get("container_sizes"),
         date_modified, pulled_at,
     )
 
@@ -181,32 +177,65 @@ def upsert_reference(conn: sqlite3.Connection, data: list[dict], pulled_at: int)
     )
 
 
+def _upsert_commodities_ref(conn: sqlite3.Connection, rows: list[dict], pulled_at: int) -> None:
+    """Upsert id/name/code/slug for commodities (the bulk feed omits the code)."""
+    payload = [(_int(r.get("id")), r.get("name"), r.get("code"), r.get("slug"), pulled_at)
+               for r in rows if _int(r.get("id")) is not None]
+    conn.executemany(
+        """INSERT INTO commodities (id_commodity, name, code, slug, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(id_commodity) DO UPDATE SET
+               name=COALESCE(excluded.name, name), code=COALESCE(excluded.code, code),
+               slug=COALESCE(excluded.slug, slug), updated_at=excluded.updated_at""",
+        payload,
+    )
+
+
+def _upsert_terminals_ref(conn: sqlite3.Connection, rows: list[dict], pulled_at: int) -> None:
+    """Upsert terminals with the real code PLUS location/faction metadata
+    (star system, planet, orbit, moon, station/city/outpost, faction, container
+    cap). The meta column names match the API field names 1:1, so the value map
+    is derived straight from TERMINAL_META_COLS."""
+    meta_cols = [c for c, _ in TERMINAL_META_COLS]
+    all_cols = ["id_terminal", "name", "code", "slug", "updated_at"] + meta_cols
+    placeholders = ",".join("?" * len(all_cols))
+    # COALESCE(excluded.x, x): refresh when the payload has a value, never null
+    # out a previously-good one from a sparse row.
+    set_clause = ", ".join(f"{c}=COALESCE(excluded.{c}, {c})"
+                           for c in all_cols if c != "id_terminal")
+
+    payload = []
+    for r in rows:
+        rid = _int(r.get("id"))
+        if rid is None:
+            continue
+        vals = [rid, r.get("name"), r.get("code"), r.get("slug"), pulled_at]
+        for c in meta_cols:
+            v = r.get(c)
+            vals.append(_int(v) if (c.startswith("id_") or c == "max_container_size") else v)
+        payload.append(vals)
+
+    conn.executemany(
+        f"INSERT INTO terminals ({','.join(all_cols)}) VALUES ({placeholders}) "
+        f"ON CONFLICT(id_terminal) DO UPDATE SET {set_clause}",
+        payload,
+    )
+
+
 def refresh_reference_tables(conn: sqlite3.Connection, token: str,
                              client_version: str | None, pulled_at: int) -> str | None:
-    """Best-effort: pull real codes from the dedicated /commodities & /terminals
-    endpoints (the bulk price feed omits commodity_code, so names come from the
-    price upsert but codes only exist here). Upserts id/name/code/slug.
+    """Best-effort: pull the dedicated /commodities & /terminals endpoints. The
+    bulk price feed denormalizes only names, so real codes (and all terminal
+    location/faction metadata) live here.
 
     Never raises — a reference hiccup must not sink the price pull. Returns a
     short note describing any failure (folded into pull_log), else None."""
     note = None
-    for endpoint, table, id_col in REFERENCE_ENDPOINTS:
+    for endpoint, upsert in (("commodities", _upsert_commodities_ref),
+                             ("terminals", _upsert_terminals_ref)):
         try:
             _, rows = _get_json(endpoint, token, client_version)
-            payload = []
-            for r in rows:
-                rid = _int(r.get("id"))
-                if rid is None:
-                    continue
-                payload.append((rid, r.get("name"), r.get("code"), r.get("slug"), pulled_at))
-            conn.executemany(
-                f"""INSERT INTO {table} ({id_col}, name, code, slug, updated_at)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT({id_col}) DO UPDATE SET
-                        name=COALESCE(excluded.name, name), code=COALESCE(excluded.code, code),
-                        slug=COALESCE(excluded.slug, slug), updated_at=excluded.updated_at""",
-                payload,
-            )
+            upsert(conn, rows, pulled_at)
         except (RuntimeError, sqlite3.Error) as e:
             note = (f"{note}; " if note else "") + f"{endpoint} refresh failed: {e}"
     return note

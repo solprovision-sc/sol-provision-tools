@@ -926,6 +926,7 @@ def api_trade_commodities():
         else:
             trend = {"state": "pending", "pct": None}
         out.append({
+            "id": r["id_commodity"],
             "code": r["code"] or (r["name"] or "")[:4].upper(),
             "name": r["name"],
             "price": round(cur_price, 2) if cur_price is not None else None,
@@ -938,6 +939,119 @@ def api_trade_commodities():
         "window_days": window_days,
         "count": len(out),
         "commodities": out,
+    })
+
+
+@app.route("/api/trade/commodity/<int:id_commodity>")
+def api_trade_commodity_detail(id_commodity):
+    """Detail panel for one commodity: the latest observation at every terminal
+    that trades it (joined to the terminal's location/faction metadata), plus a
+    summary block powering the four header cards.
+
+    Per the live feed, a terminal is either a BUY point (price_buy>0, you source
+    it there) or a SELL point (price_sell>0, you offload it there). We take the
+    most recent snapshot per terminal so the panel reflects the current market.
+    """
+    conn = get_uex_db()
+    cm = conn.execute(
+        "SELECT id_commodity, code, name FROM commodities WHERE id_commodity = ?",
+        (id_commodity,),
+    ).fetchone()
+
+    rows = conn.execute("""
+        WITH latest AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY id_terminal
+                                         ORDER BY pulled_at DESC) AS rn
+            FROM price_snapshots
+            WHERE id_commodity = ?
+        )
+        SELECT l.id_terminal, l.price_buy, l.price_sell,
+               l.scu_buy, l.scu_sell, l.scu_sell_stock,
+               l.status_buy, l.status_sell, l.container_sizes,
+               l.date_modified, l.pulled_at,
+               t.name AS terminal_name, t.code AS terminal_code,
+               t.star_system_name, t.planet_name, t.orbit_name, t.moon_name,
+               t.space_station_name, t.city_name, t.outpost_name,
+               t.faction_name, t.max_container_size
+        FROM latest l
+        LEFT JOIN terminals t ON t.id_terminal = l.id_terminal
+        WHERE l.rn = 1
+    """, (id_commodity,)).fetchall()
+    as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    conn.close()
+
+    def loc(r):
+        """Readable 'planetary system' label: planet → moon/orbit, else station/city."""
+        planet = r["planet_name"]
+        sub = r["moon_name"] or r["orbit_name"]
+        if planet and sub and sub != planet:
+            return f"{planet} · {sub}"
+        return planet or r["space_station_name"] or r["city_name"] or r["orbit_name"] or "—"
+
+    terminals = []
+    for r in rows:
+        pb, ps = r["price_buy"], r["price_sell"]
+        # Classify: a terminal you BUY at (sources stock) vs SELL at (takes goods).
+        kind = "buy" if (pb and pb > 0) else ("sell" if (ps and ps > 0) else "none")
+        terminals.append({
+            "id_terminal":   r["id_terminal"],
+            "terminal":      r["terminal_name"] or r["terminal_code"] or f"#{r['id_terminal']}",
+            "system":        r["star_system_name"],
+            "planet_system": loc(r),
+            "faction":       r["faction_name"],
+            "kind":          kind,
+            "price_buy":     pb if (pb and pb > 0) else None,
+            "price_sell":    ps if (ps and ps > 0) else None,
+            "scu_buy":       r["scu_buy"],
+            "scu_sell":      r["scu_sell"],
+            "scu_stock":     r["scu_sell_stock"],
+            "containers":    r["container_sizes"],
+            "max_container": r["max_container_size"],
+            "updated":       r["date_modified"] or r["pulled_at"],
+        })
+
+    # ── Summary cards ──────────────────────────────────────────────────────
+    buys  = [t for t in terminals if t["price_buy"] is not None]
+    sells = [t for t in terminals if t["price_sell"] is not None]
+
+    best_buy = min(buys, key=lambda t: t["price_buy"]) if buys else None
+    best_sell = max(sells, key=lambda t: t["price_sell"]) if sells else None
+
+    # Profit/SCU = best (max) sell − best (min) buy, when both sides exist.
+    profit = None
+    if best_buy and best_sell:
+        profit = {
+            "value":     round(best_sell["price_sell"] - best_buy["price_buy"], 2),
+            "buy_at":    best_buy["terminal"],
+            "buy_price": best_buy["price_buy"],
+            "sell_at":   best_sell["terminal"],
+            "sell_price": best_sell["price_sell"],
+        }
+
+    # Supply vs demand: on-hand stock vs sought, summed across sell terminals.
+    supply = sum(t["scu_stock"] or 0 for t in terminals)
+    demand = sum(t["scu_sell"] or 0 for t in terminals)
+
+    def card_loc(t):
+        return None if t is None else {
+            "terminal": t["terminal"], "system": t["system"],
+            "faction": t["faction"], "price": t["price_sell"] or t["price_buy"],
+        }
+
+    return jsonify({
+        "as_of": as_of,
+        "id_commodity": id_commodity,
+        "code": (cm["code"] if cm else None) or "",
+        "name": (cm["name"] if cm else None) or "",
+        "terminal_count": len(terminals),
+        "summary": {
+            "profit_per_scu": profit,
+            "best_buy":  card_loc(best_buy),
+            "best_sell": card_loc(best_sell),
+            "supply": round(supply, 1),
+            "demand": round(demand, 1),
+        },
+        "terminals": terminals,
     })
 
 
