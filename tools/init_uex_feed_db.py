@@ -98,16 +98,40 @@ CREATE INDEX IF NOT EXISTS idx_snap_terminal  ON price_snapshots (id_terminal, d
 """
 
 
+# Location/faction metadata for terminals, sourced from the dedicated /terminals
+# endpoint (the bulk price feed carries only terminal_name). Powers the Trade
+# detail panel's location column + system/planet/faction filters.
+TERMINAL_META_COLS = [
+    ("id_star_system", "INTEGER"), ("star_system_name", "TEXT"),
+    ("id_planet", "INTEGER"),      ("planet_name", "TEXT"),
+    ("id_orbit", "INTEGER"),       ("orbit_name", "TEXT"),
+    ("id_moon", "INTEGER"),        ("moon_name", "TEXT"),
+    ("space_station_name", "TEXT"),
+    ("city_name", "TEXT"),
+    ("outpost_name", "TEXT"),
+    ("id_faction", "INTEGER"),     ("faction_name", "TEXT"),
+    ("max_container_size", "INTEGER"),
+]
+
+
 def custom_migrations(conn: sqlite3.Connection) -> list[str]:
     """Return human-readable descriptions of any migrations that ran.
 
     Runs AFTER the CREATE-IF-NOT-EXISTS SCHEMA above, so it only handles tables
     that already exist in an older shape (which IF NOT EXISTS can't fix). Add
-    add_column_if_missing() calls here as the schema grows. Example:
-        if add_column_if_missing(conn, 'price_snapshots', 'container_sizes', 'TEXT'):
-            applied.append('price_snapshots.container_sizes added')
+    add_column_if_missing() calls here as the schema grows.
     """
     applied: list[str] = []
+
+    # Terminal location/faction enrichment (Trade detail panel).
+    for col, sqltype in TERMINAL_META_COLS:
+        if add_column_if_missing(conn, "terminals", col, sqltype):
+            applied.append(f"terminals.{col} added")
+
+    # Per-row container sizes from the price feed (e.g. "1,2,4,8,16,24,32").
+    if add_column_if_missing(conn, "price_snapshots", "container_sizes", "TEXT"):
+        applied.append("price_snapshots.container_sizes added")
+
     return applied
 
 

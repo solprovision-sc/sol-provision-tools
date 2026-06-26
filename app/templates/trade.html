@@ -84,7 +84,7 @@
   }
 
   .cmdy-tile {
-    position: relative;
+    position: relative; cursor: pointer;
     display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
     background: var(--panel);
     border: 1px solid var(--border);
@@ -96,6 +96,11 @@
     border-color: var(--border2); border-left-color: var(--accent);
     background: var(--bg3); z-index: 5;
   }
+  .cmdy-tile.active {
+    border-color: var(--accent); border-left-color: var(--accent);
+    background: var(--accent-dim);
+  }
+  .cmdy-tile.active .cmdy-code { color: var(--gold); }
 
   .cmdy-code {
     font-family: var(--font-mono); font-weight: 700;
@@ -134,6 +139,105 @@
     opacity: 0; transform: translateY(3px); transition: opacity 0.12s, transform 0.12s;
   }
   .cmdy-tile:hover::after { opacity: 1; transform: translateY(0); }
+
+  /* ── Commodity detail panel (appears below the board on click) ── */
+  .cmdy-detail { margin-top: 30px; border-top: 1px solid var(--border2); padding-top: 22px; }
+
+  .detail-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+  .detail-code {
+    font-family: var(--font-mono); font-weight: 700; font-size: 20px;
+    letter-spacing: 0.05em; color: var(--gold);
+  }
+  .detail-name { font-family: var(--font-ui); font-size: 14px; color: var(--text2); }
+  .detail-as-of { font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+  .detail-close {
+    margin-left: auto; background: transparent; border: 1px solid var(--border2);
+    color: var(--text3); font-family: var(--font-mono); font-size: 11px;
+    padding: 4px 10px; cursor: pointer; transition: all 0.15s;
+  }
+  .detail-close:hover { border-color: var(--accent); color: var(--gold); }
+
+  /* Four summary cards across the top */
+  .detail-cards {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .dcard {
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 2px solid var(--accent2); padding: 12px 14px; min-width: 0;
+  }
+  .dcard-label {
+    font-family: var(--font-ui); font-size: 8px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--text3);
+  }
+  .dcard-value {
+    font-family: var(--font-mono); font-size: 21px; color: var(--text);
+    margin-top: 7px; line-height: 1.05; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .dcard-value .u { font-size: 9px; color: var(--text3); margin-left: 4px; letter-spacing: 0.05em; }
+  .dcard-value.pos { color: var(--status-green); }
+  .dcard-sub {
+    font-family: var(--font-mono); font-size: 10.5px; color: var(--text3);
+    margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dcard-sub strong { color: var(--text2); font-weight: 400; }
+
+  /* Supply vs demand bar */
+  .sd-bar {
+    position: relative; height: 9px; margin: 11px 0 8px; border-radius: 5px;
+    background: linear-gradient(90deg, var(--status-green) 0%, var(--bg3) 50%, var(--status-red) 100%);
+    opacity: 0.85;
+  }
+  .sd-marker {
+    position: absolute; top: -3px; width: 3px; height: 15px; border-radius: 2px;
+    background: var(--text); box-shadow: 0 0 5px rgba(0,0,0,0.6);
+    transform: translateX(-50%); transition: left 0.3s ease;
+  }
+  .sd-legend {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text3);
+  }
+  .sd-legend b { color: var(--text2); font-weight: 400; }
+
+  /* Filter dropdowns above the table */
+  .detail-filters {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+    margin-bottom: 12px;
+  }
+  .filter-field { display: flex; flex-direction: column; gap: 4px; }
+  .filter-field label {
+    font-family: var(--font-ui); font-size: 8px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--text3);
+  }
+  .filter-field select {
+    font-family: var(--font-mono); font-size: 12px; min-width: 150px;
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border2);
+    padding: 6px 8px; cursor: pointer;
+  }
+  .filter-count {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text3);
+    margin-left: auto; align-self: center;
+  }
+
+  /* Detail table — sortable headers */
+  .detail-table-wrap { overflow-x: auto; }
+  .detail-table th { cursor: pointer; user-select: none; }
+  .detail-table th .arrow { color: var(--accent); margin-left: 3px; font-size: 9px; }
+  .detail-table th:hover { color: var(--text2); }
+  .detail-table td { font-family: var(--font-mono); font-size: 12px; }
+  .detail-table .num { text-align: right; white-space: nowrap; }
+  .detail-table .price-buy  { color: var(--info); }
+  .detail-table .price-sell { color: var(--status-green); }
+  .detail-table .muted { color: var(--text3); }
+  .detail-table tr:hover td { cursor: default; }
+  .kind-tag {
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.1em;
+    text-transform: uppercase; padding: 1px 5px; border: 1px solid var(--border2);
+    color: var(--text3);
+  }
+  .kind-tag.buy  { color: var(--info); border-color: var(--info); }
+  .kind-tag.sell { color: var(--status-green); border-color: var(--status-green); }
 </style>
 {% endblock %}
 
@@ -184,6 +288,8 @@
     <div id="cmdy-board" class="cmdy-board">
       <div class="board-empty">Loading commodities…</div>
     </div>
+
+    <section id="cmdy-detail" class="cmdy-detail" hidden></section>
   </main>
 
 </div>
@@ -195,11 +301,13 @@
   let sortKey = 'name';          // name | price | trend
   let filterText = '';
   let WINDOW_DAYS = 10;          // trend window, set from the API response
+  let activeId = null;           // id_commodity of the open detail panel
 
   const board    = document.getElementById('cmdy-board');
   const subEl     = document.getElementById('trade-sub');
   const noteEl    = document.getElementById('trend-note');
   const searchEl  = document.getElementById('cmdy-search');
+  const detailEl  = document.getElementById('cmdy-detail');
 
   function fmtPrice(n) {
     if (n === null || n === undefined) return '—';
@@ -261,7 +369,8 @@
     }
 
     board.innerHTML = list.map(c => `
-      <div class="cmdy-tile" data-tip="${tipText(c).replace(/"/g, '&quot;')}">
+      <div class="cmdy-tile${c.id === activeId ? ' active' : ''}" data-id="${c.id}"
+           data-tip="${tipText(c).replace(/"/g, '&quot;')}">
         <span class="cmdy-code">${c.code}</span>
         <div class="cmdy-metrics">
           <span class="cmdy-price ${priceState(c)}">${fmtPrice(c.price)}</span>
@@ -296,8 +405,189 @@
     }
   }
 
+  // ── Detail panel ───────────────────────────────────────────────────────
+  let DETAIL = null;                              // fetched payload
+  let dSort = { key: 'price_sell', dir: 'desc' }; // current table sort
+  let dFilter = { system: '', planet_system: '', faction: '' };
+
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, m =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+  const fmtAUEC = n => (n === null || n === undefined) ? '—' : Math.round(n).toLocaleString();
+  const fmtSCU  = n => (!n) ? '—' : Math.round(n).toLocaleString();
+
+  // Columns: key, label, numeric?, and how to render the cell.
+  const DCOLS = [
+    { key: 'terminal',      label: 'Terminal', num: false,
+      cell: r => `${esc(r.terminal)} <span class="kind-tag ${r.kind}">${r.kind}</span>` },
+    { key: 'system',        label: 'System',            num: false, cell: r => esc(r.system || '—') },
+    { key: 'planet_system', label: 'Planetary System',  num: false, cell: r => esc(r.planet_system || '—') },
+    { key: 'faction',       label: 'Faction',           num: false, cell: r => esc(r.faction || '—') },
+    { key: 'price_buy',     label: 'Buy',  num: true, cls: 'num price-buy',
+      cell: r => r.price_buy  != null ? fmtAUEC(r.price_buy)  : '<span class="muted">—</span>' },
+    { key: 'price_sell',    label: 'Sell', num: true, cls: 'num price-sell',
+      cell: r => r.price_sell != null ? fmtAUEC(r.price_sell) : '<span class="muted">—</span>' },
+    { key: 'stock',         label: 'Stock SCU', num: true, cls: 'num', cell: r => fmtSCU(r.stock) },
+    { key: 'scu_sell',      label: 'Demand SCU', num: true, cls: 'num', cell: r => fmtSCU(r.scu_sell) },
+    { key: 'containers',    label: 'Containers', num: false,
+      cell: r => r.containers ? `<span class="muted">${esc(r.containers)}</span>` : '<span class="muted">—</span>' },
+    { key: 'updated',       label: 'Updated', num: true, cls: 'num muted', cell: r => relTime(r.updated) },
+  ];
+
+  async function openDetail(id) {
+    activeId = id;
+    document.querySelectorAll('.cmdy-tile').forEach(t =>
+      t.classList.toggle('active', Number(t.dataset.id) === id));
+    detailEl.hidden = false;
+    detailEl.innerHTML = `<div class="board-empty">Loading details…</div>`;
+    detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      const res = await fetch(`/api/trade/commodity/${id}`);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      DETAIL = await res.json();
+      // Derive a single "stock" figure: buy terminals expose scu_buy, sell
+      // terminals expose on-hand scu_sell_stock.
+      DETAIL.terminals.forEach(r => { r.stock = r.kind === 'buy' ? r.scu_buy : r.scu_stock; });
+      dFilter = { system: '', planet_system: '', faction: '' };
+      renderDetail();
+    } catch (e) {
+      detailEl.innerHTML = `<div class="board-empty">Couldn’t load detail (${e.message}).</div>`;
+    }
+  }
+
+  function closeDetail() {
+    activeId = null; DETAIL = null; detailEl.hidden = true; detailEl.innerHTML = '';
+    document.querySelectorAll('.cmdy-tile.active').forEach(t => t.classList.remove('active'));
+  }
+
+  function distinct(rows, key) {
+    return [...new Set(rows.map(r => r[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  }
+
+  function filteredRows() {
+    return DETAIL.terminals.filter(r =>
+      (!dFilter.system        || r.system        === dFilter.system) &&
+      (!dFilter.planet_system || r.planet_system === dFilter.planet_system) &&
+      (!dFilter.faction       || r.faction       === dFilter.faction));
+  }
+
+  function sortRows(rows) {
+    const col = DCOLS.find(c => c.key === dSort.key) || DCOLS[0];
+    const dir = dSort.dir === 'asc' ? 1 : -1;
+    return rows.slice().sort((a, b) => {
+      let x = a[col.key], y = b[col.key];
+      if (col.num) {                                    // nulls always sink
+        x = (x === null || x === undefined) ? -Infinity : x;
+        y = (y === null || y === undefined) ? -Infinity : y;
+        return (x - y) * dir;
+      }
+      return String(x ?? '').localeCompare(String(y ?? '')) * dir;
+    });
+  }
+
+  function cardsHTML(s) {
+    const p = s.profit_per_scu;
+    const total = (s.supply || 0) + (s.demand || 0);
+    const pos = total ? Math.round(s.demand / total * 100) : 50;   // lean to bigger side
+    const locSub = c => c ? `${esc(c.terminal)}${c.system ? ' · ' + esc(c.system) : ''}` : '';
+    return `
+      <div class="dcard">
+        <div class="dcard-label">Profit / SCU</div>
+        <div class="dcard-value pos">${p ? fmtPrice(p.value) + '<span class="u">aUEC</span>' : '—'}</div>
+        <div class="dcard-sub">${p
+          ? `buy <strong>${fmtAUEC(p.buy_price)}</strong> → sell <strong>${fmtAUEC(p.sell_price)}</strong>`
+          : 'needs both a buy &amp; a sell point'}</div>
+      </div>
+      <div class="dcard">
+        <div class="dcard-label">Supply vs Demand</div>
+        <div class="sd-bar"><div class="sd-marker" style="left:${pos}%"></div></div>
+        <div class="sd-legend">
+          <span>Supply <b>${fmtSCU(s.supply)}</b></span>
+          <span>Demand <b>${fmtSCU(s.demand)}</b></span>
+        </div>
+      </div>
+      <div class="dcard">
+        <div class="dcard-label">Best Sell</div>
+        <div class="dcard-value">${s.best_sell ? fmtPrice(s.best_sell.price) + '<span class="u">aUEC</span>' : '—'}</div>
+        <div class="dcard-sub">${s.best_sell ? locSub(s.best_sell) : 'no sell terminals'}</div>
+      </div>
+      <div class="dcard">
+        <div class="dcard-label">Best Buy</div>
+        <div class="dcard-value">${s.best_buy ? fmtPrice(s.best_buy.price) + '<span class="u">aUEC</span>' : '—'}</div>
+        <div class="dcard-sub">${s.best_buy ? locSub(s.best_buy) : 'no buy terminals'}</div>
+      </div>`;
+  }
+
+  function filterSelect(key, label) {
+    const opts = distinct(DETAIL.terminals, key);
+    const cur = dFilter[key];
+    return `
+      <div class="filter-field">
+        <label>${label}</label>
+        <select data-filter="${key}">
+          <option value="">All</option>
+          ${opts.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`).join('')}
+        </select>
+      </div>`;
+  }
+
+  function renderDetail() {
+    if (!DETAIL) return;
+    const rows = sortRows(filteredRows());
+    const arrow = dSort.dir === 'asc' ? '▲' : '▼';
+
+    detailEl.innerHTML = `
+      <div class="detail-head">
+        <span class="detail-code">${esc(DETAIL.code || '—')}</span>
+        <span class="detail-name">${esc(DETAIL.name || '')}</span>
+        <span class="detail-as-of">${DETAIL.terminal_count} terminals · updated ${relTime(DETAIL.as_of)}</span>
+        <button class="detail-close" id="detail-close">✕ Close</button>
+      </div>
+
+      <div class="detail-cards">${cardsHTML(DETAIL.summary)}</div>
+
+      <div class="detail-filters">
+        ${filterSelect('system', 'System')}
+        ${filterSelect('planet_system', 'Planetary System')}
+        ${filterSelect('faction', 'Faction')}
+        <span class="filter-count">${rows.length} of ${DETAIL.terminals.length} terminals</span>
+      </div>
+
+      <div class="detail-table-wrap">
+        <table class="data-table detail-table">
+          <thead><tr>
+            ${DCOLS.map(c => `<th data-sort="${c.key}" class="${c.num ? 'num' : ''}">${c.label}`
+              + `${dSort.key === c.key ? `<span class="arrow">${arrow}</span>` : ''}</th>`).join('')}
+          </tr></thead>
+          <tbody>
+            ${rows.length ? rows.map(r => `<tr>${DCOLS.map(c =>
+                `<td class="${c.cls || ''}">${c.cell(r)}</td>`).join('')}</tr>`).join('')
+              : `<tr><td colspan="${DCOLS.length}" class="muted" style="text-align:center;padding:24px;">No terminals match these filters.</td></tr>`}
+          </tbody>
+        </table>
+      </div>`;
+
+    detailEl.querySelector('#detail-close').addEventListener('click', closeDetail);
+    detailEl.querySelectorAll('th[data-sort]').forEach(th => th.addEventListener('click', () => {
+      const key = th.dataset.sort;
+      const col = DCOLS.find(c => c.key === key);
+      if (dSort.key === key) dSort.dir = dSort.dir === 'asc' ? 'desc' : 'asc';
+      else dSort = { key, dir: col.num ? 'desc' : 'asc' };   // sensible default per type
+      renderDetail();
+    }));
+    detailEl.querySelectorAll('select[data-filter]').forEach(sel => sel.addEventListener('change', () => {
+      dFilter[sel.dataset.filter] = sel.value;
+      renderDetail();
+    }));
+  }
+
   // Sidebar controls
   searchEl.addEventListener('input', e => { filterText = e.target.value; render(); });
+  board.addEventListener('click', e => {
+    const tile = e.target.closest('.cmdy-tile');
+    if (!tile) return;
+    const id = Number(tile.dataset.id);
+    if (id === activeId) closeDetail(); else openDetail(id);
+  });
   document.querySelectorAll('.sort-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
