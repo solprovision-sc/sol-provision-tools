@@ -41,8 +41,8 @@
 
 /* ── Category Grid ─────────────────────────────────────────────────── */
 .category-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px; padding: 8px 0;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 32px; padding: 8px 0;
 } 
 
 .category-card {
@@ -98,8 +98,8 @@
 /* ── Blueprint card grid ─────────────────────────────────────────── */
 #blueprint-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 48px;
 }
 
 /* ── NEW BLUEPRINT CARD BEHAVIOR ─────────────────────────────────── */
@@ -240,15 +240,6 @@
   padding: 10px 16px 14px;
   flex: 1;
   }
-
-.bp-card-ingredients-label {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 7px;
-}
 
 .bp-card-ingredient-list {
   display: flex; flex-direction: column; align-items: stretch;
@@ -2165,7 +2156,6 @@ function renderBlueprintCards() {
         </div>
         ${tagHtml ? `<div class="bp-card-tags">${tagHtml}</div>` : ""}
         <div class="bp-card-ingredients">
-          <div class="bp-card-ingredients-label">Ingredients</div>
           <div class="bp-card-ingredient-list" id="ing-${bp.uuid}">
             <span style="font-family:var(--font-mono);font-size:0.72rem;color:var(--text3);">Loading…</span>
           </div>
