@@ -72,11 +72,11 @@
     padding: 8px 12px;
   }
 
-  /* ── Commodity board ── */
+  /* ── Commodity board — dense single-line tiles ── */
   .cmdy-board {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
+    gap: 5px;
   }
   .board-empty {
     grid-column: 1 / -1; text-align: center; color: var(--text3);
@@ -84,43 +84,56 @@
   }
 
   .cmdy-tile {
-    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    position: relative;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
     background: var(--panel);
     border: 1px solid var(--border);
     border-left: 2px solid var(--border2);
-    padding: 10px 12px;
+    padding: 6px 9px;
     transition: border-color 0.15s, background 0.15s;
   }
-  .cmdy-tile:hover { border-color: var(--border2); border-left-color: var(--accent); background: var(--bg3); }
+  .cmdy-tile:hover {
+    border-color: var(--border2); border-left-color: var(--accent);
+    background: var(--bg3); z-index: 5;
+  }
 
-  .cmdy-id { min-width: 0; }
   .cmdy-code {
     font-family: var(--font-mono); font-weight: 700;
-    font-size: 16px; letter-spacing: 0.06em; color: var(--text);
-    display: block; line-height: 1.1;
-  }
-  .cmdy-name {
-    font-family: var(--font-ui); font-size: 10.5px; color: var(--text3);
-    display: block; margin-top: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
+    font-size: 12px; letter-spacing: 0.05em; color: var(--text);
+    line-height: 1.1; flex-shrink: 0;
   }
 
-  .cmdy-metrics { text-align: right; flex-shrink: 0; }
+  /* Right cluster: price · aUEC · trend, all on one baseline */
+  .cmdy-metrics {
+    display: flex; align-items: baseline; gap: 5px;
+    min-width: 0; justify-content: flex-end;
+  }
+  /* Price color carries the trend: green up, red down, neutral = code color. */
   .cmdy-price {
-    font-family: var(--font-mono); font-size: 14px; color: var(--text);
-    display: block; line-height: 1.1;
+    font-family: var(--font-mono); font-size: 12px; color: var(--text);
+    line-height: 1.1; white-space: nowrap;
   }
-  .cmdy-price .unit { font-size: 8px; color: var(--text3); margin-left: 3px; letter-spacing: 0.05em; }
+  .cmdy-price.up   { color: var(--status-green); }
+  .cmdy-price.down { color: var(--status-red); }
   .cmdy-price.null { color: var(--text3); }
-
-  .cmdy-trend {
-    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em;
-    display: block; margin-top: 3px;
+  .cmdy-unit {
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.05em;
+    color: var(--text3); flex-shrink: 0;
   }
-  .cmdy-trend.up      { color: #7bbf6a; }
-  .cmdy-trend.down    { color: #d76b5a; }
-  .cmdy-trend.flat    { color: var(--text2); }
-  .cmdy-trend.pending { color: var(--text3); opacity: 0.7; }
+
+  /* Full-name tooltip on hover — instant, styled, sits above the tile */
+  .cmdy-tile::after {
+    content: attr(data-tip);
+    position: absolute; left: 8px; bottom: calc(100% + 4px);
+    z-index: 20; pointer-events: none;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border2);
+    font-family: var(--font-ui); font-size: 11px; letter-spacing: 0.02em;
+    white-space: nowrap; padding: 4px 8px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+    opacity: 0; transform: translateY(3px); transition: opacity 0.12s, transform 0.12s;
+  }
+  .cmdy-tile:hover::after { opacity: 1; transform: translateY(0); }
 </style>
 {% endblock %}
 
@@ -181,6 +194,7 @@
   let CMDY = [];                 // full dataset from the API
   let sortKey = 'name';          // name | price | trend
   let filterText = '';
+  let WINDOW_DAYS = 10;          // trend window, set from the API response
 
   const board    = document.getElementById('cmdy-board');
   const subEl     = document.getElementById('trade-sub');
@@ -189,17 +203,27 @@
 
   function fmtPrice(n) {
     if (n === null || n === undefined) return '—';
-    if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
-    if (n >= 1e4) return Math.round(n).toLocaleString();
-    return n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const strip = s => s.replace(/\.0$/, '');           // 145.0K → 145K, keep 9.6K
+    if (n >= 1e6) return strip((n / 1e6).toFixed(1)) + 'M';
+    if (n >= 1e3) return strip((n / 1e3).toFixed(1)) + 'K';
+    return Math.round(n).toLocaleString();
   }
 
-  function trendHTML(t) {
-    if (!t || t.state === 'pending')
-      return `<span class="cmdy-trend pending" title="Trend builds as the feed accrues 10 days of history">— building</span>`;
-    const glyph = t.state === 'up' ? '▲' : t.state === 'down' ? '▼' : '▬';
-    const sign  = t.pct > 0 ? '+' : '';
-    return `<span class="cmdy-trend ${t.state}">${glyph} ${sign}${t.pct}%</span>`;
+  // Price color carries the trend: 'up'/'down' tint, neutral (--info) otherwise.
+  function priceState(c) {
+    if (c.price === null || c.price === undefined) return 'null';
+    const t = c.trend;
+    if (t && (t.state === 'up' || t.state === 'down')) return t.state;
+    return '';
+  }
+
+  // Tooltip text: full name, plus trend detail once it's no longer building.
+  function tipText(c) {
+    const name = c.name || c.code || '';
+    const t = c.trend;
+    if (!t || t.state === 'pending') return `${name} · trend building`;
+    const sign = t.pct > 0 ? '+' : '';
+    return `${name} · ${sign}${t.pct}% / ${WINDOW_DAYS}d`;
   }
 
   function relTime(unixSec) {
@@ -237,14 +261,11 @@
     }
 
     board.innerHTML = list.map(c => `
-      <div class="cmdy-tile">
-        <div class="cmdy-id">
-          <span class="cmdy-code">${c.code}</span>
-          <span class="cmdy-name" title="${c.name || ''}">${c.name || ''}</span>
-        </div>
+      <div class="cmdy-tile" data-tip="${tipText(c).replace(/"/g, '&quot;')}">
+        <span class="cmdy-code">${c.code}</span>
         <div class="cmdy-metrics">
-          <span class="cmdy-price ${c.price === null ? 'null' : ''}">${fmtPrice(c.price)}${c.price !== null ? '<span class="unit">aUEC</span>' : ''}</span>
-          ${trendHTML(c.trend)}
+          <span class="cmdy-price ${priceState(c)}">${fmtPrice(c.price)}</span>
+          ${c.price !== null ? '<span class="cmdy-unit">aUEC</span>' : ''}
         </div>
       </div>
     `).join('');
@@ -256,6 +277,7 @@
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
       CMDY = data.commodities || [];
+      WINDOW_DAYS = data.window_days || WINDOW_DAYS;
 
       subEl.innerHTML = `<span class="live-dot"></span>Live · updated ${relTime(data.as_of)} · `
                       + `${data.count} commodities · trend vs ${data.window_days} days`;
