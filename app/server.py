@@ -405,6 +405,50 @@ def _migrate_claims_rsi_id():
         print(f"  Claim rsi_id migration skipped: {e}")
 
 
+# ── Warehouse inventory DB (org ore reserves, fed from a Google Sheet) ────────
+# Standalone file, same rationale as the ownership DBs: this is org operational
+# state (not catalog data), so it lives outside dataforge.db and survives the
+# wholesale patch swaps. A cron script (tools/pull_warehouse_inventory.py)
+# mirrors a shared Google Sheet into warehouse_inventory on a schedule; the
+# /api/officers/warehouse endpoint only reads it. The pull is the sole writer.
+
+WAREHOUSE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS warehouse_inventory (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        material   TEXT NOT NULL,
+        qty        REAL,
+        quality    TEXT,            -- refinery quality band, e.g. '750-799'
+        location   TEXT,
+        row_index  INTEGER,         -- source sheet order, for stable display
+        pulled_at  INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS warehouse_meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT
+    );
+"""
+
+
+def _resolve_warehouse_db_path():
+    """WAREHOUSE_DB env var wins; otherwise next to DB_PATH (lazy so --db
+    overrides in __main__ still resolve correctly)."""
+    explicit = os.environ.get('WAREHOUSE_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'warehouse_inventory.db')
+
+
+def get_warehouse_db():
+    """Connect to the warehouse inventory DB. Auto-creates the schema so a fresh
+    deploy (or a sheet that hasn't been pulled yet) serves an empty table rather
+    than 500-ing."""
+    conn = sqlite3.connect(_resolve_warehouse_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.executescript(WAREHOUSE_SCHEMA)
+    conn.commit()
+    return conn
+
+
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
@@ -443,6 +487,32 @@ def get_cargo_db():
     if not _cargo_schema_ready:
         _ensure_cargo_schema(conn)
         _cargo_schema_ready = True
+    return conn
+
+
+# ── UEX live commodity-price feed DB (read side) ──────────────────────────────
+# Populated by the 15-min cron writer (tools/pull_uex_prices.py). The web app is
+# a reader; we self-heal the schema once so a missing table never 500s the page.
+_uex_schema_ready = False
+
+def _resolve_uex_db_path():
+    """uex_feed.db sits at the repo root (matches tools/init_uex_feed_db.py's
+    DEFAULT_DB_PATH) unless overridden by UEX_FEED_DB."""
+    return os.environ.get('UEX_FEED_DB') or \
+        str(Path(__file__).resolve().parent.parent / 'uex_feed.db')
+
+def get_uex_db():
+    global _uex_schema_ready
+    conn = sqlite3.connect(_resolve_uex_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")  # ride out the 15-min writer's lock
+    if not _uex_schema_ready:
+        import importlib.util
+        init_path = Path(__file__).resolve().parent.parent / "tools" / "init_uex_feed_db.py"
+        spec = importlib.util.spec_from_file_location("init_uex_feed_db", init_path)
+        mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+        mod.ensure_schema(conn)
+        _uex_schema_ready = True
     return conn
 
 def _utc_now():
@@ -812,6 +882,221 @@ def refinery_page(): return render_template("refinery_session.html", active_page
 def starmap_page(system=None, body=None):
     # JS reads the path off window.location and applies system + body focus.
     return render_template("starmap.html", active_page="/starmap")
+
+
+@app.route("/trade")
+@app.route("/trade/<view>")
+@require_page_login
+def trade_page(view=None):
+    # Live UEX commodity feed. Multiple views are toggled client-side via the
+    # left sidebar; the optional <view> segment just deep-links the initial one.
+    return render_template("trade.html", active_page="/trade")
+
+
+@app.route("/api/trade/commodities")
+def api_trade_commodities():
+    """Commodity board: every commodity in the feed, with its current network
+    sell price (avg of the latest non-zero sell across terminals) and a 10-day
+    price trend.
+
+    "Current" and "baseline" are both derived from our own snapshot history so
+    they stay consistent. The time axis is `pulled_at` (when WE observed a price),
+    NOT `date_modified` (UEX's source-edit time, which legitimately spans days
+    across terminals): trend means "how the price moved over the 10 days we've
+    been watching." Baseline = the earliest observation per terminal inside the
+    window. Until the feed has accrued >1 day of our own history the trend is
+    reported as 'pending' rather than a misleading flat arrow.
+    """
+    window_days = 10
+    flat_eps = 0.5  # |%| below this reads as flat, not up/down
+    cutoff = int(time.time()) - window_days * 86400
+
+    conn = get_uex_db()
+    rows = conn.execute("""
+        WITH snap AS (
+            SELECT id_commodity, id_terminal, price_sell, pulled_at
+            FROM price_snapshots
+            WHERE price_sell IS NOT NULL AND price_sell > 0
+        ),
+        latest AS (
+            SELECT id_commodity, price_sell,
+                   ROW_NUMBER() OVER (PARTITION BY id_commodity, id_terminal
+                                      ORDER BY pulled_at DESC) rn
+            FROM snap
+        ),
+        cur AS (
+            SELECT id_commodity, AVG(price_sell) AS cur_price, COUNT(*) AS terminals
+            FROM latest WHERE rn = 1 GROUP BY id_commodity
+        ),
+        windowed AS (
+            SELECT id_commodity, price_sell,
+                   ROW_NUMBER() OVER (PARTITION BY id_commodity, id_terminal
+                                      ORDER BY pulled_at ASC) rn
+            FROM snap WHERE pulled_at >= ?
+        ),
+        base AS (
+            SELECT id_commodity, AVG(price_sell) AS base_price
+            FROM windowed WHERE rn = 1 GROUP BY id_commodity
+        ),
+        span AS (
+            SELECT id_commodity, MIN(pulled_at) AS first_pa,
+                                 MAX(pulled_at) AS last_pa
+            FROM snap GROUP BY id_commodity
+        )
+        SELECT cm.id_commodity, cm.code, cm.name,
+               cur.cur_price, cur.terminals,
+               base.base_price, span.first_pa, span.last_pa
+        FROM commodities cm
+        JOIN (SELECT DISTINCT id_commodity FROM price_snapshots) feed
+             ON feed.id_commodity = cm.id_commodity
+        LEFT JOIN cur  ON cur.id_commodity  = cm.id_commodity
+        LEFT JOIN base ON base.id_commodity = cm.id_commodity
+        LEFT JOIN span ON span.id_commodity = cm.id_commodity
+        ORDER BY cm.name COLLATE NOCASE
+    """, (cutoff,)).fetchall()
+    as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    conn.close()
+
+    out = []
+    for r in rows:
+        cur_price, base_price = r["cur_price"], r["base_price"]
+        first_pa, last_pa = r["first_pa"], r["last_pa"]
+        # Only call a direction once we've actually watched it for >1 day.
+        has_span = first_pa is not None and last_pa is not None and (last_pa - first_pa) >= 86400
+        if has_span and cur_price and base_price:
+            pct = (cur_price - base_price) / base_price * 100.0
+            state = "flat" if abs(pct) < flat_eps else ("up" if pct > 0 else "down")
+            trend = {"state": state, "pct": round(pct, 1)}
+        else:
+            trend = {"state": "pending", "pct": None}
+        out.append({
+            "id": r["id_commodity"],
+            "code": r["code"] or (r["name"] or "")[:4].upper(),
+            "name": r["name"],
+            "price": round(cur_price, 2) if cur_price is not None else None,
+            "terminals": r["terminals"] or 0,
+            "trend": trend,
+        })
+
+    return jsonify({
+        "as_of": as_of,
+        "window_days": window_days,
+        "count": len(out),
+        "commodities": out,
+    })
+
+
+@app.route("/api/trade/commodity/<int:id_commodity>")
+def api_trade_commodity_detail(id_commodity):
+    """Detail panel for one commodity: the latest observation at every terminal
+    that trades it (joined to the terminal's location/faction metadata), plus a
+    summary block powering the four header cards.
+
+    Per the live feed, a terminal is either a BUY point (price_buy>0, you source
+    it there) or a SELL point (price_sell>0, you offload it there). We take the
+    most recent snapshot per terminal so the panel reflects the current market.
+    """
+    conn = get_uex_db()
+    cm = conn.execute(
+        "SELECT id_commodity, code, name FROM commodities WHERE id_commodity = ?",
+        (id_commodity,),
+    ).fetchone()
+
+    rows = conn.execute("""
+        WITH latest AS (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY id_terminal
+                                         ORDER BY pulled_at DESC) AS rn
+            FROM price_snapshots
+            WHERE id_commodity = ?
+        )
+        SELECT l.id_terminal, l.price_buy, l.price_sell,
+               l.scu_buy, l.scu_sell, l.scu_sell_stock,
+               l.status_buy, l.status_sell, l.container_sizes,
+               l.date_modified, l.pulled_at,
+               t.name AS terminal_name, t.code AS terminal_code,
+               t.star_system_name, t.planet_name, t.orbit_name, t.moon_name,
+               t.space_station_name, t.city_name, t.outpost_name,
+               t.faction_name, t.max_container_size
+        FROM latest l
+        LEFT JOIN terminals t ON t.id_terminal = l.id_terminal
+        WHERE l.rn = 1
+    """, (id_commodity,)).fetchall()
+    as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    conn.close()
+
+    def loc(r):
+        """Readable 'planetary system' label: planet → moon/orbit, else station/city."""
+        planet = r["planet_name"]
+        sub = r["moon_name"] or r["orbit_name"]
+        if planet and sub and sub != planet:
+            return f"{planet} · {sub}"
+        return planet or r["space_station_name"] or r["city_name"] or r["orbit_name"] or "—"
+
+    terminals = []
+    for r in rows:
+        pb, ps = r["price_buy"], r["price_sell"]
+        # Classify: a terminal you BUY at (sources stock) vs SELL at (takes goods).
+        kind = "buy" if (pb and pb > 0) else ("sell" if (ps and ps > 0) else "none")
+        terminals.append({
+            "id_terminal":   r["id_terminal"],
+            "terminal":      r["terminal_name"] or r["terminal_code"] or f"#{r['id_terminal']}",
+            "system":        r["star_system_name"],
+            "planet_system": loc(r),
+            "faction":       r["faction_name"],
+            "kind":          kind,
+            "price_buy":     pb if (pb and pb > 0) else None,
+            "price_sell":    ps if (ps and ps > 0) else None,
+            "scu_buy":       r["scu_buy"],
+            "scu_sell":      r["scu_sell"],
+            "scu_stock":     r["scu_sell_stock"],
+            "containers":    r["container_sizes"],
+            "max_container": r["max_container_size"],
+            "updated":       r["date_modified"] or r["pulled_at"],
+        })
+
+    # ── Summary cards ──────────────────────────────────────────────────────
+    buys  = [t for t in terminals if t["price_buy"] is not None]
+    sells = [t for t in terminals if t["price_sell"] is not None]
+
+    best_buy = min(buys, key=lambda t: t["price_buy"]) if buys else None
+    best_sell = max(sells, key=lambda t: t["price_sell"]) if sells else None
+
+    # Profit/SCU = best (max) sell − best (min) buy, when both sides exist.
+    profit = None
+    if best_buy and best_sell:
+        profit = {
+            "value":     round(best_sell["price_sell"] - best_buy["price_buy"], 2),
+            "buy_at":    best_buy["terminal"],
+            "buy_price": best_buy["price_buy"],
+            "sell_at":   best_sell["terminal"],
+            "sell_price": best_sell["price_sell"],
+        }
+
+    # Supply vs demand: on-hand stock vs sought, summed across sell terminals.
+    supply = sum(t["scu_stock"] or 0 for t in terminals)
+    demand = sum(t["scu_sell"] or 0 for t in terminals)
+
+    def card_loc(t):
+        return None if t is None else {
+            "terminal": t["terminal"], "system": t["system"],
+            "faction": t["faction"], "price": t["price_sell"] or t["price_buy"],
+        }
+
+    return jsonify({
+        "as_of": as_of,
+        "id_commodity": id_commodity,
+        "code": (cm["code"] if cm else None) or "",
+        "name": (cm["name"] if cm else None) or "",
+        "terminal_count": len(terminals),
+        "summary": {
+            "profit_per_scu": profit,
+            "best_buy":  card_loc(best_buy),
+            "best_sell": card_loc(best_sell),
+            "supply": round(supply, 1),
+            "demand": round(demand, 1),
+        },
+        "terminals": terminals,
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -4468,6 +4753,39 @@ def api_officers_shopping_list():
     resources.sort(key=lambda r: r["total_qty"], reverse=True)
     plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
     return jsonify({"resources": resources, "items": plain_items})
+
+
+# ── API: Warehouse ore inventory ──────────────────────────────────────────────
+# GET /api/officers/warehouse
+# Org ore reserves, mirrored from the warehouse Google Sheet by the cron pull
+# script. Read-only — returns the current snapshot plus freshness metadata so
+# the dashboard can flag stale data.
+
+@app.route('/api/officers/warehouse')
+@require_officer
+def api_officers_warehouse():
+    conn = get_warehouse_db()
+    rows = conn.execute(
+        "SELECT material, qty, quality, location "
+        "FROM warehouse_inventory ORDER BY row_index, material"
+    ).fetchall()
+    meta = {r['key']: r['value'] for r in conn.execute(
+        "SELECT key, value FROM warehouse_meta")}
+    conn.close()
+
+    pulled_at = None
+    if meta.get('pulled_at'):
+        try:
+            pulled_at = int(meta['pulled_at'])
+        except (TypeError, ValueError):
+            pulled_at = None
+
+    return jsonify({
+        "items":     [dict(r) for r in rows],
+        "pulled_at": pulled_at,
+        "status":    meta.get('status'),
+        "source":    meta.get('source'),
+    })
 
 
 
