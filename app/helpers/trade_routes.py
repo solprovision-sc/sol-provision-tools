@@ -263,8 +263,12 @@ _SYSTEM_ALIAS = {"STANTON": "STANTON", "PYRO": "PYRO", "NYX": "NYX"}
 
 
 def _norm(s) -> str:
-    """Lowercase and strip punctuation/whitespace: 'Grim HEX' -> 'grimhex'."""
-    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+    """Lowercase, drop parenthetical disambiguators, then strip
+    punctuation/whitespace: 'Grim HEX' -> 'grimhex', and UEX's
+    'Terra Gateway (Stanton)' -> 'terragateway' so it matches the nav point's
+    plain 'Terra Gateway' (the system code already disambiguates the gateways)."""
+    s = re.sub(r"\([^)]*\)", "", (s or "").lower())
+    return re.sub(r"[^a-z0-9]", "", s)
 
 
 def build_navpoint_index(by_uuid: Mapping, resolve) -> dict:

@@ -856,7 +856,7 @@
       if (qt && !qt.unknown) qtStr = `<div class="tr-leg-qt">QT ${fmtDur(qt.time_s)}`
         + `${qt.jumps ? ` · ${qt.jumps} jump${qt.jumps > 1 ? 's' : ''}` : ''}`
         + `${qt.fuel_scu ? ` · ${fmtSCU(qt.fuel_scu)} SCU` : ''}</div>`;
-      else if (qt && qt.unknown) qtStr = `<div class="tr-leg-qt unknown">QT —</div>`;
+      else if (qt && qt.unknown) qtStr = `<div class="tr-leg-qt unknown" title="${esc(qt.reason || 'no quantum route')}">QT —</div>`;
       const flags = (l.flags || []).map(f =>
         `<span class="tr-bound">${f.replace('_unknown', ' ?')}</span>`).join(' ');
       return `<div class="tr-leg">
