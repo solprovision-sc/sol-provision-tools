@@ -467,7 +467,13 @@ def get_uex_db():
         init_path = Path(__file__).resolve().parent.parent / "tools" / "init_uex_feed_db.py"
         spec = importlib.util.spec_from_file_location("init_uex_feed_db", init_path)
         mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-        mod.ensure_schema(conn)
+        try:
+            mod.ensure_schema(conn)
+        except sqlite3.OperationalError as e:
+            # The web app is only a reader. On the shared feed DB the cron user
+            # (the DB owner) applies migrations; if it's read-only to us, skip
+            # rather than 500 — the schema is the writer's responsibility.
+            app.logger.warning("uex_feed schema ensure skipped (read-only db): %s", e)
         _uex_schema_ready = True
     return conn
 
