@@ -299,15 +299,90 @@
   font-family: var(--font-mono); font-size: 0.78rem;
   color: var(--text3); padding: 24px 4px; text-align: center;
 }
+
+/* ── Dashboard sections ────────────────────────────────────────────── */
+.dash-section { margin-bottom: 30px; }
+.dash-section-head {
+  display: flex; align-items: baseline; gap: 14px;
+  margin: 0 0 14px; padding-bottom: 8px;
+  border-bottom: 2px solid var(--border);
+}
+.dash-section-title {
+  font-family: var(--font-ui); font-size: 1.05rem; font-weight: 700;
+  color: var(--text); letter-spacing: 0.1em; text-transform: uppercase;
+}
+.dash-section-sub {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+}
+
+/* ── Ore inventory tile ────────────────────────────────────────────── */
+.tile-ore { min-height: auto; }
+.ore-summary {
+  display: flex; gap: 20px; flex-wrap: wrap;
+  font-family: var(--font-mono); font-size: 0.76rem; color: var(--text3);
+  margin-bottom: 12px;
+}
+.ore-summary b { color: var(--text); font-weight: 700; }
+.ore-table-wrap { max-height: 460px; overflow-y: auto; }
+.ore-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--font-mono); font-size: 0.8rem;
+}
+.ore-table th {
+  position: sticky; top: 0; z-index: 1;
+  text-align: left; padding: 7px 10px;
+  font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.66rem;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+}
+.ore-table td {
+  padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text2);
+}
+.ore-table tr:hover td { background: var(--bg3); }
+.ore-mat  { color: var(--text); font-weight: 600; }
+.ore-qty  { text-align: right; color: var(--accent); font-weight: 700; }
+.ore-qual { color: var(--text2); }
+.ore-loc  { color: var(--text3); }
+
+.ore-badge {
+  display: inline-block; padding: 1px 7px; border-radius: 3px;
+  font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em;
+  text-transform: uppercase; margin-right: 6px;
+}
+.ore-badge-ok   { background: rgba(78,163,91,0.18);   color: #4ea35b; border: 1px solid #4ea35b; }
+.ore-badge-seed { background: rgba(201,169,110,0.18); color: #c9a96e; border: 1px solid #c9a96e; }
+.ore-badge-err  { background: rgba(196,69,69,0.18);   color: #c44545; border: 1px solid #c44545; }
+
+/* ── Coming-soon placeholder ───────────────────────────────────────── */
+.tile-comingsoon {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 160px;
+}
+.coming-soon { text-align: center; }
+.coming-soon-badge {
+  display: inline-block; padding: 4px 14px; border-radius: 4px;
+  border: 1px dashed var(--border2); color: var(--text2);
+  font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.12em;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.coming-soon-text {
+  font-family: var(--font-mono); font-size: 0.76rem; color: var(--text3);
+}
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="officers-page">
   <h1 class="officers-page-title">Officer Dashboard</h1>
-  <div class="officers-page-sub">Org-wide blueprint ownership intelligence — prod data</div>
+  <div class="officers-page-sub">Org-wide acquisition &amp; ownership intelligence — prod data</div>
 
-  <div class="tile-grid">
+  <!-- ── Section: Blueprint Ownership ── -->
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <span class="dash-section-title">Blueprint Ownership</span>
+      <span class="dash-section-sub">Category coverage · member claims · craft planning</span>
+    </div>
+    <div class="tile-grid">
     <section class="tile tile-heatmap">
       <div class="tile-header">
         <div class="tile-title">Category Coverage</div>
@@ -348,7 +423,39 @@
         <div class="shopping-results" id="shopping-results"></div>
       </div>
     </section>
-  </div>
+    </div><!-- /.tile-grid -->
+  </section>
+
+  <!-- ── Section: Ore Inventory ── -->
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <span class="dash-section-title">Ore Inventory</span>
+      <span class="dash-section-sub">Warehouse reserves manifest · synced from the org sheet</span>
+    </div>
+    <section class="tile tile-ore">
+      <div class="tile-header">
+        <div class="tile-title">Warehouse Reserves</div>
+        <div class="tile-subtitle" id="warehouse-meta">—</div>
+      </div>
+      <div class="tile-body" id="warehouse-body">
+        <div class="tile-loading">Loading inventory…</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ── Section: Ship Ownership ── -->
+  <section class="dash-section">
+    <div class="dash-section-head">
+      <span class="dash-section-title">Ship Ownership</span>
+      <span class="dash-section-sub">Org fleet registry</span>
+    </div>
+    <section class="tile tile-comingsoon">
+      <div class="coming-soon">
+        <div class="coming-soon-badge">Coming Soon</div>
+        <div class="coming-soon-text">Org-wide ship ownership tracking will live here.</div>
+      </div>
+    </section>
+  </section>
 </div>
 {% endblock %}
 
@@ -819,11 +926,85 @@ function renderShoppingResults(data) {
   results.innerHTML = html;
 }
 
+// ── Ore inventory (warehouse) ───────────────────────────────────────────
+function fmtQty(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "—";
+  return Number.isInteger(v) ? String(v) : v.toFixed(1);
+}
+
+function relTimeAgo(epochSec) {
+  const diff = Math.max(0, Date.now() / 1000 - epochSec);
+  if (diff < 90)    return "just now";
+  if (diff < 3600)  return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+function warehouseBadge(data) {
+  if (data.source === "seed" || !data.pulled_at)
+    return `<span class="ore-badge ore-badge-seed">Sample</span>`;
+  if (data.status === "error")
+    return `<span class="ore-badge ore-badge-err">Stale</span>`;
+  return `<span class="ore-badge ore-badge-ok">Synced</span>`;
+}
+
+async function loadWarehouse() {
+  const body = document.getElementById("warehouse-body");
+  const metaEl = document.getElementById("warehouse-meta");
+  let data;
+  try {
+    data = await api("/api/officers/warehouse");
+  } catch (e) {
+    body.innerHTML = `<div class="tile-error">Failed to load inventory.</div>`;
+    return;
+  }
+  const items = data.items || [];
+  metaEl.innerHTML = warehouseBadge(data) + (data.pulled_at
+    ? `<span>updated ${relTimeAgo(data.pulled_at)}</span>`
+    : `<span>not yet synced</span>`);
+
+  if (items.length === 0) {
+    body.innerHTML = `<div class="tile-empty">No inventory yet — waiting on the first sheet sync.</div>`;
+    return;
+  }
+
+  const totalScu  = items.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+  const materials = new Set(items.map(r => r.material)).size;
+
+  const rowsHtml = items.map(r => `
+    <tr>
+      <td class="ore-mat">${escapeHtml(r.material)}</td>
+      <td class="ore-qty">${fmtQty(r.qty)}</td>
+      <td class="ore-qual">${escapeHtml(r.quality || "—")}</td>
+      <td class="ore-loc">${escapeHtml(r.location || "—")}</td>
+    </tr>`).join("");
+
+  body.innerHTML = `
+    <div class="ore-summary">
+      <span><b>${materials}</b> materials</span>
+      <span><b>${items.length}</b> lots</span>
+      <span><b>${fmtQty(totalScu)}</b> SCU total</span>
+    </div>
+    <div class="ore-table-wrap">
+      <table class="ore-table">
+        <thead><tr>
+          <th>Material</th>
+          <th style="text-align:right;">Qty</th>
+          <th>Quality</th>
+          <th>Location</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+}
+
 // ── Init ───────────────────────────────────────────────────────────────
 (async function init() {
-  // Three tiles load in parallel; each is independent of the others.
+  // Tiles load in parallel; each is independent of the others.
   loadCoverage();
   loadMembers();
+  loadWarehouse();
   await loadBlueprintsForShopping();
   renderShoppingSelections();
   shoppingSearchHandler();
