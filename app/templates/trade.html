@@ -238,6 +238,68 @@
   }
   .kind-tag.buy  { color: var(--info); border-color: var(--info); }
   .kind-tag.sell { color: var(--status-green); border-color: var(--status-green); }
+
+  /* ── Trade Routes ── */
+  .tr-form { display: flex; flex-direction: column; gap: 11px; }
+  .tr-field { display: flex; flex-direction: column; gap: 4px; }
+  .tr-field > span {
+    font-family: var(--font-ui); font-size: 9px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--text3);
+  }
+  .tr-field > span em { text-transform: none; letter-spacing: 0; font-style: normal; opacity: 0.75; }
+  .tr-field select, .tr-field input {
+    font-family: var(--font-mono); font-size: 12px; width: 100%;
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border2);
+    padding: 7px 8px;
+  }
+  .tr-field select:focus, .tr-field input:focus { outline: none; border-color: var(--accent); }
+  #tr-build { width: 100%; margin-top: 4px; }
+  #tr-build[disabled] { opacity: 0.5; cursor: not-allowed; }
+  .tr-note {
+    font-family: var(--font-mono); font-size: 10.5px; line-height: 1.5;
+    color: var(--text3); background: var(--bg2);
+    border: 1px solid var(--border); border-left: 2px solid var(--accent2);
+    padding: 7px 9px;
+  }
+
+  /* Route result: a chain of legs */
+  .tr-chain { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
+  .tr-leg {
+    display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border);
+    border-left: 2px solid var(--accent2); padding: 11px 14px;
+  }
+  .tr-leg-num {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--gold);
+    text-align: center;
+  }
+  .tr-leg-main { min-width: 0; }
+  .tr-leg-route {
+    font-family: var(--font-ui); font-size: 13px; color: var(--text);
+    display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  }
+  .tr-leg-route .arrow { color: var(--accent); }
+  .tr-leg-cargo {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-top: 4px;
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  }
+  .tr-leg-cargo b { color: var(--text2); font-weight: 400; }
+  .tr-leg-cargo .cmdy { color: var(--gold); }
+  .tr-bound {
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 1px 5px; border: 1px solid var(--border2); color: var(--text3);
+  }
+  .tr-bound.capital { color: var(--gold); border-color: var(--gold); }
+  .tr-bound.demand, .tr-bound.stock { color: var(--info); border-color: var(--info); }
+  .tr-leg-metrics { text-align: right; flex-shrink: 0; font-family: var(--font-mono); }
+  .tr-leg-profit { font-size: 15px; color: var(--status-green); white-space: nowrap; }
+  .tr-leg-profit .u { font-size: 8px; color: var(--text3); margin-left: 3px; }
+  .tr-leg-qt { font-size: 10.5px; color: var(--text3); margin-top: 4px; white-space: nowrap; }
+  .tr-leg-qt.unknown { opacity: 0.6; }
+  .tr-empty {
+    font-family: var(--font-mono); font-size: 13px; color: var(--text3);
+    padding: 36px 0; text-align: center;
+  }
 </style>
 {% endblock %}
 
@@ -249,18 +311,19 @@
       <span class="section-label">Views</span>
       <nav class="view-nav">
         <button class="view-link active" data-view="commodities">Commodities</button>
+        <button class="view-link" data-view="routes">Trade Routes</button>
         <button class="view-link" disabled>Terminals <span class="soon">soon</span></button>
         <button class="view-link" disabled>Best Trades <span class="soon">soon</span></button>
         <button class="view-link" disabled>Price History <span class="soon">soon</span></button>
       </nav>
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-view-only="commodities">
       <span class="section-label">Search</span>
       <input type="text" id="cmdy-search" placeholder="Filter by code or name…" autocomplete="off">
     </div>
 
-    <div class="sidebar-section">
+    <div class="sidebar-section" data-view-only="commodities">
       <span class="section-label">Sort</span>
       <div class="sort-row">
         <button class="sort-btn active" data-sort="name">A–Z</button>
@@ -268,28 +331,82 @@
         <button class="sort-btn" data-sort="trend">Trend</button>
       </div>
     </div>
+
+    <!-- Trade Routes setup -->
+    <div class="sidebar-section" data-view-only="routes" hidden>
+      <span class="section-label">Route Setup</span>
+      <div class="tr-form">
+        <label class="tr-field">
+          <span>Ship</span>
+          <select id="tr-ship"><option value="">Loading…</option></select>
+        </label>
+        <label class="tr-field" id="tr-qd-field" hidden>
+          <span>Quantum Drive <em>(for travel time)</em></span>
+          <select id="tr-qd"><option value="">— stock —</option></select>
+        </label>
+        <label class="tr-field">
+          <span>Investment (aUEC)</span>
+          <input type="number" id="tr-capital" min="1" step="1000" value="100000" autocomplete="off">
+        </label>
+        <label class="tr-field">
+          <span>Start location</span>
+          <select id="tr-start"><option value="">Loading…</option></select>
+        </label>
+        <label class="tr-field">
+          <span>Stops</span>
+          <input type="number" id="tr-stops" min="1" max="12" step="1" value="5" autocomplete="off">
+        </label>
+        <label class="tr-field">
+          <span>End location <em>(optional)</em></span>
+          <select id="tr-end"><option value="">Any</option></select>
+        </label>
+        <button class="btn" id="tr-build">Build Route</button>
+        <div class="tr-note" id="tr-note" hidden></div>
+      </div>
+    </div>
   </aside>
 
   <main>
-    <div class="trade-head">
-      <div>
-        <div class="trade-eyebrow">Live Economy · UEX Feed</div>
-        <h1 class="trade-title">Commodities</h1>
-        <div class="trade-sub" id="trade-sub">Loading…</div>
+    <!-- Commodities view -->
+    <section id="view-commodities" data-view-section>
+      <div class="trade-head">
+        <div>
+          <div class="trade-eyebrow">Live Economy · UEX Feed</div>
+          <h1 class="trade-title">Commodities</h1>
+          <div class="trade-sub" id="trade-sub">Loading…</div>
+        </div>
+        <a class="powered-by" href="https://uexcorp.space" target="_blank" rel="noopener"
+           title="Live commodity data powered by UEX Corp">
+          <img src="/static/img/poweredBy.svg" alt="Powered by UEX">
+        </a>
       </div>
-      <a class="powered-by" href="https://uexcorp.space" target="_blank" rel="noopener"
-         title="Live commodity data powered by UEX Corp">
-        <img src="/static/img/poweredBy.svg" alt="Powered by UEX">
-      </a>
-    </div>
 
-    <div class="trend-note" id="trend-note" style="display:none;"></div>
+      <div class="trend-note" id="trend-note" style="display:none;"></div>
 
-    <div id="cmdy-board" class="cmdy-board">
-      <div class="board-empty">Loading commodities…</div>
-    </div>
+      <div id="cmdy-board" class="cmdy-board">
+        <div class="board-empty">Loading commodities…</div>
+      </div>
 
-    <section id="cmdy-detail" class="cmdy-detail" hidden></section>
+      <section id="cmdy-detail" class="cmdy-detail" hidden></section>
+    </section>
+
+    <!-- Trade Routes view -->
+    <section id="view-routes" data-view-section hidden>
+      <div class="trade-head">
+        <div>
+          <div class="trade-eyebrow">Live Economy · Route Optimizer</div>
+          <h1 class="trade-title">Trade Routes</h1>
+          <div class="trade-sub" id="tr-sub">Pick a ship, investment & starting location, then build a route.</div>
+        </div>
+        <a class="powered-by" href="https://uexcorp.space" target="_blank" rel="noopener"
+           title="Live commodity data powered by UEX Corp">
+          <img src="/static/img/poweredBy.svg" alt="Powered by UEX">
+        </a>
+      </div>
+
+      <div id="tr-summary" class="detail-cards" hidden></div>
+      <div id="tr-results"></div>
+    </section>
   </main>
 
 </div>
@@ -596,6 +713,190 @@
       render();
     });
   });
+
+  // ── Trade Routes view ───────────────────────────────────────────────────
+  const TR = { ships: [], locations: [], inited: false };
+  const trShip = document.getElementById('tr-ship');
+  const trQd = document.getElementById('tr-qd');
+  const trQdField = document.getElementById('tr-qd-field');
+  const trCapital = document.getElementById('tr-capital');
+  const trStart = document.getElementById('tr-start');
+  const trStops = document.getElementById('tr-stops');
+  const trEnd = document.getElementById('tr-end');
+  const trBuild = document.getElementById('tr-build');
+  const trNote = document.getElementById('tr-note');
+  const trSub = document.getElementById('tr-sub');
+  const trSummary = document.getElementById('tr-summary');
+  const trResults = document.getElementById('tr-results');
+
+  function fmtDur(s) {
+    if (s === null || s === undefined) return '—';
+    s = Math.round(s);
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h) return `${h}h ${m}m`;
+    if (m) return `${m}m ${sec}s`;
+    return `${sec}s`;
+  }
+
+  async function initRoutesView() {
+    if (TR.inited) return;
+    TR.inited = true;
+    try {
+      const [ships, locs] = await Promise.all([
+        fetch('/api/cargo/ships').then(r => r.json()),
+        fetch('/api/trade/locations').then(r => r.json()),
+      ]);
+      TR.ships = ships || [];
+      TR.locations = locs.locations || [];
+      populateShips();
+      populateLocationSelects(locs);
+    } catch (e) {
+      trResults.innerHTML = `<div class="tr-empty">Couldn’t load route data (${esc(e.message)}).</div>`;
+    }
+  }
+
+  function populateShips() {
+    const opts = TR.ships.filter(s => s.cargo_scu > 0);
+    trShip.innerHTML = `<option value="">— select ship —</option>` + opts.map(s =>
+      `<option value="${s.uuid}" data-entity="${esc(s.entity_name)}" data-scu="${s.cargo_scu}">`
+      + `${esc(s.name)} · ${s.cargo_scu} SCU</option>`).join('');
+  }
+
+  async function onShipChange() {
+    const opt = trShip.selectedOptions[0];
+    const entity = opt ? opt.dataset.entity : null;
+    if (!entity) { trQdField.hidden = true; return; }
+    try {
+      const data = await fetch(`/api/cargo/qdrives?ship=${encodeURIComponent(entity)}`).then(r => r.json());
+      const drives = data.drives || [];
+      trQd.innerHTML = drives.map(d =>
+        `<option value="${d.uuid}">${esc(d.display_name || d.entity_name)}</option>`).join('');
+      if (data.default_uuid) trQd.value = data.default_uuid;
+      trQdField.hidden = drives.length === 0;
+    } catch (e) { trQdField.hidden = true; }
+  }
+
+  function populateLocationSelects(payload) {
+    const bySys = {};
+    TR.locations.forEach(l => { (bySys[l.system || 'Unknown'] ??= []).push(l); });
+    const groups = Object.keys(bySys).sort().map(sys =>
+      `<optgroup label="${esc(sys)}">` + bySys[sys].map(l =>
+        `<option value="${esc(l.key)}">${esc(l.label)}${l.buy_commodities ? '' : ' (sell only)'}</option>`
+      ).join('') + `</optgroup>`).join('');
+    trStart.innerHTML = `<option value="">— select —</option>` + groups;
+    trEnd.innerHTML = `<option value="">Any</option>` + groups;
+    if (!payload.location_meta_available) {
+      trNote.hidden = false;
+      trNote.textContent = 'Heads up: terminal location data hasn’t synced from UEX yet, so '
+        + 'stops can’t be grouped by place. Routes are limited until the feed populates.';
+    }
+  }
+
+  const STOP_REASON = {
+    completed: 'Route complete.',
+    no_profitable_move: 'Stopped early — no profitable trade available from the last stop.',
+    no_route_to_end: 'Stopped early — no profitable trade reaches the chosen end location.',
+    unknown_location: 'Stopped — a location dropped out of the feed.',
+  };
+
+  async function buildRoute() {
+    const start = trStart.value;
+    const opt = trShip.selectedOptions[0];
+    const cargo = opt ? Number(opt.dataset.scu) : 0;
+    if (!cargo) { trNote.hidden = false; trNote.textContent = 'Select a ship (for cargo capacity) first.'; return; }
+    if (!start) { trNote.hidden = false; trNote.textContent = 'Pick a starting location first.'; return; }
+    trNote.hidden = true;
+    trBuild.disabled = true; trBuild.textContent = 'Building…';
+    trResults.innerHTML = `<div class="tr-empty">Optimizing…</div>`;
+    trSummary.hidden = true;
+    const body = {
+      capital: Number(trCapital.value), start_key: start, stops: Number(trStops.value),
+      end_key: trEnd.value || null, cargo_scu: cargo, ship_uuid: trShip.value || null,
+      qd_uuid: trQdField.hidden ? null : (trQd.value || null),
+    };
+    try {
+      const data = await fetch('/api/trade/route', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }).then(async r => { if (!r.ok) throw new Error((await r.json()).error || ('HTTP ' + r.status)); return r.json(); });
+      renderRoute(data);
+    } catch (e) {
+      trResults.innerHTML = `<div class="tr-empty">${esc(e.message)}</div>`;
+    } finally {
+      trBuild.disabled = false; trBuild.textContent = 'Build Route';
+    }
+  }
+
+  function card(label, value, sub, vcls) {
+    return `<div class="dcard"><div class="dcard-label">${label}</div>`
+      + `<div class="dcard-value ${vcls || ''}">${value}</div>`
+      + `<div class="dcard-sub">${sub || ''}</div></div>`;
+  }
+
+  function renderRoute(d) {
+    if (!d.legs.length) {
+      trSummary.hidden = true;
+      trResults.innerHTML = `<div class="tr-empty">No profitable route from there with that investment.<br>`
+        + `${esc(STOP_REASON[d.stopped_reason] || '')}</div>`;
+      trSub.textContent = 'No route found.';
+      return;
+    }
+    const qtTotal = d.qt_total_time_s != null
+      ? fmtDur(d.qt_total_time_s) + (d.qt_unknown_legs ? ` (${d.qt_unknown_legs} unmapped)` : '')
+      : '—';
+    trSummary.hidden = false;
+    trSummary.innerHTML =
+      card('Total Profit', `${fmtAUEC(d.total_profit)}<span class="u">aUEC</span>`, `from ${fmtAUEC(d.starting_capital)} start`, 'pos')
+      + card('Final Capital', `${fmtAUEC(d.final_capital)}<span class="u">aUEC</span>`, `${d.stops_planned} of ${d.stops_requested} legs`)
+      + card('Cargo', `${fmtSCU(d.cargo_scu)}<span class="u">SCU</span>`, 'per-leg capacity')
+      + card('Est. Travel', qtTotal, d.qt_total_fuel_scu != null ? `${fmtSCU(d.qt_total_fuel_scu)} SCU QT fuel` : 'select a ship for timing');
+
+    const legHTML = d.legs.map((l, i) => {
+      const qt = l.qt;
+      let qtStr = '';
+      if (qt && !qt.unknown) qtStr = `<div class="tr-leg-qt">QT ${fmtDur(qt.time_s)}`
+        + `${qt.jumps ? ` · ${qt.jumps} jump${qt.jumps > 1 ? 's' : ''}` : ''}`
+        + `${qt.fuel_scu ? ` · ${fmtSCU(qt.fuel_scu)} SCU` : ''}</div>`;
+      else if (qt && qt.unknown) qtStr = `<div class="tr-leg-qt unknown">QT —</div>`;
+      const flags = (l.flags || []).map(f =>
+        `<span class="tr-bound">${f.replace('_unknown', ' ?')}</span>`).join(' ');
+      return `<div class="tr-leg">
+        <div class="tr-leg-num">${i + 1}</div>
+        <div class="tr-leg-main">
+          <div class="tr-leg-route">${esc(l.from_label)} <span class="arrow">→</span> ${esc(l.to_label)}</div>
+          <div class="tr-leg-cargo">
+            <span><span class="cmdy">${esc(l.code || l.name || '')}</span> · <b>${fmtSCU(l.units)}</b> SCU</span>
+            <span>buy <b>${fmtAUEC(l.buy_price)}</b> → sell <b>${fmtAUEC(l.sell_price)}</b></span>
+            <span class="tr-bound ${l.bound_by}">${l.bound_by}-limited</span>
+            ${flags}
+          </div>
+        </div>
+        <div class="tr-leg-metrics">
+          <div class="tr-leg-profit">+${fmtAUEC(l.profit)}<span class="u">aUEC</span></div>
+          ${qtStr}
+        </div>
+      </div>`;
+    }).join('');
+    trResults.innerHTML = `<div class="tr-chain">${legHTML}</div>`
+      + (d.stopped_reason !== 'completed'
+        ? `<div class="tr-empty" style="padding:14px 0">${esc(STOP_REASON[d.stopped_reason] || '')}</div>` : '');
+    trSub.textContent = `Updated ${relTime(d.as_of)} · ${d.stops_planned} legs · ${fmtAUEC(d.total_profit)} aUEC profit`;
+  }
+
+  // ── View switching ──────────────────────────────────────────────────────
+  function showView(name) {
+    document.querySelectorAll('[data-view-section]').forEach(s => s.hidden = (s.id !== 'view-' + name));
+    document.querySelectorAll('.view-link[data-view]').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === name));
+    document.querySelectorAll('[data-view-only]').forEach(el =>
+      el.hidden = (el.dataset.viewOnly !== name));
+    if (name === 'routes') initRoutesView();
+  }
+  document.querySelectorAll('.view-link[data-view]').forEach(b => b.addEventListener('click', () => {
+    if (b.disabled) return;
+    showView(b.dataset.view);
+  }));
+  trShip.addEventListener('change', onShipChange);
+  trBuild.addEventListener('click', buildRoute);
 
   load();
 {% endblock %}

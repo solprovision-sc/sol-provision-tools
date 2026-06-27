@@ -1055,6 +1055,201 @@ def api_trade_commodity_detail(id_commodity):
     })
 
 
+# ── Trade Routes (greedy profit optimizer) ────────────────────────────────────
+# The route math lives in helpers/trade_routes.py (pure, unit-tested). These
+# endpoints marshal the live feed into a per-location market and, when a quantum
+# drive is supplied, enrich each leg with QT time via the existing nav engine.
+
+_TRADE_MARKET_SQL = """
+    WITH latest AS (
+        SELECT ps.*, ROW_NUMBER() OVER (PARTITION BY ps.id_commodity, ps.id_terminal
+                                        ORDER BY ps.pulled_at DESC) AS rn
+        FROM price_snapshots ps
+        WHERE (ps.price_buy > 0) OR (ps.price_sell > 0)
+    )
+    SELECT l.id_commodity, l.id_terminal, l.price_buy, l.price_sell,
+           l.scu_buy, l.scu_sell,
+           c.code AS commodity_code, c.name AS commodity_name,
+           t.name AS terminal_name,
+           t.id_star_system, t.star_system_name, t.id_planet, t.planet_name,
+           t.id_orbit, t.orbit_name, t.id_moon, t.moon_name,
+           t.space_station_name, t.city_name, t.outpost_name, t.faction_name
+    FROM latest l
+    JOIN commodities c ON c.id_commodity = l.id_commodity
+    LEFT JOIN terminals t ON t.id_terminal = l.id_terminal
+    WHERE l.rn = 1
+"""
+
+
+def _build_trade_market():
+    """Build the per-location market from the latest snapshot per (commodity,
+    terminal). Returns (market, as_of)."""
+    from helpers.trade_routes import build_market
+    conn = get_uex_db()
+    try:
+        rows = conn.execute(_TRADE_MARKET_SQL).fetchall()
+        as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    finally:
+        conn.close()
+    return build_market(rows), as_of
+
+
+def _enrich_legs_with_qt(legs, market, ship_uuid, qd_uuid):
+    """Best-effort: stamp each leg with QT time/fuel by matching its from/to
+    locations to dataforge nav_points and reusing plan_leg(). Mutates legs in
+    place; unmatched or cross-system-unreachable legs get qt={'unknown': True}.
+    Returns (total_time_s, total_fuel_scu, unknown_count)."""
+    from helpers.quantum_travel import plan_leg
+    from helpers.trade_routes import build_navpoint_index, match_location_to_navpoint
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return None, None, len(legs)
+        qd = dict(qd_row)
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute("SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+
+        nav = _get_nav_graph(conn, p)
+        by_uuid, resolve = _build_navpt_hierarchy(conn, p)
+        index = build_navpoint_index(by_uuid, resolve)
+
+        # Resolve each market location to a nav uuid once.
+        uuid_of = {}
+        for key, loc in market.items():
+            uuid_of[key] = match_location_to_navpoint(loc, index)
+
+        total_t, total_f, unknown = 0.0, 0.0, 0
+        for leg in legs:
+            o, d = uuid_of.get(leg["from_key"]), uuid_of.get(leg["to_key"])
+            if not o or not d:
+                leg["qt"] = {"unknown": True, "reason": "location not on nav map"}
+                unknown += 1
+                continue
+            try:
+                sub = plan_leg(o, d, ship, qd, nav)
+                t = sum(s.get("time_s", 0) or 0 for s in sub)
+                f = sum(s.get("fuel_scu", 0) or 0 for s in sub)
+                dist = sum(s.get("distance_m", 0) or 0 for s in sub)
+                jumps = sum(1 for s in sub if s.get("kind") == "jump")
+                leg["qt"] = {"unknown": False, "time_s": round(t, 1),
+                             "fuel_scu": round(f, 2), "distance_m": dist, "jumps": jumps}
+                total_t += t
+                total_f += f
+            except Exception as e:  # CrossSystemError, missing geometry, etc.
+                leg["qt"] = {"unknown": True, "reason": str(e)}
+                unknown += 1
+        return round(total_t, 1), round(total_f, 2), unknown
+    finally:
+        conn.close()
+
+
+@app.route("/api/trade/locations")
+def api_trade_locations():
+    """Selectable start/end locations for the route planner: every grouped
+    location that has at least one buy or sell, ordered by system then label.
+
+    location_meta_available tells the UI whether terminal location metadata has
+    synced from UEX yet — when false, locations collapse to one-per-terminal and
+    grouped routing isn't meaningful."""
+    market, as_of = _build_trade_market()
+    locations = []
+    meta_available = False
+    for loc in market.values():
+        if loc["system"]:
+            meta_available = True
+        locations.append({
+            "key": loc["key"],
+            "label": loc["label"],
+            "system": loc["system"],
+            "buy_commodities": len(loc["buys"]),
+            "sell_commodities": len(loc["sells"]),
+        })
+    locations.sort(key=lambda x: (x["system"] or "zzz", x["label"] or ""))
+    return jsonify({
+        "as_of": as_of,
+        "count": len(locations),
+        "location_meta_available": meta_available,
+        "locations": locations,
+    })
+
+
+@app.route("/api/trade/route", methods=["POST"])
+def api_trade_route():
+    """Greedy max-profit route. Body: {capital, start_key, stops, end_key?,
+    cargo_scu? | ship_uuid?, qd_uuid?}. Reinvests each leg's proceeds into the
+    next; only the final leg is forced to end_key. With a qd_uuid, each leg also
+    gets a best-effort QT time/fuel estimate."""
+    from helpers.trade_routes import plan_trade_route, RouteParams
+
+    body = request.get_json(silent=True) or {}
+    try:
+        capital = float(body.get("capital"))
+        stops = int(body.get("stops"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "capital and stops are required numbers"}), 400
+    start_key = body.get("start_key")
+    end_key = body.get("end_key") or None
+    if not start_key:
+        return jsonify({"error": "start_key is required"}), 400
+    if stops < 1 or stops > 12:
+        return jsonify({"error": "stops must be between 1 and 12"}), 400
+    if capital <= 0:
+        return jsonify({"error": "capital must be positive"}), 400
+
+    # Cargo capacity: explicit override, else look up the ship in dataforge.
+    cargo_scu = body.get("cargo_scu")
+    ship_uuid = body.get("ship_uuid")
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    if cargo_scu is None and ship_uuid:
+        dconn = get_db()
+        try:
+            p = PATCH or latest_patch(dconn)
+            srow = dconn.execute(
+                "SELECT COALESCE(NULLIF(rsi_cargo_scu,0), cargo_scu) AS scu "
+                "FROM ships WHERE patch_version=? AND uuid=?", (p, ship_uuid)).fetchone()
+            if srow:
+                cargo_scu = srow["scu"]
+        finally:
+            dconn.close()
+    try:
+        cargo_scu = float(cargo_scu)
+    except (TypeError, ValueError):
+        return jsonify({"error": "cargo_scu (or a ship with cargo) is required"}), 400
+    if cargo_scu <= 0:
+        return jsonify({"error": "ship has no cargo capacity"}), 400
+
+    market, as_of = _build_trade_market()
+    if start_key not in market:
+        return jsonify({"error": "unknown start location"}), 400
+
+    result = plan_trade_route(market, RouteParams(
+        cargo_scu=cargo_scu, capital=capital, start_key=start_key,
+        stops=stops, end_key=end_key))
+
+    qt_time = qt_fuel = qt_unknown = None
+    if qd_uuid and result["legs"]:
+        qt_time, qt_fuel, qt_unknown = _enrich_legs_with_qt(
+            result["legs"], market, ship_uuid, qd_uuid)
+
+    result.update({
+        "as_of": as_of,
+        "cargo_scu": cargo_scu,
+        "qt_total_time_s": qt_time,
+        "qt_total_fuel_scu": qt_fuel,
+        "qt_unknown_legs": qt_unknown,
+    })
+    return jsonify(result)
+
+
 # ══════════════════════════════════════════════════════════════════════
 # AUTH API ROUTES
 # ══════════════════════════════════════════════════════════════════════
