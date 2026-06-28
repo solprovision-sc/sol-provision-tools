@@ -1233,7 +1233,7 @@ def api_trade_route():
 
     result = plan_trade_route(market, RouteParams(
         cargo_scu=cargo_scu, capital=capital, start_key=start_key,
-        stops=stops, end_key=end_key))
+        stops=stops, end_key=end_key, same_system=bool(body.get("same_system"))))
 
     qt_time = qt_fuel = qt_unknown = None
     if qd_uuid and result["legs"]:

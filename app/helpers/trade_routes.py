@@ -146,6 +146,7 @@ class RouteParams:
     start_key: str
     stops: int
     end_key: str | None = None      # only the FINAL leg is forced to end here
+    same_system: bool = False       # restrict every hop to the start's system
 
 
 def _units_and_bound(capital: float, buy: Mapping, sell: Mapping,
@@ -205,6 +206,10 @@ def plan_trade_route(market: dict, params: RouteParams) -> dict:
     warnings: list = []
     reason = "completed"
 
+    # When same_system is set, every hop must stay in the start's system.
+    start_loc = market.get(params.start_key)
+    start_system = start_loc["system"] if start_loc else None
+
     for i in range(params.stops):
         last = (i == params.stops - 1)
         loc = market.get(cur)
@@ -225,6 +230,8 @@ def plan_trade_route(market: dict, params: RouteParams) -> dict:
         for cid, buy in loc["buys"].items():
             for d in dests:
                 if d is None or d["key"] == cur:
+                    continue
+                if params.same_system and start_system and d.get("system") != start_system:
                     continue
                 sell = d["sells"].get(cid)
                 if not sell or sell["price"] <= buy["price"]:
