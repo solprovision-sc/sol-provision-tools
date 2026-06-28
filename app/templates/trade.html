@@ -306,6 +306,10 @@
     font-family: var(--font-mono); font-size: 13px; color: var(--text3);
     padding: 36px 0; text-align: center;
   }
+  .tr-qt-note {
+    font-family: var(--font-mono); font-size: 10px; line-height: 1.5; color: var(--text3);
+    margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);
+  }
 </style>
 {% endblock %}
 
@@ -740,13 +744,13 @@
   const trSummary = document.getElementById('tr-summary');
   const trResults = document.getElementById('tr-results');
 
+  // Matches the cargo planner's fmtDur exactly (always shows seconds) so
+  // travel-time strings read identically across the two tools.
   function fmtDur(s) {
     if (s === null || s === undefined) return '—';
     s = Math.round(s);
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-    if (h) return `${h}h ${m}m`;
-    if (m) return `${m}m ${sec}s`;
-    return `${sec}s`;
+    return (h ? `${h}h ` : '') + (h || m ? `${m}m ` : '') + `${sec}s`;
   }
 
   async function initRoutesView() {
@@ -914,7 +918,12 @@
     }).join('');
     trResults.innerHTML = `<div class="tr-chain">${legHTML}</div>`
       + (d.stopped_reason !== 'completed'
-        ? `<div class="tr-empty" style="padding:14px 0">${esc(STOP_REASON[d.stopped_reason] || '')}</div>` : '');
+        ? `<div class="tr-empty" style="padding:14px 0">${esc(STOP_REASON[d.stopped_reason] || '')}</div>` : '')
+      + (d.qt_total_time_s != null
+        ? `<div class="tr-qt-note">Travel times use the same quantum-travel engine as the Cargo Planner: `
+          + `quantum-flight time is white-paper-accurate, while atmospheric climb/descent and jump-tunnel `
+          + `times are placeholder constants. Fuel covers QT only.</div>`
+        : '');
     trSub.textContent = `Updated ${relTime(d.as_of)} · ${d.stops_planned} legs · ${fmtAUEC(d.total_profit)} aUEC profit`;
   }
 
