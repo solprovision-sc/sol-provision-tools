@@ -253,6 +253,11 @@
     padding: 7px 8px;
   }
   .tr-field select:focus, .tr-field input:focus { outline: none; border-color: var(--accent); }
+  .tr-check {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    font-family: var(--font-ui); font-size: 12px; color: var(--text2);
+  }
+  .tr-check input { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
   #tr-build { width: 100%; margin-top: 4px; }
   #tr-build[disabled] { opacity: 0.5; cursor: not-allowed; }
   .tr-note {
@@ -261,6 +266,7 @@
     border: 1px solid var(--border); border-left: 2px solid var(--accent2);
     padding: 7px 9px;
   }
+  .tr-note.warn { color: var(--gold); border-left-color: var(--status-red); }
 
   /* Route result: a chain of legs */
   .tr-chain { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
@@ -359,6 +365,10 @@
         <label class="tr-field">
           <span>End location <em>(optional)</em></span>
           <select id="tr-end"><option value="">Any</option></select>
+        </label>
+        <label class="tr-check">
+          <input type="checkbox" id="tr-same-system">
+          <span>Keep route within start system</span>
         </label>
         <button class="btn" id="tr-build">Build Route</button>
         <div class="tr-note" id="tr-note" hidden></div>
@@ -723,6 +733,7 @@
   const trStart = document.getElementById('tr-start');
   const trStops = document.getElementById('tr-stops');
   const trEnd = document.getElementById('tr-end');
+  const trSameSystem = document.getElementById('tr-same-system');
   const trBuild = document.getElementById('tr-build');
   const trNote = document.getElementById('tr-note');
   const trSub = document.getElementById('tr-sub');
@@ -799,12 +810,36 @@
     unknown_location: 'Stopped — a location dropped out of the feed.',
   };
 
+  const locSystem = key => { const l = TR.locations.find(x => x.key === key); return l ? l.system : null; };
+
+  // Returns a warning string if "keep within start system" is checked but the
+  // chosen end location is in a different system; else null.
+  function systemConflict() {
+    if (!trSameSystem.checked) return null;
+    const ss = locSystem(trStart.value), es = locSystem(trEnd.value);
+    if (trStart.value && trEnd.value && ss && es && ss !== es)
+      return `End location is in ${es}, but “Keep route within start system” is checked. `
+        + `Uncheck the box, or pick an End location in the ${ss} system.`;
+    return null;
+  }
+
+  // Live check on start/end/checkbox changes — only manages its own warning.
+  function validateSystem() {
+    const msg = systemConflict();
+    if (msg) { trNote.hidden = false; trNote.classList.add('warn'); trNote.textContent = msg; return false; }
+    if (trNote.classList.contains('warn')) { trNote.classList.remove('warn'); trNote.hidden = true; }
+    return true;
+  }
+
   async function buildRoute() {
     const start = trStart.value;
     const opt = trShip.selectedOptions[0];
     const cargo = opt ? Number(opt.dataset.scu) : 0;
+    trNote.classList.remove('warn');
     if (!cargo) { trNote.hidden = false; trNote.textContent = 'Select a ship (for cargo capacity) first.'; return; }
     if (!start) { trNote.hidden = false; trNote.textContent = 'Pick a starting location first.'; return; }
+    const conflict = systemConflict();
+    if (conflict) { trNote.hidden = false; trNote.classList.add('warn'); trNote.textContent = conflict; return; }
     trNote.hidden = true;
     trBuild.disabled = true; trBuild.textContent = 'Building…';
     trResults.innerHTML = `<div class="tr-empty">Optimizing…</div>`;
@@ -813,6 +848,7 @@
       capital: Number(trCapital.value), start_key: start, stops: Number(trStops.value),
       end_key: trEnd.value || null, cargo_scu: cargo, ship_uuid: trShip.value || null,
       qd_uuid: trQdField.hidden ? null : (trQd.value || null),
+      same_system: trSameSystem.checked,
     };
     try {
       const data = await fetch('/api/trade/route', {
@@ -897,6 +933,9 @@
   }));
   trShip.addEventListener('change', onShipChange);
   trBuild.addEventListener('click', buildRoute);
+  trSameSystem.addEventListener('change', validateSystem);
+  trEnd.addEventListener('change', validateSystem);
+  trStart.addEventListener('change', validateSystem);
 
   load();
 {% endblock %}
