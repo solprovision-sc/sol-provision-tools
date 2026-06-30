@@ -1887,7 +1887,10 @@ def api_ships():
             "role":         r["role"],
             "size_class":   r["size_class"],
             "crew_size":    r["crew_size"],
-            "cargo_scu":    (r["rsi_cargo_scu"] or r["cargo_scu"]),
+            # RSI published spec is authoritative — including a published 0
+            # (combat/mining/special hulls RSI rates at 0 cargo). Only fall
+            # back to the in-game value when RSI has no row at all (NULL).
+            "cargo_scu":    (r["rsi_cargo_scu"] if r["rsi_cargo_scu"] is not None else r["cargo_scu"]),
             "cargo_game_scu": r["cargo_scu"],
             "cargo_rsi_scu":  r["rsi_cargo_scu"],
             "length_m":     r["length_m"],
@@ -2702,9 +2705,11 @@ def api_ship_detail(entity_name):
         "career":                 clean_career(ship["career"] or ""),
         "role": ship["role_display"] or clean_role(ship["role"] or ""),
         "crew_size":              ship["crew_size"],
-        # Display cargo = RSI published capacity when present (authoritative),
-        # else the in-game grid sum. Both raw values exposed for transparency.
-        "cargo_scu":              (ship["rsi_cargo_scu"] or ship["cargo_scu"]),
+        # Display cargo = RSI published capacity when RSI lists the hull
+        # (authoritative, including a published 0 for combat/mining/special
+        # ships). Fall back to the in-game value only when RSI has no row
+        # (NULL). Both raw values exposed for transparency.
+        "cargo_scu":              (ship["rsi_cargo_scu"] if ship["rsi_cargo_scu"] is not None else ship["cargo_scu"]),
         "cargo_game_scu":         ship["cargo_scu"],
         "cargo_rsi_scu":          ship["rsi_cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
