@@ -642,7 +642,9 @@
       const mfr    = shipMfr(s);
       const career = shipCareer(s);
       const role   = shipRole(s);
-      const cargo  = s.cargo_scu > 0 ? `${s.cargo_scu} SCU` : '—';
+      // A known capacity (incl. RSI's authoritative 0) shows "N SCU"; only a
+      // missing value (null/undefined) shows the data-gap dash.
+      const cargo  = (s.cargo_scu != null) ? `${s.cargo_scu} SCU` : '—';
       const crew   = s.crew_size ? `${s.crew_size}` : '—';
       const len    = s.length_m ? `${s.length_m}m` : '—';
       const size   = shipSize(s);

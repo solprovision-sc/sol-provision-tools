@@ -1039,6 +1039,22 @@
   transform: translateY(0);
 }
 
+/* QD card: clickable "change drive" affordance is limited to the top zone
+   (header + stats). The embedded QT calculator below is not clickable, so
+   using its input/slider no longer pops the drive table. */
+.comp-swap-zone {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comp-swap-zone:hover {
+  box-shadow: inset 0 0 12px rgba(0, 212, 255, 0.18);
+}
+
+.comp-swap-zone:hover .comp-hdr-h {
+  border-bottom-color: var(--accent);
+}
+
 .comp-hdr-h {
   display: flex;
   align-items: center;
@@ -4647,21 +4663,23 @@ body::before {
 		document.getElementById('sil-fallback').style.display = 'flex';
 	}
 
-    if (ship.cargo_scu > 0) {
+    if (ship.cargo_scu != null) {
+      // A known capacity — including RSI's authoritative 0 — renders as "N SCU".
+      // RSI rates combat/mining/special hulls at 0 cargo; that is the truth we
+      // show, not a data gap.
       setStatBlock('ov-cargo', 'ov-cargo-u', ship.cargo_scu, 0, 'SCU');
       // Transparency: when the displayed (RSI published) capacity differs from
-      // the in-game grid sum, surface both on hover.
+      // the in-game value, surface the in-game number on hover.
       const cargoEl = document.getElementById('ov-cargo');
       const rsi = ship.cargo_rsi_scu, game = ship.cargo_game_scu;
-      if (rsi && game != null && Math.abs(rsi - game) > 0.5) {
-        cargoEl.title = `RSI published capacity. In-game cargo grid sums to ${fmt(game, 0)} SCU.`;
+      if (rsi != null && game != null && Math.abs(rsi - game) > 0.5) {
+        cargoEl.title = `RSI published capacity. In-game value is ${fmt(game, 0)} SCU.`;
       } else {
         cargoEl.title = '';
       }
     } else {
-      document.getElementById('ov-cargo').className = 'st-val gap-val';
-      document.getElementById('ov-cargo').textContent = 'NONE';
-      document.getElementById('ov-cargo-u').textContent = '';
+      // No RSI spec and no in-game value — genuinely unknown.
+      setStatBlock('ov-cargo', 'ov-cargo-u', null, 0, 'SCU');
     }
 	
 	document.getElementById('ov-role').textContent = ship.role  ? `${ship.role}` : '-';
@@ -4997,7 +5015,11 @@ body::before {
         const cardId = `qd-${i}`;
         
         qdHtml += `
-        <div class="comp-card-h swappable" onclick="openSwapModal('QuantumDrive', ${i})">
+        <div class="comp-card-h">
+          <!-- Only the drive-details zone opens the swap modal; the QT
+               calculator below stays interactive (was: whole-card onclick,
+               so clicks in the calculator bubbled up and popped the table). -->
+          <div class="comp-swap-zone" onclick="openSwapModal('QuantumDrive', ${i})">
             <div class="comp-hdr-h">
               ${iconPrimary('quantum')}
               <div class="comp-title-h">
@@ -5019,6 +5041,7 @@ body::before {
               </div>
               <div class="comp-stat-text-h">Range: ${range || '—'} Gm</div>
             </div>
+          </div>
             <!-- QT Calculator -->
             <div class="qt-calculator">
               <div class="qt-calc-title">Quantum Travel Calculator</div>
