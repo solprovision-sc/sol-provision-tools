@@ -11,7 +11,7 @@
 
 .ship-detail-page {
   display: grid;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 345px 1fr;
   min-height: calc(100vh - 52px);
   position: relative;
   z-index: 1;
@@ -109,10 +109,7 @@
 .ship-claim-btn:disabled { opacity: 0.45; cursor: default; }
 .ship-claim-btn:disabled:hover { color: var(--gold); border-color: rgba(154,140,100,0.4); }
 
-/* Saved-loadout toolbar + modal controls */
-.lo-toolbar { display: flex; gap: 8px; margin-top: 12px; }
-.lo-toolbar-share { justify-content: center; margin-top: 8px; }
-.lo-toolbar-share .lo-btn { flex: 0 0 auto; padding: 6px 20px; }
+/* Saved-loadout controls (buttons live in the Overview loadout bar) */
 .lo-btn {
   flex: 1; padding: 6px 0; cursor: pointer;
   background: transparent; border: 1px solid rgba(126,38,25,0.5); border-radius: 3px;
@@ -495,14 +492,15 @@
 .msg-main { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
 .msg-v {
   font-family: 'Orbitron', sans-serif; font-weight: 700; color: var(--text2);
-  line-height: 1.15; white-space: nowrap;
+  line-height: 1.2; white-space: nowrap;
 }
-.msg-v.xl { font-size: 20px; }
+.msg-v.xl { font-size: 22px; }
+.msg-v.lg { font-size: 20px; }
 .msg-v.md { font-size: 15px; }
 .msg-v.sm { font-size: 12px; }
 .msg-v.gap { color: #6a4d3c; font-weight: 400; }
 .msg-u {
-  font-size: 10px; color: var(--gold); letter-spacing: 0.4px;
+  font-size: 12px; color: var(--gold); letter-spacing: 0.4px;
   padding-left: 1px; white-space: nowrap;
 }
 .msg-sp { width: 10px; }
@@ -687,7 +685,15 @@
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 10px;
-  align-items: start;
+  align-items: stretch;
+}
+
+/* Right side of overview: stat grid grows, loadout bar sits in the leftover space */
+.overview-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
 }
 
 .silhouette {
@@ -735,9 +741,29 @@
 .stat-grid-right {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: 10px;
   align-content: stretch;
+  flex: 1 1 auto;
+}
+
+/* Career | Role shares one block, so keep it from overflowing the half-width cell */
+.st-val.ov-career-role {
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+/* Save / Load / Share, moved out of the sidebar into the overview whitespace */
+.ov-loadout-bar {
+  display: flex;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.ov-loadout-bar .lo-btn {
+  flex: 1 1 0;
+  padding: 9px 0;
+  font-size: 10px;
 }
 
 .stat-block {
@@ -2008,18 +2034,6 @@ body::before {
       <div class="sb-row"><span class="sb-lbl">Career</span><span class="sb-val" id="sb-career"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Role</span><span class="sb-val" id="sb-role"></span></div>
 	  <div class="sb-row"><span class="sb-lbl">Size</span><span class="sb-val hi" id="sb-size"></span></div>
-
-      <!-- ── Saved Loadouts ─────────────────────────────────────────────── -->
-      <div class="lo-toolbar">
-        <button type="button" class="lo-btn" id="lo-save-btn" onclick="openSaveLoadout()"
-                title="Save the current loadout and get a shareable link">Save Loadout</button>
-        <button type="button" class="lo-btn" id="lo-load-btn" onclick="openLoadLoadout()"
-                title="Load one of your saved loadouts">Load Saved</button>
-      </div>
-      <div class="lo-toolbar lo-toolbar-share">
-        <button type="button" class="lo-btn" id="lo-share-btn" onclick="openShareLoadout()"
-                title="Get shareable links for your saved loadouts">Share Saved Loadout</button>
-      </div>
     </div>
 
     <div class="sb-stats">
@@ -2230,8 +2244,6 @@ body::before {
       <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
 	  <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
       <a class="nav-a" href="#sec-cargo">Cargo</a>
-      <a class="nav-a" href="#sec-fuel">Fuel</a>
-      <a class="nav-a" href="#sec-weapons">Weapons &amp; Missiles</a>
       <a class="nav-a" href="#sec-hardpoints">Hardpoint Manifest</a>
       <a class="nav-a" href="#sec-insurance">Insurance</a>
     </nav>
@@ -2259,38 +2271,40 @@ body::before {
 				<div class="sil-sub">Lineart not yet available for this vessel</div>
 			</div>
 		  </div>
-          <div class="stat-grid-right">
-            <div class="stat-block">
-              <div class="st-lbl">Role</div>
-              <div class="st-val-row"><div class="st-val hi" id="ov-role">—</div></div>
+          <div class="overview-right">
+            <div class="stat-grid-right">
+              <div class="stat-block">
+                <div class="st-lbl">Career | Role</div>
+                <div class="st-val-row"><div class="st-val hi ov-career-role" id="ov-career-role">—</div></div>
+              </div>
+              <div class="stat-block">
+                <div class="st-lbl">Cargo Capacity</div>
+                <div class="st-val-row"><div class="st-val" id="ov-cargo">—</div><div class="st-unit" id="ov-cargo-u"></div></div>
+              </div>
+              <div class="stat-block">
+                <div class="st-lbl">SCM Speed</div>
+                <div class="st-val-row"><div class="st-val" id="ov-scm">—</div><div class="st-unit" id="ov-scm-u"></div></div>
+              </div>
+              <div class="stat-block">
+                <div class="st-lbl">NAV Speed</div>
+                <div class="st-val-row"><div class="st-val" id="ov-nav">—</div><div class="st-unit" id="ov-nav-u"></div></div>
+              </div>
+              <div class="stat-block">
+                <div class="st-lbl">H2 Fuel</div>
+                <div class="st-val-row"><div class="st-val" id="ov-h2">—</div><div class="st-unit" id="ov-h2-u"></div></div>
+              </div>
+              <div class="stat-block">
+                <div class="st-lbl">QT Fuel</div>
+                <div class="st-val-row"><div class="st-val" id="ov-qt">—</div><div class="st-unit" id="ov-qt-u"></div></div>
+              </div>
             </div>
-            <div class="stat-block">
-              <div class="st-lbl">Cargo Capacity</div>
-              <div class="st-val-row"><div class="st-val" id="ov-cargo">—</div><div class="st-unit" id="ov-cargo-u"></div></div>
-            </div>
-            <div class="stat-block">
-              <div class="st-lbl">SCM Speed</div>
-              <div class="st-val-row"><div class="st-val" id="ov-scm">—</div><div class="st-unit" id="ov-scm-u"></div></div>
-            </div>
-            <div class="stat-block">
-              <div class="st-lbl">NAV Speed</div>
-              <div class="st-val-row"><div class="st-val" id="ov-nav">—</div><div class="st-unit" id="ov-nav-u"></div></div>
-            </div>
-			<div class="stat-block">
-			  <div class="st-lbl">Insurance - Claim Time</div>
-			  <div class="st-val-row"><div class="st-val" id="ov-ins">—</div><div class="st-unit" id="ov-ins-u"></div></div>
-			</div>
-			<div class="stat-block">
-			  <div class="st-lbl">Insurance - Expedite</div>
-			  <div class="st-val-row"><div class="st-val" id="ov-ins-exp">—</div><div class="st-unit" id="ov-ins-u"></div></div>
-			</div>
-            <div class="stat-block">
-              <div class="st-lbl">H2 Fuel</div>
-              <div class="st-val-row"><div class="st-val" id="ov-h2">—</div><div class="st-unit" id="ov-h2-u"></div></div>
-            </div>
-            <div class="stat-block">
-              <div class="st-lbl">QT Fuel</div>
-              <div class="st-val-row"><div class="st-val" id="ov-qt">—</div><div class="st-unit" id="ov-qt-u"></div></div>
+            <div class="ov-loadout-bar">
+              <button type="button" class="lo-btn" id="lo-save-btn" onclick="openSaveLoadout()"
+                      title="Save the current loadout and get a shareable link">Save Loadout</button>
+              <button type="button" class="lo-btn" id="lo-load-btn" onclick="openLoadLoadout()"
+                      title="Load one of your saved loadouts">Load Saved</button>
+              <button type="button" class="lo-btn" id="lo-share-btn" onclick="openShareLoadout()"
+                      title="Get shareable links for your saved loadouts">Share Loadout</button>
             </div>
           </div>
         </div>
@@ -2405,20 +2419,6 @@ body::before {
 		    </div>
           </div>
 		</div>
-      </section>
-
-      <!-- Fuel -->
-      <section class="sec" id="sec-fuel">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Fuel</div></div>
-        <div id="fuel-content" class="grid2"></div>
-      </section>
-
-      <!-- Weapons & Missiles -->
-      <section class="sec" id="sec-weapons">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Weapons &amp; Missiles</div></div>
-        <div id="weapons-content">
-          <div class="loading-text" style="padding:20px 0; font-size:10px;">Loading weapons...</div>
-        </div>
       </section>
 
     </div><!-- end ship-content -->
@@ -4682,7 +4682,10 @@ body::before {
       setStatBlock('ov-cargo', 'ov-cargo-u', null, 0, 'SCU');
     }
 	
-	document.getElementById('ov-role').textContent = ship.role  ? `${ship.role}` : '-';
+	const career = ship.career ? `${ship.career}` : '';
+	const role   = ship.role   ? `${ship.role}`   : '';
+	document.getElementById('ov-career-role').textContent =
+	  (career && role) ? `${career} | ${role}` : (career || role || '—');
 
     const shield = ship.components.shields[0];
     setStatBlock('ov-shield', 'ov-shield-u', shield ? shield.max_shield_health : null, 0, 'HP');
@@ -4698,28 +4701,16 @@ body::before {
     const mainThrust = mainList.reduce((a, t) => a + (parseFloat(t.thrust_capacity) || 0), 0);
     setStatBlock('ov-thrust', 'ov-thrust-u', mainThrust > 0 ? mainThrust / 1000000 : null, 2, 'MN');
 
-    const h2 = ship.components.fuel_tanks[0];
-    setStatBlock('ov-h2', 'ov-h2-u', h2 ? h2.capacity_scu : null, 0, 'SCU');
+    // Fuel capacity is the sum of ALL tanks, not just the first — many ships
+    // carry multiple H2/QT tanks (e.g. the Avenger Stalker: 2× 4.5 = 9 SCU H2).
+    const h2Tanks = ship.components.fuel_tanks || [];
+    const h2Total = h2Tanks.reduce((a, t) => a + (parseFloat(t.capacity_scu) || 0), 0);
+    setStatBlock('ov-h2', 'ov-h2-u', h2Tanks.length ? h2Total : null, 0, 'SCU');
 
-    const qt = ship.components.quantum_fuel_tanks[0];
-    setStatBlock('ov-qt', 'ov-qt-u', qt ? qt.capacity_scu : null, 1, 'SCU');
-	
-	const ins = ship.insurance || {};
-	if (ins.claim_time_mins) {
-	  const claimTime = fmt(ins.claim_time_mins, 0);
-	  const expTime = fmt(ins.expedite_time_mins, 0);
-	  const expFee = fmt(ins.expedite_fee, 0);
-	  const insBase = `${claimTime} mins`;
-	  const insExp = `${expTime} mins | ${expFee} aUEC`;
-	  document.getElementById('ov-ins').textContent = insBase;
-	  document.getElementById('ov-ins-exp').textContent = insExp;
-	  document.getElementById('ov-ins-u').textContent = ''; // empty unit
-	} else {
-	  document.getElementById('ov-ins').textContent = '—';
-	  document.getElementById('ov-ins-exp').textContent = '—';
-	  document.getElementById('ov-ins-u').textContent = '';
-	}	
-	
+    const qtTanks = ship.components.quantum_fuel_tanks || [];
+    const qtTotal = qtTanks.reduce((a, t) => a + (parseFloat(t.capacity_scu) || 0), 0);
+    setStatBlock('ov-qt', 'ov-qt-u', qtTanks.length ? qtTotal : null, 1, 'SCU');
+
   }
 
   // ── Hull & Survivability ─────────────────────────────────────────────────────
@@ -5315,34 +5306,6 @@ body::before {
       </div>`;
     
     document.getElementById('cargogrid-content').innerHTML = cargoHtml;
-  }
-
-  // ── Fuel ─────────────────────────────────────────────────────────────────────
-  function populateFuel(ship) {
-    const h2   = ship.components.fuel_tanks;
-    const qt   = ship.components.quantum_fuel_tanks;
-    const qd   = ship.components.quantum_drives[0];
-    const h2T  = h2.reduce((a, t) => a + (parseFloat(t.capacity_scu) || 0), 0);
-    const qtT  = qt.reduce((a, t) => a + (parseFloat(t.capacity_scu) || 0), 0);
-    const jumps = (qtT > 0 && qd && qd.quantum_fuel_req) ? Math.floor(qtT / qd.quantum_fuel_req) : null;
-
-    document.getElementById('fuel-content').innerHTML = `
-      <div class="panel">
-        <div class="panel-title">Hydrogen Fuel</div>
-        ${dr('Tank Capacity', h2T > 0 ? h2T : null, 1, 'SCU')}
-        ${dr('Tank Count', h2.length > 0 ? `${h2.length}× S${h2[0]?.size || '?'}` : null)}
-        ${dr('Fuel Scoop Rate', null)}
-        ${dr('Consumption Rate', null)}
-        ${dr('Endurance (est.)', null)}
-      </div>
-      <div class="panel">
-        <div class="panel-title">Quantum Fuel</div>
-        ${dr('Tank Capacity', qtT > 0 ? qtT : null, 2, 'SCU')}
-        ${dr('Tank Count', qt.length > 0 ? `${qt.length}× S${qt[0]?.size || '?'}` : null)}
-        ${dr('QD Fuel / Jump', qd ? qd.quantum_fuel_req : null, 2, 'SCU')}
-        ${dr('Est. Jumps (Full Tank)', jumps, 0)}
-        ${dr('Refuel Cost (est.)', null)}
-      </div>`;
   }
 
   // ── Weapons ──────────────────────────────────────────────────────────────────
@@ -6071,7 +6034,6 @@ body::before {
       //populateFlight(ship);
       populateComponents(ship);
       populateCargo(ship);
-      populateFuel(ship);
       populateWeapons(ship);
       //populateHardpoints(ship);
 	  //populateInsurance(ship);
@@ -6217,7 +6179,6 @@ body::before {
     try { populateComponents(ship); } catch (_) {}
     try { populateWeapons(ship); } catch (_) {}
     try { populateCargo(ship); } catch (_) {}
-    try { populateFuel(ship); } catch (_) {}
     try { populateOverview(ship); } catch (_) {}
     if (typeof renderPowerGrid === 'function') renderPowerGrid();
     // Overlay saved power-grid segment state onto the freshly-built CELL_STATE.
