@@ -2242,8 +2242,6 @@ body::before {
       <div class="nav-lbl">Sections</div>
       <a class="nav-a" href="#sec-overview">Overview</a>
       <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
-	  <a class="nav-a" href="#sec-hull">Hull &amp; Survivability</a>
-      <a class="nav-a" href="#sec-cargo">Cargo</a>
       <a class="nav-a" href="#sec-hardpoints">Hardpoint Manifest</a>
       <a class="nav-a" href="#sec-insurance">Insurance</a>
     </nav>
@@ -2376,50 +2374,6 @@ body::before {
         </div>
     </section>
 	
-	
-	<!-- Hull & Survivability -->
-      <section class="sec" id="sec-hull">
-        <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Hull &amp; Survivability</div></div>
-        <div class="grid2" style="margin-bottom:12px">
-          <div class="panel">
-            <div class="panel-title">Structure</div>
-            <div class="dr"><span class="dr-l">Dimensions (L×W×H)</span><span class="dr-v" id="hull-dims">—</span></div>
-            <div class="dr"><span class="dr-l">Mass</span><span class="dr-v" id="hull-mass">-</span></div>
-            <div class="dr"><span class="dr-l">Total Hull HP</span><span class="dr-v gap-val">data gap</span></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Armor</div>
-            <div id="armor-content"><div class="dr"><span class="dr-l">Armor HP</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-        </div>
-        <div class="grid3">
-          <div class="panel">
-            <div class="panel-title">Shield HP &amp; Regen</div>
-            <div id="shield-summary-content"><div class="dr"><span class="dr-l">Total HP</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Shield Absorption</div>
-            <div id="shield-absorb-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-title">Shield Resistance</div>
-            <div id="shield-resist-content"><div class="dr"><span class="dr-l">Physical</span><span class="dr-v gap-val">loading...</span></div></div>
-          </div>
-        </div>
-      </section>
-	
-	
-      <!-- Cargo -->
-      <section class="sec" id="sec-loadout">
-   	  <div class="sec-hdr"><div class="sec-bar"></div><div class="sec-title">Cargo</div></div>
-		<div class="grid2-column-first" style="margin-bottom:12px">
-          <div class="panel">
-			<div class="loadout-card">
-		  	  <div id="cargogrid-content"></div>
-		    </div>
-          </div>
-		</div>
-      </section>
 
     </div><!-- end ship-content -->
   </main>
@@ -4714,47 +4668,6 @@ body::before {
   }
 
   // ── Hull & Survivability ─────────────────────────────────────────────────────
-  function populateHull(ship) {
-    const dims = [ship.length_rsi_m, ship.beam_rsi_m, ship.height_rsi_m];
-    document.getElementById('hull-dims').textContent =
-      dims.every(d => d) ? dims.map(d => `${d}m`).join(' × ') : 'data gap';
-	document.getElementById('hull-mass').textContent = ship.mass_kg  ? `${ship.mass_kg} kg` : '-';
-
-
-    const armor = ship.components.armor[0];
-    document.getElementById('armor-content').innerHTML = armor
-      ? dr('Armor HP', armor.health, 0) +
-        dr('Deflect Physical', armor.deflect_physical, 1) +
-        dr('Deflect Energy', armor.deflect_energy, 1) +
-        dr('Deflect Distortion', armor.deflect_distortion, 1) +
-        dr('Sig Cross-Section', armor.signal_cross_section, 2) +
-        dr('Sig EM', armor.signal_electromagnetic, 2) +
-        dr('Sig IR', armor.signal_infrared, 2)
-      : dr('Armor HP', null);
-
-    const s = ship.components.shields[0];
-    document.getElementById('shield-summary-content').innerHTML = s
-      ? dr('Total HP', s.max_shield_health, 0, 'HP') +
-        dr('Regen Rate', s.max_shield_regen, 0, 'HP/s') +
-        dr('Regen Delay', s.damaged_regen_delay, 1, 's') +
-        dr('Downed Delay', s.downed_regen_delay, 1, 's') +
-        dr('Power Draw', s.power_draw, 0, 'EU') +
-        dr('EM Signature', s.em_signature, 0)
-      : dr('Total HP', null);
-
-    document.getElementById('shield-absorb-content').innerHTML = s
-      ? dr('Physical', s.absorb_physical_max, 0, '%') +
-        dr('Energy', s.absorb_energy_max, 0, '%') +
-        dr('Distortion', s.absorb_distort_max, 0, '%')
-      : dr('Physical', null);
-
-    document.getElementById('shield-resist-content').innerHTML = s
-      ? dr('Physical', s.resist_physical_max, 0, '%') +
-        dr('Energy', s.resist_energy_max, 0, '%') +
-        dr('Distortion', s.resist_distort_max, 0, '%')
-      : dr('Physical', null);
-  }
-
   // ── Flight Performance ───────────────────────────────────────────────────────
   /*
   function populateFlight(ship) {
@@ -5241,72 +5154,6 @@ body::before {
 
   // ── Cargo ────────────────────────────────────────────────────────────────────
   // Cargo Grids
-  function populateCargo(ship) {
-    const grids = ship.cargo_grids.filter(g => !g.is_personal && !g.is_template);
-    const personal = ship.cargo_grids.filter(g => g.is_personal);
-    
-    const stripPrefix = (name) => {
-      const prefix = `${ENTITY_NAME}_`;
-      return name && name.startsWith(prefix) ? name.slice(prefix.length) : name;
-    };
-    
-    let cargoHtml = '';
-    if (grids.length) {
-      cargoHtml = `
-        <div class="loadout-hdr-row">
-          <div class="loadout-card-hdr">Cargo Grids</div>
-        </div>
-        <div class="comp-grid">`;
-      
-      grids.forEach((grid, i) => {
-        const scu = fmt(grid.scu, 0);
-        const dimX = fmt(grid.dim_x, 1);
-        const dimY = fmt(grid.dim_y, 1);
-        const dimZ = fmt(grid.dim_z, 1);
-        const dims = (dimX && dimY && dimZ) ? `${dimX} × ${dimY} × ${dimZ} m` : '—';
-        
-        const displayName = stripPrefix(grid.entity_name) || grid.container_name || `Grid ${i+1}`;
-        const isExternal = grid.is_external ? 'External' : 'Internal';
-        
-        cargoHtml += `
-        <div class="comp-card-h">
-          <div class="comp-hdr-h">
-            ${iconPrimary('cargo')}
-            <div class="comp-title-h">
-              <div class="comp-name-h">
-                <span class="comp-name-text-h">${displayName}</span>
-              </div>
-            </div>
-            <div class="comp-hp-h">${scu || '—'} SCU</div>
-          </div>
-          <div class="comp-stats-h">
-            <div class="comp-stat-h">
-              <span class="stat-label-h">Dimensions:</span>
-              <span class="stat-val-h">${dims}</span>
-            </div>
-            <div class="comp-stat-text-h">${isExternal}</div>
-          </div>
-        </div>`;
-      });
-      
-      cargoHtml += '</div>';
-    } else {
-      cargoHtml = '<div class="gap-block"><div class="gap-text">No cargo grids indexed</div></div>';
-    }
-    
-    // Add cargo summary panel
-    cargoHtml += `
-      <div class="spacer"></div>
-      <div class="panel">
-        <div class="panel-title">Cargo Summary</div>
-        ${dr('Total Cargo (Authoritative)', ship.cargo_scu, 0, 'SCU', 'accent')}
-        ${dr('Total Calculated', ship.cargo_total_calculated, 1, 'SCU')}
-        ${dr('Grid Count', grids.length, 0)}
-        ${personal.length ? dr('Personal Storage', ship.personal_scu, 1, 'SCU') : ''}
-      </div>`;
-    
-    document.getElementById('cargogrid-content').innerHTML = cargoHtml;
-  }
 
   // ── Weapons ──────────────────────────────────────────────────────────────────
   // DPS = summed ammo damage × pellet count × (fire rate / 60). Mirrors the
@@ -6030,10 +5877,8 @@ body::before {
 
       populateSidebar(ship);
       populateOverview(ship);
-      populateHull(ship);
       //populateFlight(ship);
       populateComponents(ship);
-      populateCargo(ship);
       populateWeapons(ship);
       //populateHardpoints(ship);
 	  //populateInsurance(ship);
@@ -6178,7 +6023,6 @@ body::before {
     // Re-render the loadout views from the restored state.
     try { populateComponents(ship); } catch (_) {}
     try { populateWeapons(ship); } catch (_) {}
-    try { populateCargo(ship); } catch (_) {}
     try { populateOverview(ship); } catch (_) {}
     if (typeof renderPowerGrid === 'function') renderPowerGrid();
     // Overlay saved power-grid segment state onto the freshly-built CELL_STATE.
