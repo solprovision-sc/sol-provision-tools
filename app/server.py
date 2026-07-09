@@ -1911,8 +1911,18 @@ def get_ship_components(conn, ship_entity, patch):
     Returns a dict keyed by component category.
     """
     def q(sql):
-        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()
-                if not is_placeholder(dict(r).get("display_name"))]
+        rows = []
+        for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall():
+            d = dict(r)
+            if is_placeholder(d.get("display_name")):
+                continue
+            # Bespoke ship items (e.g. RADR_RSI_S04_Polaris) carry a loc_name_key
+            # CIG never shipped a string for, so display_name comes back blank.
+            # Fall back to a formatted entity name — same pattern as ship names.
+            if not (d.get("display_name") or "").strip():
+                d["display_name"] = best_name(d.get("display_name"), d.get("entity_name"))
+            rows.append(d)
+        return rows
 
     # Reusable join fragment — all component queries share this structure
     def join(tbl):
