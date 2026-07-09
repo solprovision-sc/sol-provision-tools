@@ -3408,7 +3408,18 @@ body::before {
       if (uEl) uEl.textContent = '';
     }
   }
-  
+
+  // NAV (quantum-travel) speed only applies when a quantum drive is installed —
+  // without one the ship can't enter NAV mode, so its NAV speed is just its SCM
+  // speed (matches in-game behaviour and spviewer). fc.max_speed is the NAV-mode
+  // ceiling and is only reachable with a QD (e.g. snubs/racers/ground vehicles
+  // have no QD and would otherwise show an unreachable ~2.75× SCM figure).
+  function navSpeed(fc, comps) {
+    if (!fc) return null;
+    const hasQD = !!(comps && comps.quantum_drives && comps.quantum_drives.length);
+    return hasQD ? fc.max_speed : fc.scm_speed;
+  }
+
   // Primary icon (large, with circular background and wrapper)
   function iconPrimary(type, label = null) {
     const labels = {
@@ -4412,7 +4423,7 @@ body::before {
     const fc = (ld.flight_controllers || [])[0];
     const eMult = powerModifier('engines', fc);
     const scm = fc ? fc.scm_speed * eMult : null;
-    const nav = fc ? fc.max_speed * eMult : null;
+    const nav = fc ? navSpeed(fc, ld) * eMult : null;
     const scmNavEl = document.getElementById('ms-scm-nav');
     if (scmNavEl) scmNavEl.textContent =
       (scm !== null && nav !== null) ? `${fmt(scm, 0)} / ${fmt(nav, 0)}` : '— / —';
@@ -4646,7 +4657,7 @@ body::before {
 
     const fc = ship.components.flight_controllers[0];
     setStatBlock('ov-scm', 'ov-scm-u', fc ? fc.scm_speed : null, 0, 'm/s');
-	setStatBlock('ov-nav', 'ov-nav-u', fc ? fc.max_speed : null, 0, 'm/s');
+	setStatBlock('ov-nav', 'ov-nav-u', navSpeed(fc, ship.components), 0, 'm/s');
 
     const qd = ship.components.quantum_drives[0];
     setStatBlock('ov-qd', 'ov-qd-u', qd ? qd.drive_speed : null, 0, 'km/s');
@@ -5098,7 +5109,7 @@ body::before {
 		<div class="comp-grid">`;
       c.flight_controllers.forEach((fc, i) => {
         const scm = fmt(fc.scm_speed, 0);
-		const nav = fmt(fc.max_speed, 0);
+		const nav = fmt(navSpeed(fc, c), 0);
 		const boost_fwd = fmt(fc.boost_speed_forward, 0);
 		const boost_aft = fmt(fc.boost_speed_backward, 0);
 		const pitch = fmt(fc.max_pitch_speed, 0);
