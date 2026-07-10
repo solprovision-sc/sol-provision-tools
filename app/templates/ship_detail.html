@@ -263,6 +263,53 @@
 .pm-col.mode-locked .pm-mandatory,
 .pm-col.mode-locked .pm-seg { cursor: not-allowed; }
 
+/* ── DPS mode toggles (Burst/Sustained + gimbal Target/Lock/Precision/Gimbal),
+      shown just above the Performance readouts. Burst + Target are active;
+      the rest are placeholders until their calc is implemented. */
+.dps-modes { margin-top: 16px; }
+.dps-mode-toggle {
+  display: flex; gap: 0;
+  border: 1px solid rgba(126,38,25,0.35); border-radius: 4px; overflow: hidden;
+}
+.dps-mode-btn {
+  flex: 1; padding: 5px 0; cursor: pointer; border: none; position: relative;
+  background: transparent; color: var(--gold);
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  transition: background 0.12s, color 0.12s;
+}
+.dps-mode-btn + .dps-mode-btn { border-left: 1px solid rgba(126,38,25,0.35); }
+.dps-mode-btn:hover:not(.disabled) { color: var(--text2); }
+.dps-mode-btn.active { background: var(--brand); color: var(--white); }
+.dps-mode-btn.disabled { color: rgba(154,140,100,0.35); cursor: not-allowed; }
+
+.dps-gimbal-toggle {
+  display: flex; gap: 0; margin-top: 4px;
+  border: 1px solid rgba(126,38,25,0.25); border-radius: 3px; overflow: hidden;
+}
+.dps-gim-btn {
+  flex: 1; padding: 3px 0; cursor: pointer; border: none; position: relative;
+  background: transparent; color: var(--khaki);
+  font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  transition: background 0.12s, color 0.12s;
+}
+.dps-gim-btn + .dps-gim-btn { border-left: 1px solid rgba(126,38,25,0.25); }
+.dps-gim-btn:hover:not(.disabled) { color: var(--text2); }
+.dps-gim-btn.active { background: rgba(126,38,25,0.55); color: var(--white); }
+.dps-gim-btn.disabled { color: rgba(154,140,100,0.30); cursor: not-allowed; }
+
+/* "Coming soon" tooltip on the disabled DPS-mode buttons */
+.dps-mode-btn.disabled:hover::after,
+.dps-gim-btn.disabled:hover::after {
+  content: 'Coming soon'; position: absolute; left: 50%; bottom: calc(100% + 6px);
+  transform: translateX(-50%); white-space: nowrap; z-index: 20;
+  background: #1a1410; color: var(--sand); border: 1px solid rgba(154,140,100,0.4);
+  border-radius: 3px; padding: 3px 7px; font-family: var(--font-ui, sans-serif);
+  font-size: 10px; font-weight: 400; letter-spacing: 0.5px; text-transform: none;
+  pointer-events: none;
+}
+
 /* Power summary readout (consumed vs available segments, reacts to the grid). */
 .pm-summary {
   margin-top: 10px;
@@ -2086,6 +2133,20 @@ body::before {
                   title="Weapon power segments below minimum for full weapon capability">warning_amber</span>
           </div>
           <span class="pms-label">Wpn Power</span>
+        </div>
+      </div>
+
+      <!-- ── DPS mode toggle: Burst active; Sustained + alt gimbal modes pending ── -->
+      <div class="dps-modes">
+        <div class="dps-mode-toggle">
+          <button type="button" class="dps-mode-btn active" data-dps="burst">Burst</button>
+          <button type="button" class="dps-mode-btn disabled" data-dps="sustained">Sustained</button>
+        </div>
+        <div class="dps-gimbal-toggle">
+          <button type="button" class="dps-gim-btn active" data-gim="target">Target</button>
+          <button type="button" class="dps-gim-btn disabled" data-gim="lock">Lock</button>
+          <button type="button" class="dps-gim-btn disabled" data-gim="precision">Precision</button>
+          <button type="button" class="dps-gim-btn disabled" data-gim="gimbal">Gimbal</button>
         </div>
       </div>
 
