@@ -2331,6 +2331,17 @@ def get_ship_components(conn, ship_entity, patch):
         if not shot:
             return 0.0, 0.0
         fms = (item or {}).get("fire_modes") or []
+        # Charge weapons (Banu Singe/Tachyon cannons) fire one shot per charge
+        # cycle; their primary mode is 'Charged' with a charge_time and no
+        # fire_rate. Falling through to the fire_rate scan below picks the
+        # alternate rapid mode and massively overstates DPS (Singe read 1519 vs
+        # spviewer ~319), so handle the charged primary mode explicitly.
+        primary = fms[0] if fms else None
+        if primary and (primary.get("fire_mode_type") or "").lower() == "charged" \
+                and (primary.get("charge_time") or 0) > 0:
+            alpha = shot * (primary.get("pellet_count") or 1)
+            cycle = primary["charge_time"] + (primary.get("cooldown_time") or 0)
+            return (alpha / cycle if cycle else 0.0), alpha
         fm = next((f for f in fms if (f.get("fire_rate") or 0) > 0), None)
         if not fm:
             return 0.0, 0.0
