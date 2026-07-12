@@ -5254,6 +5254,16 @@ body::before {
     if (!w || !w.ammo) return null;
     const shot = sumDmg(w.ammo);
     if (!shot) return null;
+    const fms = (w.fire_modes) || [];
+    // Charge weapons (Banu Singe/Tachyon) fire one shot per charge cycle — their
+    // primary 'Charged' mode has a charge_time and no fire_rate. Using the rapid
+    // alternate mode overstates DPS, so handle the charged primary explicitly.
+    const primary = fms[0];
+    if (primary && (primary.fire_mode_type || '').toLowerCase() === 'charged'
+        && (primary.charge_time || 0) > 0) {
+      const cycle = primary.charge_time + (primary.cooldown_time || 0);
+      return cycle ? shot * (primary.pellet_count || 1) / cycle : null;
+    }
     const fm = pickFireMode(w);
     const rate = fm.fire_rate || 0;
     if (!rate) return null;
