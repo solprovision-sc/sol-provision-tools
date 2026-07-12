@@ -2244,9 +2244,12 @@ def get_ship_components(conn, ship_entity, patch):
     def _is_turret_port(n):
         pt  = (n.get("port_type") or "").lower()
         acc = n.get("accepted_types") or ""
+        # A crewed/remote turret sits on a TurretBase (needs a seat/base). Plain
+        # 'Turret:' mounts (nose/canard/ball/gun turret mounts) are pilot-fired
+        # even when their accepted_types omit WeaponGun, so they must NOT be
+        # treated as crew turrets — that buried e.g. the Starfarer's side cannons
+        # and the Hornet's nose/ball guns in Crew DPS.
         if pt == "turretbase" or "TurretBase:" in acc:
-            return True
-        if pt in ("turret", "utilityturret") and "WeaponGun" not in acc:
             return True
         return False
 
@@ -2258,6 +2261,22 @@ def get_ship_components(conn, ship_entity, patch):
         if "remote" in nm or "unmanned" in nm:
             return "remote"
         return "manned"
+
+    # A crewed turret can sit one level down inside a room/seat wrapper (kind
+    # 'empty') — e.g. the Star Runner's turret seats live under a 'room' port,
+    # so classifying only the top node buries the turret's guns in Pilot. Promote
+    # through empty non-turret wrappers so the turretbase surfaces for
+    # classification, but STOP at turret ports so an empty turret base (whose
+    # default guns are foundry-backfilled) still stays its own group root.
+    def _expand_wrappers(nodes):
+        out = []
+        for n in nodes:
+            if n["kind"] == "empty" and not _is_turret_port(n):
+                out.extend(_expand_wrappers(n["children"]))
+            else:
+                out.append(n)
+        return out
+    tops = _expand_wrappers(tops)
 
     # Turret tops keep their node as the group root (even an empty turret base
     # whose default guns are foundry-backfilled) so all-turret ships like the
@@ -2341,10 +2360,16 @@ def get_ship_components(conn, ship_entity, patch):
         dps, alpha, stack = 0.0, 0.0, list(roots)
         while stack:
             n = stack.pop()
-            if n.get("kind") == "weapon":
+            kids = n.get("children") or []
+            # Only count LEAF guns. Some hardpoints resolve the same weapon on both
+            # the port and a nested class-slot child (e.g. Sabre Firebird's wing
+            # Mantis appears as parent AND child) — counting the parent too would
+            # double the DPS. A weapon node with a weapon child is acting as a
+            # mount, so skip it and count the child.
+            if n.get("kind") == "weapon" and not any(c.get("kind") == "weapon" for c in kids):
                 d, a = _weapon_dps_alpha(n.get("item"))
                 dps += d; alpha += a
-            stack.extend(n.get("children") or [])
+            stack.extend(kids)
         return dps, alpha
 
     _turret_roots = (turret_groups["manned"] + turret_groups["remote"]
