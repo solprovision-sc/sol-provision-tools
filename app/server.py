@@ -2360,10 +2360,16 @@ def get_ship_components(conn, ship_entity, patch):
         dps, alpha, stack = 0.0, 0.0, list(roots)
         while stack:
             n = stack.pop()
-            if n.get("kind") == "weapon":
+            kids = n.get("children") or []
+            # Only count LEAF guns. Some hardpoints resolve the same weapon on both
+            # the port and a nested class-slot child (e.g. Sabre Firebird's wing
+            # Mantis appears as parent AND child) — counting the parent too would
+            # double the DPS. A weapon node with a weapon child is acting as a
+            # mount, so skip it and count the child.
+            if n.get("kind") == "weapon" and not any(c.get("kind") == "weapon" for c in kids):
                 d, a = _weapon_dps_alpha(n.get("item"))
                 dps += d; alpha += a
-            stack.extend(n.get("children") or [])
+            stack.extend(kids)
         return dps, alpha
 
     _turret_roots = (turret_groups["manned"] + turret_groups["remote"]

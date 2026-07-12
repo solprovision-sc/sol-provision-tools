@@ -3685,13 +3685,18 @@ body::before {
   function treeWeaponTotals(roots) {
     let dps = 0, alpha = 0;
     const walk = n => {
-      if (n && n.kind === 'weapon' && n.item) {
+      const kids = (n && n.children) || [];
+      // Count only leaf guns: a weapon node with a weapon child is a mount
+      // wrapper resolving the same gun twice (e.g. Sabre Firebird wings), so
+      // counting it as well would double the DPS.
+      const hasWeaponChild = kids.some(c => c && c.kind === 'weapon');
+      if (n && n.kind === 'weapon' && n.item && !hasWeaponChild) {
         const it = n.item, c = n.count || 1;
         const d = weaponDps(it),  a = weaponPerShot(it);
         dps   += (d != null ? d : (it.dps     || 0)) * c;
         alpha += (a != null ? a : (it.max_dmg || 0)) * c;
       }
-      (n && n.children || []).forEach(walk);
+      kids.forEach(walk);
     };
     (roots || []).forEach(walk);
     return { dps: Math.round(dps), alpha: Math.round(alpha) };
