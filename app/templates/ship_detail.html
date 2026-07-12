@@ -3682,9 +3682,16 @@ body::before {
   // swapped-in guns carry the modal's precomputed dps/max_dmg instead, so fall
   // back to those. Live-derived so the Pilot/Turret DPS rows track swaps — the
   // server pre-aggregates (comps.pilot_dps) only reflect the stock loadout.
+  // Utility tools (tractor/tow beam, tool arm, mining/salvage head) aren't
+  // weapons; some nest a phantom default gun that would inflate DPS (e.g. Hull C
+  // tractor-beam turrets), so skip their whole subtree.
+  const UTILITY_ITEM_TYPES = new Set(['tractorbeam','towbeam','toolarm',
+    'mininglaser','salvagehead','salvagemodifier']);
+
   function treeWeaponTotals(roots) {
     let dps = 0, alpha = 0;
     const walk = n => {
+      if (n && UTILITY_ITEM_TYPES.has(((n.item||{}).item_type||'').toLowerCase())) return;
       const kids = (n && n.children) || [];
       // Count only leaf guns: a weapon node with a weapon child is a mount
       // wrapper resolving the same gun twice (e.g. Sabre Firebird wings), so

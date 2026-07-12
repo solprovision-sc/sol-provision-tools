@@ -2367,10 +2367,21 @@ def get_ship_components(conn, ship_entity, patch):
         alpha = shot * (fm.get("pellet_count") or 1)
         return alpha * (fm["fire_rate"] / 60.0), alpha
 
+    # Utility tools (tractor/tow beams, tool arms, mining/salvage heads) are not
+    # weapons. Some carry a phantom default gun in a nested class slot (a foundry
+    # backfill artifact), so their subtree must be skipped entirely or those guns
+    # inflate weapon DPS — e.g. the Hull C's tractor-beam turrets each nest a
+    # spurious Panther. spviewer excludes them.
+    _UTILITY_ITEM_TYPES = {"tractorbeam", "towbeam", "toolarm",
+                           "mininglaser", "salvagehead", "salvagemodifier"}
+
     def _sum_dps_alpha(roots):
         dps, alpha, stack = 0.0, 0.0, list(roots)
         while stack:
             n = stack.pop()
+            it = n.get("item") or {}
+            if (it.get("item_type") or "").lower() in _UTILITY_ITEM_TYPES:
+                continue  # utility tool — skip its whole subtree (phantom guns)
             kids = n.get("children") or []
             # Only count LEAF guns. Some hardpoints resolve the same weapon on both
             # the port and a nested class-slot child (e.g. Sabre Firebird's wing
@@ -2378,7 +2389,7 @@ def get_ship_components(conn, ship_entity, patch):
             # double the DPS. A weapon node with a weapon child is acting as a
             # mount, so skip it and count the child.
             if n.get("kind") == "weapon" and not any(c.get("kind") == "weapon" for c in kids):
-                d, a = _weapon_dps_alpha(n.get("item"))
+                d, a = _weapon_dps_alpha(it)
                 dps += d; alpha += a
             stack.extend(kids)
         return dps, alpha
