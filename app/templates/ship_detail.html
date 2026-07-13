@@ -1036,10 +1036,15 @@
   text-transform: uppercase;
 }
 
-/* Component Grid */
+/* Component Grid — one card per row.
+   This was auto-fill/minmax(340px), which packed cards into columns as soon as a
+   category held more than one component. That stayed invisible while components
+   under-resolved; once the loadout fixes landed, ships correctly showing 2 shields
+   or 2 coolers started rendering them side by side. Cards read as a list, so keep
+   them stacked regardless of how many a category has. */
 .comp-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: 1fr;
   gap: var(--space-3);
 }
 
