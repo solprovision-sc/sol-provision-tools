@@ -540,14 +540,6 @@
   -webkit-mask-size: contain; mask-size: contain;
 }
 .msg-icon.msg-icon-none { background: transparent; }
-/* Per-line icon for the signature rows, which each need their own glyph rather
-   than sharing the group's. Sized to the sub-line text, not the group icon. */
-/* .msg-line is flex with a 5px gap, so no margin here — align-self overrides the
-   row's baseline alignment, which would otherwise ride the icon high. */
-.msg-line-icon {
-  width: 11px; height: 11px;
-  align-self: center; flex-shrink: 0;
-}
 .msg-body { display: flex; flex-direction: column; min-width: 0; }
 .msg-main { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
 .msg-v {
@@ -2217,13 +2209,24 @@ body::before {
           </div>
         </div>
         <div class="msg-divider"></div>
-        <!-- Signatures — each row carries its own glyph (IR / EM / CS). -->
+        <!-- Signatures — one group per signature so each icon sits in the shared
+             icon column, left-aligned with every other icon in the panel. -->
         <div class="msg-group">
-          <span class="msg-icon msg-icon-none"></span>
+          <span class="msg-icon ms-icon-sir" title="IR signature"></span>
           <div class="msg-body">
-            <div class="msg-line"><span class="msg-line-icon ms-icon-sir" title="IR signature"></span><span class="msg-v sm" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
-            <div class="msg-line"><span class="msg-line-icon ms-icon-sem" title="EM signature"></span><span class="msg-v sm" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
-            <div class="msg-line"><span class="msg-line-icon ms-icon-scs" title="Cross-section"></span><span class="msg-v sm" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
+            <div class="msg-main"><span class="msg-v md" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
+          </div>
+        </div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-sem" title="EM signature"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v md" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
+          </div>
+        </div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-scs" title="Cross-section"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v md" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
           </div>
         </div>
       </div>
@@ -5923,6 +5926,11 @@ body::before {
       // without needing to re-fetch /api/ship.
       window.__currentShip = ship;
 
+      // Must follow the __currentShip assignment: the claim keys on ship.rsi_id,
+      // and calling this at script top-level ran it before the fetch resolved, so
+      // every ship painted a permanently-disabled "Not in ship catalog" button.
+      loadShipClaim();
+
       populateSidebar(ship);
       populateOverview(ship);
       //populateFlight(ship);
@@ -6030,8 +6038,6 @@ body::before {
     }
     loadShipClaim();   // re-sync state + repaint (also re-enables the button)
   }
-
-  loadShipClaim();
 
   // ══ Saved Loadouts ═══════════════════════════════════════════════════════════
   // A loadout is a full-state snapshot: the swappable components, the entire
