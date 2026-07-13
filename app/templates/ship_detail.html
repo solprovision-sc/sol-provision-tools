@@ -605,47 +605,6 @@
   display: block;
 }
 
-/* Sidebar Navigation */
-.nav-section { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 1px; 
-}
-
-.nav-lbl {
-  font-size: 8px; 
-  letter-spacing: 2px; 
-  color: var(--khaki); 
-  text-transform: uppercase;
-  margin-bottom: 6px; 
-  padding-bottom: 5px; 
-  border-bottom: 1px solid rgba(126,38,25,0.22);
-}
-
-.nav-a {
-  font-size: 10px; 
-  letter-spacing: 1px; 
-  color: var(--khaki); 
-  padding: 5px 8px;
-  cursor: pointer; 
-  border-left: 2px solid transparent;
-  transition: all 0.12s; 
-  text-transform: uppercase; 
-  text-decoration: none; 
-  display: block;
-}
-
-.nav-a:hover { 
-  color: var(--sand); 
-  border-left-color: var(--brand); 
-  background: rgba(126,38,25,0.05); 
-}
-
-.nav-a.active { 
-  color: var(--accent); 
-  border-left-color: var(--accent); 
-}
-
 /* ── TAGS ──────────────────────────────────────────────────────────────── */
 
 .tag {
@@ -2299,13 +2258,6 @@ body::before {
       </div>
     </div>
 
-    <nav class="nav-section">
-      <div class="nav-lbl">Sections</div>
-      <a class="nav-a" href="#sec-overview">Overview</a>
-      <a class="nav-a" href="#sec-loadout">Vehicle Loadout</a>
-      <a class="nav-a" href="#sec-hardpoints">Hardpoint Manifest</a>
-      <a class="nav-a" href="#sec-insurance">Insurance</a>
-    </nav>
   </aside>
 
   <!-- ── Main ── -->
@@ -5932,22 +5884,6 @@ body::before {
   */
   
 
-  // ── Scroll spy ───────────────────────────────────────────────────────────────
-  function initScrollSpy() {
-    const sections = document.querySelectorAll('.sec[id]');
-    const navLinks = document.querySelectorAll('.nav-a');
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (e.isIntersecting) {
-          navLinks.forEach(a => a.classList.remove('active'));
-          const active = document.querySelector(`.nav-a[href="#${e.target.id}"]`);
-          if (active) active.classList.add('active');
-        }
-      });
-    }, { rootMargin: '-20% 0px -70% 0px' });
-    sections.forEach(s => observer.observe(s));
-  }
-
   // ── Init ─────────────────────────────────────────────────────────────────────
   async function init() {
     try {
@@ -5976,8 +5912,6 @@ body::before {
       populateWeapons(ship);
       //populateHardpoints(ship);
 	  //populateInsurance(ship);
-      initScrollSpy();
-
       // If the URL carries ?loadout=<key>, apply that snapshot over the stock
       // loadout now that every view is rendered and __currentShip is set.
       maybeLoadFromUrl();
