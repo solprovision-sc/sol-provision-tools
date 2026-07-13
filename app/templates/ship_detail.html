@@ -92,15 +92,17 @@
   gap: 8px; margin-bottom: 10px;
 }
 .s-name-row .s-name { margin-bottom: 0; }
+/* Sized 20% up from the 8px/3x8 blueprint-card original — this is the primary
+   claim affordance on the page, not a badge tucked into a card grid. */
 .ship-claim-btn {
   background: transparent;
   border: 1px solid rgba(154,140,100,0.4);
   border-radius: 2px;
   color: var(--gold);
   font-family: 'Orbitron', sans-serif;
-  font-size: 8px; font-weight: 700;
-  letter-spacing: 1.5px; text-transform: uppercase;
-  padding: 3px 8px; cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  font-size: 9.6px; font-weight: 700;
+  letter-spacing: 1.8px; text-transform: uppercase;
+  padding: 3.6px 9.6px; cursor: pointer; flex-shrink: 0; margin-top: 2px;
   transition: color 0.15s, border-color 0.15s;
 }
 .ship-claim-btn:hover { color: var(--accent); border-color: var(--accent); }
@@ -489,7 +491,8 @@
 }
 
 .ms-icon-w, .ms-icon-m, .ms-icon-s, .ms-icon-p, .ms-icon-c, .ms-icon-q,
-.ms-icon-t, .ms-icon-e, .ms-icon-th, .ms-icon-sir, .ms-icon-sem, .ms-icon-scs {
+.ms-icon-t, .ms-icon-e, .ms-icon-th, .ms-icon-sir, .ms-icon-sem, .ms-icon-scs,
+.ms-icon-mass {
   width: 12px; height: 12px;
   background: var(--accent);
   -webkit-mask-position: center; mask-position: center;
@@ -522,6 +525,8 @@
 
 .ms-icon-scs { -webkit-mask-image: url(/static/img/icons/signature_cs.svg); mask-image: url(/static/img/icons/signature_cs.svg); }
 
+.ms-icon-mass { -webkit-mask-image: url(/static/img/icons/mass.svg); mask-image: url(/static/img/icons/mass.svg); }
+
 .ms-row-triple { gap: 8px; }
 .ms-row-triple .ms-cell { flex: 1; }
 .ms-cell.ms-center { justify-content: center; }
@@ -531,10 +536,18 @@
 .ms-panel { gap: 7px; }
 .msg-group { display: flex; align-items: flex-start; gap: 11px; padding: 1px 0; }
 .msg-group .msg-icon {
-  width: 18px; height: 18px; margin-top: 4px;
+  width: 19.8px; height: 19.8px; margin-top: 4px;   /* 18px + 10% */
   -webkit-mask-size: contain; mask-size: contain;
 }
 .msg-icon.msg-icon-none { background: transparent; }
+/* Per-line icon for the signature rows, which each need their own glyph rather
+   than sharing the group's. Sized to the sub-line text, not the group icon. */
+/* .msg-line is flex with a 5px gap, so no margin here — align-self overrides the
+   row's baseline alignment, which would otherwise ride the icon high. */
+.msg-line-icon {
+  width: 11px; height: 11px;
+  align-self: center; flex-shrink: 0;
+}
 .msg-body { display: flex; flex-direction: column; min-width: 0; }
 .msg-main { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
 .msg-v {
@@ -2198,19 +2211,19 @@ body::before {
         <div class="msg-divider"></div>
         <!-- Mass -->
         <div class="msg-group">
-          <span class="msg-icon msg-icon-none"></span>
+          <span class="msg-icon ms-icon-mass" title="Mass"></span>
           <div class="msg-body">
             <div class="msg-main"><span class="msg-v md" id="ms-mass">—</span><span class="msg-u">kg mass</span></div>
           </div>
         </div>
         <div class="msg-divider"></div>
-        <!-- Signatures -->
+        <!-- Signatures — each row carries its own glyph (IR / EM / CS). -->
         <div class="msg-group">
-          <span class="msg-icon ms-icon-sir" title="Signatures"></span>
+          <span class="msg-icon msg-icon-none"></span>
           <div class="msg-body">
-            <div class="msg-line"><span class="msg-v sm" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
-            <div class="msg-line"><span class="msg-v sm" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
-            <div class="msg-line"><span class="msg-v sm" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
+            <div class="msg-line"><span class="msg-line-icon ms-icon-sir" title="IR signature"></span><span class="msg-v sm" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
+            <div class="msg-line"><span class="msg-line-icon ms-icon-sem" title="EM signature"></span><span class="msg-v sm" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
+            <div class="msg-line"><span class="msg-line-icon ms-icon-scs" title="Cross-section"></span><span class="msg-v sm" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
           </div>
         </div>
       </div>
