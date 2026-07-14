@@ -3781,9 +3781,66 @@ body::before {
     CELL_STATE[cell.key] = {
       catKey:      cell.cat.key,
       compEnabled: cell.comps.map(() => true),
-      adjLit:      Array.from({ length: totalAdj }, () => true),
+      // Dark to start; applyDefaultPowerBudget() lights what the plant can afford.
+      adjLit:      Array.from({ length: totalAdj }, () => false),
     };
     return CELL_STATE[cell.key];
+  }
+
+  // ── Default power allocation ─────────────────────────────────────────────────
+  // The grid used to open with every pip lit, which is a state the ship cannot
+  // hold: the Arrow drew 20 against a 16 powerplant.
+  //
+  // The game's own answer is stricter than we want. Every ship record carries
+  // <resourceNetworkPowerPools maxDefaultDistribution="0">, i.e. NO distributed
+  // power on spawn (959 of 963 vehicles; the 4 exceptions are non-flyable NPC
+  // hulls). But our pips drive a performance multiplier — powerModifier() reads a
+  // dark bar as power_medium — so a fully dark grid would render every stat at 85%
+  // of its rated spec, contradicting the spec sheets the sidebar is validated
+  // against.
+  //
+  // So: fill pips until the powerplant is exhausted. The grid always opens on an
+  // achievable state, and any ship whose plant covers its draw still reads at spec.
+  let powerDefaultApplied = false;
+
+  function applyDefaultPowerBudget(cells) {
+    const ld = sidebarLoadout();
+    const available = Math.round(
+      (ld.powerplants || []).reduce((a, p) => a + (p.power_output || 0), 0));
+
+    // Categories the master mode forces off (quantum under SCM) draw nothing, so
+    // they neither spend budget nor receive pips. isModeLocked() reads masterMode
+    // directly, so this holds even though enforceMasterMode() runs after render.
+    const live = cells.filter(cell => CELL_STATE[cell.key] && !isModeLocked(cell.cat.key));
+
+    // Mandatory draw is not optional — it is spent before any pip is lit.
+    let spent = 0;
+    live.forEach(cell => {
+      const st = CELL_STATE[cell.key];
+      cell.comps.forEach((comp, i) => {
+        if (st.compEnabled[i]) spent += powerBarBreakdown(comp, cell.cat.key).mandatory;
+      });
+    });
+
+    // Round-robin, one pip per cell per pass, so the budget spreads across systems
+    // instead of draining into whichever category happens to sort first.
+    const queue = live.filter(cell => {
+      const st = CELL_STATE[cell.key];
+      return st.compEnabled.some(Boolean) && st.adjLit.length > 0;
+    });
+    let progress = true;
+    while (spent < available && progress) {
+      progress = false;
+      for (const cell of queue) {
+        if (spent >= available) break;
+        const st = CELL_STATE[cell.key];
+        const next = st.adjLit.indexOf(false);
+        if (next === -1) continue;      // this cell is already full
+        st.adjLit[next] = true;
+        spent += 1;
+        progress = true;
+      }
+    }
   }
 
   // Categories whose adjustable segments require ALL components to be on
@@ -3804,6 +3861,15 @@ body::before {
         cells.push(c);
       });
     });
+
+    // Seed the opening allocation once. Re-running it on later renders would wipe
+    // out whatever the player had toggled, so swaps keep their state and any cell
+    // rebuilt by a swap simply starts dark.
+    if (!powerDefaultApplied && cells.length) {
+      applyDefaultPowerBudget(cells);
+      powerDefaultApplied = true;
+    }
+
     root.style.gridTemplateColumns = `repeat(${cells.length}, 1fr)`;
 
     root.innerHTML = cells.map(cell => {
