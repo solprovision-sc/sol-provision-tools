@@ -758,11 +758,12 @@
   flex: 1 1 auto;
 }
 
-/* Career | Role shares one block, so keep it from overflowing the half-width cell */
+/* Career | Role is prose, not a number — it stays well below the hero size or a
+   pairing like "Transporter | Heavy Freight" blows out the half-width cell. */
 .st-val.ov-career-role {
-  font-size: 14px;
+  font-size: 17px;
   letter-spacing: 0.5px;
-  line-height: 1.2;
+  line-height: 1.25;
 }
 
 /* Save / Load / Share, moved out of the sidebar into the overview whitespace */
@@ -778,10 +779,15 @@
 }
 
 .stat-block {
-  background: #231e1a; 
+  background: #231e1a;
   border: 1px solid rgba(126,38,25,0.22);
-  padding: 12px 14px; 
+  padding: 12px 14px;
   position: relative;
+  /* Cards stretch to the silhouette's height; centering keeps the number optically
+     seated rather than pinned to the top edge with dead space beneath it. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .stat-block::before {
@@ -794,12 +800,12 @@
   background: rgba(126,38,25,0.5);
 }
 
-.st-lbl { 
-  font-size: 8px; 
-  letter-spacing: 1.5px; 
-  color: var(--sand); 
-  text-transform: uppercase; 
-  margin-bottom: 5px; 
+.st-lbl {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--sand);
+  text-transform: uppercase;
+  margin-bottom: 7px;
 }
 
 .st-val-row { 
@@ -812,12 +818,14 @@
   color: var(--accent); 
 }
 
+/* Hero-scale: these six are the headline numbers, and the blocks stretch to the
+   silhouette's height, so 18px left them stranded in a lot of empty card. */
 .st-val {
-  font-family: 'Orbitron', sans-serif; 
-  font-size: 18px; 
+  font-family: 'Orbitron', sans-serif;
+  font-size: 34px;
   font-weight: 700;
-  color: var(--sand); 
-  letter-spacing: 1px; 
+  color: var(--sand);
+  letter-spacing: 0.5px;   /* tightened — 1px reads as gappy at this size */
   line-height: 1;
 }
 
@@ -825,17 +833,19 @@
   color: var(--accent); 
 }
 
-.st-unit { 
-  font-size: 10px; 
-  color: var(--sand); 
-  letter-spacing: 1px; 
+.st-unit {
+  font-size: 13px;
+  color: var(--sand);
+  letter-spacing: 1px;
 }
 
+/* "DATA GAP" placeholder — stays smaller than a real number (it isn't one), but
+   lifted off 11px so it doesn't read as broken next to the hero values. */
 .st-val.gap-val {
-  color: #b06020; 
-  font-size: 11px; 
+  color: #b06020;
+  font-size: 16px;
   font-family: 'Share Tech Mono', monospace;
-  font-weight: normal; 
+  font-weight: normal;
   letter-spacing: 0.5px;
 }
 
