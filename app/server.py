@@ -5035,6 +5035,176 @@ def api_officers_shopping_list():
     return jsonify({"resources": resources, "items": plain_items})
 
 
+# ── API: Org fleet composition ────────────────────────────────────────────────
+# GET /api/officers/fleet
+# Every prod ship claim, joined to the catalog and rolled up two ways: by hull
+# (what the org flies) and by member (who brings what). Built for Org Night
+# planning, so the headline numbers are crew seats and cargo, not just hulls.
+#
+# Returns the whole fleet in one payload and lets the client filter. The org's
+# claim count is in the hundreds at most, so paging/server-side filtering would
+# cost a round trip per keystroke to save nothing.
+
+# Catalog `size` is a word, not a number — order it by hull scale for display
+# rather than the alphabetical order SQL would give.
+FLEET_SIZE_ORDER = ['snub', 'small', 'medium', 'large', 'capital', 'vehicle']
+
+
+def _fleet_claims(own_conn):
+    """Deduped prod ship claims, oldest first.
+
+    Dedup is on (discord_id, rsi_id) because the table's legacy UNIQUE is
+    (discord_id, ship_entity, patch_version) — a member who claimed the same
+    hull under two patches has two rows, and counting both would inflate the
+    fleet. Claiming is one-per-member-per-hull (server.py api_ship_claim
+    dedups on rsi_id), so distinct pairs is the true hull count.
+
+    Oldest row wins: it carries the original claimed_at.
+    """
+    rows = own_conn.execute('''
+        SELECT discord_id, rsi_id, ship_name, source, claimed_at
+        FROM ship_ownership
+        WHERE env = ? AND rsi_id IS NOT NULL
+        ORDER BY claimed_at
+    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
+    seen, claims = set(), []
+    for r in rows:
+        key = (r['discord_id'], r['rsi_id'])
+        if key in seen:
+            continue
+        seen.add(key)
+        claims.append(r)
+    return claims
+
+
+@app.route('/api/officers/fleet')
+@require_officer
+def api_officers_fleet():
+    # Legacy claims predate the rsi_id column; backfill before reading or they
+    # drop out of the join. Idempotent and self-guarding.
+    _migrate_claims_rsi_id()
+
+    conn = get_db()
+    patch = latest_patch(conn)
+    # Same notion of "an ownable ship" as /api/ships and the claim endpoint:
+    # every ship_catalog row at this patch, concepts included. focus is TRIMmed
+    # because the source data has both 'Racing' and 'Racing ' as distinct values.
+    cat_rows = conn.execute('''
+        SELECT rsi_id, rsi_name, rsi_slug, manufacturer, manufacturer_code,
+               TRIM(COALESCE(focus, '')) AS focus, type, size,
+               production_status, flyable, cargo_scu, max_crew, min_crew
+        FROM ship_catalog
+        WHERE patch_version = ?
+    ''', (patch,)).fetchall()
+    conn.close()
+    catalog = {r['rsi_id']: r for r in cat_rows}
+
+    own = get_ship_ownership_db()
+    claims = _fleet_claims(own)
+    own.close()
+
+    names = _resolve_discord_display_names(
+        sorted({c['discord_id'] for c in claims}))
+
+    by_ship, by_member, stale = {}, {}, 0
+    for c in claims:
+        cat = catalog.get(c['rsi_id'])
+        if not cat:
+            # Claim on a hull the current patch no longer lists. Counted only
+            # as a stale tally — mirrors how the coverage tile drops claims on
+            # blueprints that fell out of the catalog.
+            stale += 1
+            continue
+
+        crew  = cat['max_crew'] or 0
+        cargo = cat['cargo_scu'] or 0
+
+        ship = by_ship.get(c['rsi_id'])
+        if not ship:
+            ship = by_ship[c['rsi_id']] = {
+                'rsi_id':            c['rsi_id'],
+                'name':              cat['rsi_name'] or cat['rsi_slug'] or c['ship_name'],
+                'manufacturer':      cat['manufacturer'] or '—',
+                'manufacturer_code': cat['manufacturer_code'] or '',
+                'type':              cat['type'] or 'unknown',
+                'focus':             cat['focus'] or '',
+                'size':              cat['size'] or 'unknown',
+                'production_status': cat['production_status'] or '',
+                'flyable':           bool(cat['flyable']),
+                'max_crew':          crew,
+                'cargo_scu':         cargo,
+                'count':             0,
+                'owners':            [],
+            }
+        ship['count'] += 1
+        ship['owners'].append({
+            'discord_id':   c['discord_id'],
+            'display_name': names.get(c['discord_id']) or c['discord_id'],
+            'source':       c['source'],
+            'claimed_at':   c['claimed_at'],
+        })
+
+        m = by_member.get(c['discord_id'])
+        if not m:
+            m = by_member[c['discord_id']] = {
+                'discord_id':   c['discord_id'],
+                'display_name': names.get(c['discord_id']) or c['discord_id'],
+                'ships': 0, 'crew_seats': 0, 'cargo_scu': 0,
+                'pledge': 0, 'in_game': 0, 'types': {},
+            }
+        m['ships']      += 1
+        m['crew_seats'] += crew
+        m['cargo_scu']  += cargo
+        if c['source'] == 'pledge':
+            m['pledge'] += 1
+        elif c['source'] == 'in-game':
+            m['in_game'] += 1
+        t = cat['type'] or 'unknown'
+        m['types'][t] = m['types'].get(t, 0) + 1
+
+    ships = sorted(by_ship.values(), key=lambda s: (-s['count'], s['name']))
+    for s in ships:
+        s['owners'].sort(key=lambda o: (o['display_name'] or '').lower())
+    members = sorted(by_member.values(),
+                     key=lambda m: (-m['ships'], (m['display_name'] or '').lower()))
+
+    def breakdown(key, order=None):
+        """Hull counts grouped by a catalog facet, biggest first (or in the
+        given display order when one is supplied)."""
+        agg = {}
+        for s in ships:
+            agg[s[key]] = agg.get(s[key], 0) + s['count']
+        items = [{'key': k, 'count': v} for k, v in agg.items()]
+        if order:
+            items.sort(key=lambda i: order.index(i['key'])
+                       if i['key'] in order else len(order))
+        else:
+            items.sort(key=lambda i: -i['count'])
+        return items
+
+    total_hulls = sum(s['count'] for s in ships)
+    return jsonify({
+        'env':   OFFICER_OWNERSHIP_ENV,
+        'patch': patch,
+        'totals': {
+            'hulls':          total_hulls,
+            'models':         len(ships),
+            'owners':         len(members),
+            'crew_seats':     sum(m['crew_seats'] for m in members),
+            'cargo_scu':      sum(m['cargo_scu'] for m in members),
+            'catalog_models': len(catalog),
+            'concepts':       sum(s['count'] for s in ships if not s['flyable']),
+            'stale_claims':   stale,
+        },
+        'breakdowns': {
+            'type': breakdown('type'),
+            'size': breakdown('size', FLEET_SIZE_ORDER),
+        },
+        'ships':   ships,
+        'members': members,
+    })
+
+
 # ── API: Warehouse ore inventory ──────────────────────────────────────────────
 # GET /api/officers/warehouse
 # Org ore reserves, mirrored from the warehouse Google Sheet by the cron pull
