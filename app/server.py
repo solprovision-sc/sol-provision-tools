@@ -405,6 +405,50 @@ def _migrate_claims_rsi_id():
         print(f"  Claim rsi_id migration skipped: {e}")
 
 
+# ── Warehouse inventory DB (org ore reserves, fed from a Google Sheet) ────────
+# Standalone file, same rationale as the ownership DBs: this is org operational
+# state (not catalog data), so it lives outside dataforge.db and survives the
+# wholesale patch swaps. A cron script (tools/pull_warehouse_inventory.py)
+# mirrors a shared Google Sheet into warehouse_inventory on a schedule; the
+# /api/officers/warehouse endpoint only reads it. The pull is the sole writer.
+
+WAREHOUSE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS warehouse_inventory (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        material   TEXT NOT NULL,
+        qty        REAL,
+        quality    TEXT,            -- refinery quality band, e.g. '750-799'
+        location   TEXT,
+        row_index  INTEGER,         -- source sheet order, for stable display
+        pulled_at  INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS warehouse_meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT
+    );
+"""
+
+
+def _resolve_warehouse_db_path():
+    """WAREHOUSE_DB env var wins; otherwise next to DB_PATH (lazy so --db
+    overrides in __main__ still resolve correctly)."""
+    explicit = os.environ.get('WAREHOUSE_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'warehouse_inventory.db')
+
+
+def get_warehouse_db():
+    """Connect to the warehouse inventory DB. Auto-creates the schema so a fresh
+    deploy (or a sheet that hasn't been pulled yet) serves an empty table rather
+    than 500-ing."""
+    conn = sqlite3.connect(_resolve_warehouse_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.executescript(WAREHOUSE_SCHEMA)
+    conn.commit()
+    return conn
+
+
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
@@ -4971,6 +5015,39 @@ def api_officers_shopping_list():
     resources.sort(key=lambda r: r["total_qty"], reverse=True)
     plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
     return jsonify({"resources": resources, "items": plain_items})
+
+
+# ── API: Warehouse ore inventory ──────────────────────────────────────────────
+# GET /api/officers/warehouse
+# Org ore reserves, mirrored from the warehouse Google Sheet by the cron pull
+# script. Read-only — returns the current snapshot plus freshness metadata so
+# the dashboard can flag stale data.
+
+@app.route('/api/officers/warehouse')
+@require_officer
+def api_officers_warehouse():
+    conn = get_warehouse_db()
+    rows = conn.execute(
+        "SELECT material, qty, quality, location "
+        "FROM warehouse_inventory ORDER BY row_index, material"
+    ).fetchall()
+    meta = {r['key']: r['value'] for r in conn.execute(
+        "SELECT key, value FROM warehouse_meta")}
+    conn.close()
+
+    pulled_at = None
+    if meta.get('pulled_at'):
+        try:
+            pulled_at = int(meta['pulled_at'])
+        except (TypeError, ValueError):
+            pulled_at = None
+
+    return jsonify({
+        "items":     [dict(r) for r in rows],
+        "pulled_at": pulled_at,
+        "status":    meta.get('status'),
+        "source":    meta.get('source'),
+    })
 
 
 
