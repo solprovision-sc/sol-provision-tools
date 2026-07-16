@@ -1521,8 +1521,14 @@ const tabLoaders = {
   ships:      () => { loadFleet(); },
 };
 
+// Stable list of valid tabs. tabLoaders can't stand in for this: it's one-shot
+// (keys are deleted as loaders fire), so validating against it would reject any
+// already-visited tab and fall back to blueprints — breaking navigation after
+// the first visit to Ore or Ships.
+const TAB_NAMES = ["blueprints", "ore", "ships"];
+
 function activateTab(name) {
-  if (!tabLoaders.hasOwnProperty(name)) name = "blueprints";
+  if (!TAB_NAMES.includes(name)) name = "blueprints";
 
   document.querySelectorAll("#dash-tabs .tab-btn").forEach(b => {
     const on = b.dataset.tab === name;
