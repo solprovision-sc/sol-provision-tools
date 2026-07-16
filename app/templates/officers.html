@@ -16,7 +16,25 @@
 }
 .officers-page-sub {
   font-family: var(--font-mono); font-size: 0.78rem; color: var(--text3);
-  margin-bottom: 24px;
+  margin-bottom: 18px;
+}
+
+/* ── Dashboard tabs ────────────────────────────────────────────────────
+   Reuses the theme's .tabs/.tab-btn/.tab-content component. Scoped bump
+   only: the theme sizes tab-btn for in-panel sub-tabs (8px), but here the
+   tabs are the page's primary navigation and need to read at that weight. */
+.officers-page .tabs {
+  background: none;
+  border-bottom: 2px solid var(--border);
+  gap: 4px;
+  margin-bottom: 22px;
+}
+.officers-page .tab-btn {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  padding: 11px 18px;
+  margin-bottom: -2px;
 }
 
 .tile-grid {
@@ -55,7 +73,7 @@
   padding: 12px 4px;
 }
 .tile-error {
-  font-family: var(--font-mono); font-size: 0.8rem; color: var(--status-red);
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--danger);
   padding: 12px 4px;
 }
 
@@ -262,7 +280,7 @@
   font-family: var(--font-mono); font-size: 0.7rem;
   transition: border-color 0.15s, color 0.15s;
 }
-.shopping-selected-remove:hover { border-color: var(--status-red); color: var(--status-red); }
+.shopping-selected-remove:hover { border-color: var(--danger); color: var(--danger); }
 
 .shopping-calc-btn {
   width: 100%;
@@ -301,15 +319,13 @@
 }
 
 /* ── Dashboard sections ────────────────────────────────────────────── */
+/* The tab label now names the section, so the head carries only its caption.
+   No rule here either — the tab bar's border is the separator; a second one
+   this close read as noise. */
 .dash-section { margin-bottom: 30px; }
 .dash-section-head {
   display: flex; align-items: baseline; gap: 14px;
-  margin: 0 0 14px; padding-bottom: 8px;
-  border-bottom: 2px solid var(--border);
-}
-.dash-section-title {
-  font-family: var(--font-ui); font-size: 1.05rem; font-weight: 700;
-  color: var(--text); letter-spacing: 0.1em; text-transform: uppercase;
+  margin: -6px 0 14px;
 }
 .dash-section-sub {
   font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
@@ -353,20 +369,176 @@
 .ore-badge-seed { background: rgba(201,169,110,0.18); color: #c9a96e; border: 1px solid #c9a96e; }
 .ore-badge-err  { background: rgba(196,69,69,0.18);   color: #c44545; border: 1px solid #c44545; }
 
-/* ── Coming-soon placeholder ───────────────────────────────────────── */
-.tile-comingsoon {
-  display: flex; align-items: center; justify-content: center;
-  min-height: 160px;
+/* ── Fleet (ship ownership) ────────────────────────────────────────── */
+.fleet-grid {
+  display: grid; grid-template-columns: 1fr 360px; gap: 16px;
+  align-items: start;
 }
-.coming-soon { text-align: center; }
-.coming-soon-badge {
-  display: inline-block; padding: 4px 14px; border-radius: 4px;
-  border: 1px dashed var(--border2); color: var(--text2);
-  font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.12em;
-  text-transform: uppercase; margin-bottom: 10px;
+@media (max-width: 1150px) { .fleet-grid { grid-template-columns: 1fr; } }
+
+/* Stat strip */
+.fleet-stats {
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px;
+  margin-bottom: 16px;
 }
-.coming-soon-text {
+@media (max-width: 1150px) { .fleet-stats { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px)  { .fleet-stats { grid-template-columns: repeat(2, 1fr); } }
+.fleet-stat {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 4px; padding: 12px 14px;
+}
+.fleet-stat-val {
+  font-family: var(--font-ui); font-size: 1.5rem; font-weight: 700;
+  color: var(--text); line-height: 1.1;
+}
+.fleet-stat-val .unit {
+  font-size: 0.72rem; color: var(--text3); font-weight: 400; margin-left: 3px;
+}
+.fleet-stat-label {
+  font-family: var(--font-mono); font-size: 0.64rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-top: 5px;
+}
+.fleet-stat-sub {
+  font-family: var(--font-mono); font-size: 0.64rem; color: var(--text2);
+  margin-top: 3px;
+}
+
+/* Composition bars — clicking one drives the roster filter, so they read as
+   controls rather than decoration. */
+.fleet-bars { display: flex; flex-direction: column; gap: 5px; }
+.fleet-bar {
+  display: grid; grid-template-columns: 96px 1fr 62px; align-items: center;
+  gap: 10px; cursor: pointer; padding: 3px 4px; border-radius: 3px;
+  background: none; border: 0; width: 100%; text-align: left;
+}
+.fleet-bar:hover { background: var(--bg3); }
+.fleet-bar.active { background: var(--rust-900); }
+.fleet-bar-label {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text2);
+  text-transform: capitalize;
+}
+.fleet-bar.active .fleet-bar-label { color: var(--text); font-weight: 700; }
+.fleet-bar-track {
+  display: block; height: 9px;
+  background: var(--bg-base); border: 1px solid var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+/* block, or the span stays inline and drops both width and height */
+.fleet-bar-fill { display: block; height: 100%; background: var(--accent); }
+.fleet-bars-label {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px;
+}
+.fleet-bar-none {
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--text3);
+  padding: 2px 4px;
+}
+.fleet-bar-num {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--text3);
+  text-align: right;
+}
+.fleet-bar-num b { color: var(--text); }
+
+/* Filter row */
+.fleet-filters {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-bottom: 12px;
+}
+.fleet-filters select, .fleet-filters input {
+  font-family: var(--font-mono); font-size: 0.74rem;
+  background: var(--bg-base); color: var(--text2);
+  border: 1px solid var(--border); border-radius: 3px; padding: 6px 8px;
+  /* theme.css sets `input[type=text], select { width: 100% }`, which would put
+     every control on its own row. These sit in a flex row instead. */
+  width: auto;
+}
+.fleet-filters select { flex: 0 1 auto; max-width: 170px; }
+.fleet-filters input { flex: 1 1 160px; min-width: 130px; }
+.fleet-filters select:focus, .fleet-filters input:focus {
+  outline: none; border-color: var(--accent); color: var(--text);
+}
+.fleet-reset {
+  font-family: var(--font-mono); font-size: 0.7rem; text-transform: uppercase;
+  letter-spacing: 0.08em; background: none; color: var(--text3);
+  border: 1px solid var(--border); border-radius: 3px; padding: 6px 10px;
+  cursor: pointer;
+}
+.fleet-reset:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Roster table */
+.fleet-table-wrap { max-height: 520px; overflow-y: auto; }
+.fleet-table {
+  width: 100%; border-collapse: collapse;
+  font-family: var(--font-mono); font-size: 0.78rem;
+}
+.fleet-table th {
+  position: sticky; top: 0; z-index: 1;
+  text-align: left; padding: 7px 8px; white-space: nowrap;
+  font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.64rem;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.fleet-table th:hover { color: var(--text2); }
+.fleet-table th.sorted { color: var(--gold); }
+/* Numeric headers sit over right-aligned values; the base th rule wins on
+   specificity, so restate the alignment at th level. */
+.fleet-table th.fleet-num, .fleet-table th.fleet-count { text-align: right; }
+.fleet-table td {
+  padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--text2);
+}
+.fleet-row { cursor: pointer; }
+.fleet-row:hover td { background: var(--bg3); }
+.fleet-row.open td { background: var(--bg3); }
+.fleet-ship { color: var(--text); font-weight: 600; }
+.fleet-mfr  { color: var(--text3); font-size: 0.72rem; }
+.fleet-num  { text-align: right; }
+.fleet-count { text-align: right; color: var(--accent); font-weight: 700; }
+.fleet-concept {
+  font-size: 0.6rem; color: var(--gold); border: 1px solid var(--gold);
+  border-radius: 2px; padding: 0 4px; margin-left: 6px; letter-spacing: 0.06em;
+}
+.fleet-caret { color: var(--text3); display: inline-block; width: 10px; }
+
+/* Owner drawer inside an expanded roster row */
+.fleet-owners td { background: var(--bg-base); padding: 9px 10px 11px 26px; }
+.fleet-owner {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 3px; padding: 3px 8px; margin: 3px 5px 3px 0;
+  font-size: 0.72rem; color: var(--text2); cursor: pointer;
+}
+.fleet-owner:hover { border-color: var(--accent); color: var(--text); }
+.fleet-owner-src { font-size: 0.6rem; color: var(--text3); }
+.fleet-owner-when { font-size: 0.6rem; color: var(--text3); }
+
+/* Members panel */
+.fleet-members { display: flex; flex-direction: column; gap: 2px; max-height: 470px; overflow-y: auto; }
+.fleet-member {
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  gap: 8px; padding: 6px 8px; border-radius: 3px; cursor: pointer;
+  background: none; border: 0; width: 100%; text-align: left;
+}
+.fleet-member:hover { background: var(--bg3); }
+.fleet-member.active { background: var(--rust-900); }
+.fleet-member-name {
+  font-family: var(--font-mono); font-size: 0.76rem; color: var(--text2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fleet-member.active .fleet-member-name { color: var(--text); font-weight: 700; }
+.fleet-member-meta {
+  font-family: var(--font-mono); font-size: 0.64rem; color: var(--text3);
+  white-space: nowrap;
+}
+.fleet-member-meta b { color: var(--accent); }
+
+.fleet-note {
+  font-family: var(--font-mono); font-size: 0.66rem; color: var(--text3);
+  margin-top: 10px;
+}
+.fleet-empty {
   font-family: var(--font-mono); font-size: 0.76rem; color: var(--text3);
+  padding: 26px 4px; text-align: center;
 }
 </style>
 {% endblock %}
@@ -376,10 +548,15 @@
   <h1 class="officers-page-title">Officer Dashboard</h1>
   <div class="officers-page-sub">Org-wide acquisition &amp; ownership intelligence — prod data</div>
 
-  <!-- ── Section: Blueprint Ownership ── -->
-  <section class="dash-section">
+  <div class="tabs" id="dash-tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-blueprints" data-tab="blueprints" onclick="setTab(this)">Blueprints</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-ore"        data-tab="ore"        onclick="setTab(this)">Ore Inventory</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-ships"      data-tab="ships"      onclick="setTab(this)">Ship Ownership</button>
+  </div>
+
+  <!-- ── Tab: Blueprint Ownership ── -->
+  <section class="tab-content active dash-section" id="tab-blueprints" role="tabpanel">
     <div class="dash-section-head">
-      <span class="dash-section-title">Blueprint Ownership</span>
       <span class="dash-section-sub">Category coverage · member claims · craft planning</span>
     </div>
     <div class="tile-grid">
@@ -426,10 +603,9 @@
     </div><!-- /.tile-grid -->
   </section>
 
-  <!-- ── Section: Ore Inventory ── -->
-  <section class="dash-section">
+  <!-- ── Tab: Ore Inventory ── -->
+  <section class="tab-content dash-section" id="tab-ore" role="tabpanel">
     <div class="dash-section-head">
-      <span class="dash-section-title">Ore Inventory</span>
       <span class="dash-section-sub">Warehouse reserves manifest · synced from the org sheet</span>
     </div>
     <section class="tile tile-ore">
@@ -443,18 +619,65 @@
     </section>
   </section>
 
-  <!-- ── Section: Ship Ownership ── -->
-  <section class="dash-section">
+  <!-- ── Tab: Ship Ownership ── -->
+  <section class="tab-content dash-section" id="tab-ships" role="tabpanel">
     <div class="dash-section-head">
-      <span class="dash-section-title">Ship Ownership</span>
       <span class="dash-section-sub">Org fleet registry</span>
     </div>
-    <section class="tile tile-comingsoon">
-      <div class="coming-soon">
-        <div class="coming-soon-badge">Coming Soon</div>
-        <div class="coming-soon-text">Org-wide ship ownership tracking will live here.</div>
+    <div class="fleet-stats" id="fleet-stats"></div>
+
+    <div class="fleet-grid">
+      <section class="tile">
+        <div class="tile-header">
+          <div class="tile-title">Fleet Roster</div>
+          <div class="tile-subtitle" id="fleet-roster-subtitle">—</div>
+        </div>
+        <div class="tile-body">
+          <div class="fleet-filters">
+            <input type="search" id="fleet-search" placeholder="Search ship or manufacturer…" autocomplete="off">
+            <select id="fleet-type"></select>
+            <select id="fleet-size"></select>
+            <select id="fleet-mfr"></select>
+            <select id="fleet-source">
+              <option value="">Any source</option>
+              <option value="pledge">Pledged</option>
+              <option value="in-game">In-game</option>
+            </select>
+            <button class="fleet-reset" id="fleet-reset">Reset</button>
+          </div>
+          <div id="fleet-roster">
+            <div class="tile-loading">Loading fleet…</div>
+          </div>
+        </div>
+      </section>
+
+      <div>
+        <section class="tile">
+          <div class="tile-header">
+            <div class="tile-title">Composition</div>
+            <div class="tile-subtitle">Click to filter the roster</div>
+          </div>
+          <div class="tile-body">
+            <div class="fleet-bars-label">By role</div>
+            <div class="fleet-bars" id="fleet-bars-type"></div>
+            <div class="fleet-bars-label" style="margin-top:16px">By hull size</div>
+            <div class="fleet-bars" id="fleet-bars-size"></div>
+          </div>
+        </section>
+
+        <div style="height:16px"></div>
+
+        <section class="tile">
+          <div class="tile-header">
+            <div class="tile-title">Who Owns What</div>
+            <div class="tile-subtitle">Click a member to filter</div>
+          </div>
+          <div class="tile-body">
+            <div class="fleet-members" id="fleet-members"></div>
+          </div>
+        </section>
       </div>
-    </section>
+    </div>
   </section>
 </div>
 {% endblock %}
@@ -791,6 +1014,14 @@ async function loadBlueprintsForShopping() {
   }
 }
 
+// Search wiring waits on the blueprint list, so it can't be bound until the
+// fetch settles — hence the await rather than firing both off together.
+async function initShopping() {
+  await loadBlueprintsForShopping();
+  renderShoppingSelections();
+  shoppingSearchHandler();
+}
+
 function shoppingSearchHandler() {
   const input = document.getElementById("shopping-search-input");
   const results = document.getElementById("shopping-search-results");
@@ -999,15 +1230,324 @@ async function loadWarehouse() {
     </div>`;
 }
 
+// ── Fleet (ship ownership) ─────────────────────────────────────────────
+// One payload, filtered client-side. Filters compose: the bars, the member
+// list, and the selects all write into fleetF and re-render from the same
+// source, so any combination behaves the same way.
+
+let fleetData = null;
+const fleetF = { search: "", type: "", size: "", mfr: "", source: "", member: "" };
+let fleetSort = { key: "count", dir: -1 };
+const fleetOpen = new Set();   // rsi_ids with their owner drawer expanded
+
+const FLEET_COLS = [
+  { key: "name",       label: "Ship",   align: "" },
+  { key: "type",       label: "Type",   align: "" },
+  { key: "size",       label: "Size",   align: "" },
+  { key: "max_crew",   label: "Crew",   align: "fleet-num" },
+  { key: "cargo_scu",  label: "Cargo",  align: "fleet-num" },
+  { key: "count",      label: "Owned",  align: "fleet-count" },
+];
+
+async function loadFleet() {
+  const host = document.getElementById("fleet-roster");
+  try {
+    fleetData = await api("/api/officers/fleet");
+  } catch (e) {
+    host.innerHTML = `<div class="tile-error">Could not load fleet: ${escapeHtml(String(e.message || e))}</div>`;
+    return;
+  }
+  buildFleetSelects();
+  renderFleetStats();
+  renderFleetBars();
+  renderFleetMembers();
+  renderFleetRoster();
+  wireFleetControls();
+}
+
+// Facet options come from the fleet itself, not the whole catalog — an empty
+// "Aopoa" option would just be a dead end.
+function buildFleetSelects() {
+  const opts = (id, all, values) => {
+    const el = document.getElementById(id);
+    el.innerHTML = `<option value="">${all}</option>` + values.map(v =>
+      `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join("");
+  };
+  const uniq = key => [...new Set(fleetData.ships.map(s => s[key]).filter(Boolean))];
+  opts("fleet-type", "All types", fleetData.breakdowns.type.map(b => b.key));
+  opts("fleet-size", "All sizes", fleetData.breakdowns.size.map(b => b.key));
+  opts("fleet-mfr",  "All manufacturers", uniq("manufacturer").sort());
+}
+
+// Owners are filtered before hulls: a member/source filter changes both which
+// ships qualify and what each ship's count means (e.g. "Groza's fleet" shows
+// his hulls at count 1, not the org-wide count).
+function fleetOwnersOf(ship) {
+  return ship.owners.filter(o =>
+    (!fleetF.member || o.discord_id === fleetF.member) &&
+    (!fleetF.source || o.source === fleetF.source));
+}
+
+function fleetRows() {
+  const q = fleetF.search.trim().toLowerCase();
+  const rows = [];
+  for (const s of fleetData.ships) {
+    if (fleetF.type && s.type !== fleetF.type) continue;
+    if (fleetF.size && s.size !== fleetF.size) continue;
+    if (fleetF.mfr  && s.manufacturer !== fleetF.mfr) continue;
+    if (q && !s.name.toLowerCase().includes(q) &&
+             !(s.manufacturer || "").toLowerCase().includes(q)) continue;
+    const owners = fleetOwnersOf(s);
+    if (!owners.length) continue;
+    rows.push({ ...s, owners, count: owners.length });
+  }
+  const { key, dir } = fleetSort;
+  rows.sort((a, b) => {
+    const x = a[key], y = b[key];
+    const c = (typeof x === "string") ? x.localeCompare(y) : (x - y);
+    return c * dir || a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
+function fleetTypePill(type) {
+  // careerPillClass (common.js) covers combat/transport/exploration/support.
+  // 'industrial' is this catalog's word for mining/salvage work — map it so it
+  // picks up the mining colour instead of falling through to grey.
+  return careerPillClass(type === "industrial" ? "mining" : type);
+}
+
+function renderFleetStats() {
+  const t = fleetData.totals;
+  const coverage = t.catalog_models ? Math.round(t.models / t.catalog_models * 100) : 0;
+  const empty = t.hulls === 0;
+  const cards = [
+    { val: fmtNumber(t.hulls),      label: "Hulls Claimed",
+      sub: empty ? "nothing claimed yet"
+                 : (t.concepts ? `${t.concepts} still concept` : "all flight-ready") },
+    { val: fmtNumber(t.models),     label: "Distinct Models",
+      sub: `${coverage}% of ${t.catalog_models} in catalog` },
+    { val: fmtNumber(t.owners),     label: "Owners", sub: "members with a hull" },
+    { val: fmtNumber(t.crew_seats), label: "Crew Seats",
+      sub: "max seats across fleet" },
+    { val: fmtNumber(Math.round(t.cargo_scu)), unit: "SCU", label: "Cargo Capacity",
+      sub: "combined hold" },
+    { val: t.owners ? (t.hulls / t.owners).toFixed(1) : "0", label: "Hulls / Member",
+      sub: "fleet depth" },
+  ];
+  document.getElementById("fleet-stats").innerHTML = cards.map(c => `
+    <div class="fleet-stat">
+      <div class="fleet-stat-val">${c.val}${c.unit ? `<span class="unit">${c.unit}</span>` : ""}</div>
+      <div class="fleet-stat-label">${escapeHtml(c.label)}</div>
+      <div class="fleet-stat-sub">${escapeHtml(c.sub)}</div>
+    </div>`).join("");
+}
+
+function renderFleetBars() {
+  const bar = (host, facet, items) => {
+    const max = Math.max(...items.map(i => i.count), 1);
+    if (!items.length) {
+      document.getElementById(host).innerHTML =
+        `<div class="fleet-bar-none">—</div>`;
+      return;
+    }
+    document.getElementById(host).innerHTML = items.map(i => `
+      <button class="fleet-bar ${fleetF[facet] === i.key ? "active" : ""}"
+              data-facet="${facet}" data-key="${escapeHtml(i.key)}">
+        <span class="fleet-bar-label">${escapeHtml(i.key)}</span>
+        <span class="fleet-bar-track">
+          <span class="fleet-bar-fill" style="width:${i.count / max * 100}%"></span>
+        </span>
+        <span class="fleet-bar-num"><b>${i.count}</b></span>
+      </button>`).join("");
+  };
+  bar("fleet-bars-type", "type", fleetData.breakdowns.type);
+  bar("fleet-bars-size", "size", fleetData.breakdowns.size);
+}
+
+function renderFleetMembers() {
+  const host = document.getElementById("fleet-members");
+  host.innerHTML = fleetData.members.map(m => `
+    <button class="fleet-member ${fleetF.member === m.discord_id ? "active" : ""}"
+            data-member="${escapeHtml(m.discord_id)}">
+      <span class="fleet-member-name">${escapeHtml(m.display_name)}</span>
+      <span class="fleet-member-meta"><b>${m.ships}</b> ships · ${m.crew_seats} seats · ${fmtNumber(Math.round(m.cargo_scu))} SCU</span>
+    </button>`).join("") || `<div class="fleet-empty">No claims yet.</div>`;
+}
+
+function renderFleetRoster() {
+  const rows = fleetRows();
+  const host = document.getElementById("fleet-roster");
+
+  const hulls = rows.reduce((n, r) => n + r.count, 0);
+  const seats = rows.reduce((n, r) => n + r.max_crew * r.count, 0);
+  const cargo = rows.reduce((n, r) => n + r.cargo_scu * r.count, 0);
+  const member = fleetF.member &&
+    fleetData.members.find(m => m.discord_id === fleetF.member);
+  // An empty fleet and a fleet filtered down to nothing look identical in the
+  // DOM but mean opposite things — say which one this is.
+  const noClaims = fleetData.ships.length === 0;
+  document.getElementById("fleet-roster-subtitle").textContent =
+    rows.length
+      ? `${hulls} hulls · ${rows.length} models · ${seats} seats · ${fmtNumber(Math.round(cargo))} SCU`
+        + (member ? ` · ${member.display_name}` : "")
+      : (noClaims ? "awaiting claims" : "no matches");
+
+  if (!rows.length) {
+    host.innerHTML = `<div class="fleet-empty">${noClaims
+      ? "No ship claims yet. Once members claim their ships, the org fleet shows up here."
+      : "No ships match these filters."}</div>`;
+    return;
+  }
+
+  const head = FLEET_COLS.map(c =>
+    `<th class="${c.align} ${fleetSort.key === c.key ? "sorted" : ""}" data-sort="${c.key}">
+       ${c.label}${fleetSort.key === c.key ? (fleetSort.dir === 1 ? " ▲" : " ▼") : ""}
+     </th>`).join("");
+
+  const body = rows.map(s => {
+    const open = fleetOpen.has(s.rsi_id);
+    const owners = open ? `
+      <tr class="fleet-owners"><td colspan="${FLEET_COLS.length}">
+        ${s.owners.map(o => `
+          <span class="fleet-owner" data-member="${escapeHtml(o.discord_id)}">
+            ${escapeHtml(o.display_name)}
+            <span class="fleet-owner-src">${o.source ? escapeHtml(o.source) : "—"}</span>
+            <span class="fleet-owner-when">${o.claimed_at ? escapeHtml(String(o.claimed_at).slice(0, 10)) : ""}</span>
+          </span>`).join("")}
+      </td></tr>` : "";
+    return `
+      <tr class="fleet-row ${open ? "open" : ""}" data-rsi="${s.rsi_id}">
+        <td>
+          <span class="fleet-caret">${open ? "▾" : "▸"}</span>
+          <span class="fleet-ship">${escapeHtml(s.name)}</span>
+          ${s.flyable ? "" : `<span class="fleet-concept">CONCEPT</span>`}
+          <div class="fleet-mfr">${escapeHtml(s.manufacturer)}${s.focus ? ` · ${escapeHtml(s.focus)}` : ""}</div>
+        </td>
+        <td><span class="pill ${fleetTypePill(s.type)}">${escapeHtml(s.type)}</span></td>
+        <td>${escapeHtml(s.size)}</td>
+        <td class="fleet-num">${s.max_crew || "—"}</td>
+        <td class="fleet-num">${s.cargo_scu ? fmtNumber(s.cargo_scu) : "—"}</td>
+        <td class="fleet-count">${s.count}</td>
+      </tr>${owners}`;
+  }).join("");
+
+  const stale = fleetData.totals.stale_claims;
+  host.innerHTML = `
+    <div class="fleet-table-wrap">
+      <table class="fleet-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+    </div>
+    ${stale ? `<div class="fleet-note">${stale} claim${stale === 1 ? "" : "s"} hidden — hull no longer in the ${escapeHtml(fleetData.patch)} catalog.</div>` : ""}`;
+}
+
+function renderFleetAll() {
+  renderFleetBars();
+  renderFleetMembers();
+  renderFleetRoster();
+}
+
+function wireFleetControls() {
+  const on = (id, ev, fn) => document.getElementById(id).addEventListener(ev, fn);
+
+  on("fleet-search", "input", e => { fleetF.search = e.target.value; renderFleetRoster(); });
+  ["type", "size", "mfr", "source"].forEach(f =>
+    on(`fleet-${f}`, "change", e => { fleetF[f] = e.target.value; renderFleetAll(); }));
+
+  on("fleet-reset", "click", () => {
+    Object.keys(fleetF).forEach(k => fleetF[k] = "");
+    document.getElementById("fleet-search").value = "";
+    ["type", "size", "mfr", "source"].forEach(f =>
+      document.getElementById(`fleet-${f}`).value = "");
+    fleetOpen.clear();
+    renderFleetAll();
+  });
+
+  // Bars and member rows are re-rendered on every change, so delegate from the
+  // stable containers rather than rebinding each button.
+  ["fleet-bars-type", "fleet-bars-size"].forEach(id =>
+    on(id, "click", e => {
+      const b = e.target.closest(".fleet-bar");
+      if (!b) return;
+      const { facet, key } = b.dataset;
+      fleetF[facet] = fleetF[facet] === key ? "" : key;   // click again to clear
+      document.getElementById(`fleet-${facet}`).value = fleetF[facet];
+      renderFleetAll();
+    }));
+
+  on("fleet-members", "click", e => {
+    const b = e.target.closest(".fleet-member");
+    if (!b) return;
+    selectFleetMember(b.dataset.member);
+  });
+
+  on("fleet-roster", "click", e => {
+    const owner = e.target.closest(".fleet-owner");
+    if (owner) { selectFleetMember(owner.dataset.member); return; }
+
+    const th = e.target.closest("th[data-sort]");
+    if (th) {
+      const key = th.dataset.sort;
+      // Text sorts read best A→Z first; numbers read best biggest-first.
+      if (fleetSort.key === key) fleetSort.dir *= -1;
+      else fleetSort = { key, dir: (key === "name" || key === "type" || key === "size") ? 1 : -1 };
+      renderFleetRoster();
+      return;
+    }
+
+    const row = e.target.closest(".fleet-row");
+    if (row) {
+      const id = Number(row.dataset.rsi);
+      fleetOpen.has(id) ? fleetOpen.delete(id) : fleetOpen.add(id);
+      renderFleetRoster();
+    }
+  });
+}
+
+function selectFleetMember(id) {
+  fleetF.member = fleetF.member === id ? "" : id;   // click again to clear
+  renderFleetAll();
+  document.getElementById("fleet-members")
+          .querySelector(".fleet-member.active")?.scrollIntoView({ block: "nearest" });
+}
+
+// ── Tabs ───────────────────────────────────────────────────────────────
+// Each tab's data loads on first activation rather than at page load, so
+// opening the dashboard doesn't pay for panels the officer never looks at.
+// loaders[] entries are one-shot: deleted once fired.
+
+const tabLoaders = {
+  blueprints: () => { loadCoverage(); loadMembers(); initShopping(); },
+  ore:        () => { loadWarehouse(); },
+  ships:      () => { loadFleet(); },
+};
+
+function activateTab(name) {
+  if (!tabLoaders.hasOwnProperty(name)) name = "blueprints";
+
+  document.querySelectorAll("#dash-tabs .tab-btn").forEach(b => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll(".officers-page .tab-content").forEach(p => {
+    p.classList.toggle("active", p.id === "tab-" + name);
+  });
+
+  const load = tabLoaders[name];
+  if (load) { delete tabLoaders[name]; load(); }
+  return name;
+}
+
+function setTab(btn) {
+  const name = activateTab(btn.dataset.tab);
+  // Reflect in the hash so a tab is linkable and survives reload.
+  history.replaceState(null, "", "#" + name);
+}
+
 // ── Init ───────────────────────────────────────────────────────────────
-(async function init() {
-  // Tiles load in parallel; each is independent of the others.
-  loadCoverage();
-  loadMembers();
-  loadWarehouse();
-  await loadBlueprintsForShopping();
-  renderShoppingSelections();
-  shoppingSearchHandler();
-  document.getElementById("shopping-calc-btn").addEventListener("click", calculateShoppingList);
+(function init() {
+  document.getElementById("shopping-calc-btn")
+          .addEventListener("click", calculateShoppingList);
+  activateTab((location.hash || "").replace(/^#/, ""));
 })();
 {% endblock %}

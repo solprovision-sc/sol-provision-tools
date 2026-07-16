@@ -405,6 +405,50 @@ def _migrate_claims_rsi_id():
         print(f"  Claim rsi_id migration skipped: {e}")
 
 
+# ── Warehouse inventory DB (org ore reserves, fed from a Google Sheet) ────────
+# Standalone file, same rationale as the ownership DBs: this is org operational
+# state (not catalog data), so it lives outside dataforge.db and survives the
+# wholesale patch swaps. A cron script (tools/pull_warehouse_inventory.py)
+# mirrors a shared Google Sheet into warehouse_inventory on a schedule; the
+# /api/officers/warehouse endpoint only reads it. The pull is the sole writer.
+
+WAREHOUSE_SCHEMA = """
+    CREATE TABLE IF NOT EXISTS warehouse_inventory (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        material   TEXT NOT NULL,
+        qty        REAL,
+        quality    TEXT,            -- refinery quality band, e.g. '750-799'
+        location   TEXT,
+        row_index  INTEGER,         -- source sheet order, for stable display
+        pulled_at  INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS warehouse_meta (
+        key   TEXT PRIMARY KEY,
+        value TEXT
+    );
+"""
+
+
+def _resolve_warehouse_db_path():
+    """WAREHOUSE_DB env var wins; otherwise next to DB_PATH (lazy so --db
+    overrides in __main__ still resolve correctly)."""
+    explicit = os.environ.get('WAREHOUSE_DB')
+    if explicit:
+        return explicit
+    return str(Path(DB_PATH).resolve().parent / 'warehouse_inventory.db')
+
+
+def get_warehouse_db():
+    """Connect to the warehouse inventory DB. Auto-creates the schema so a fresh
+    deploy (or a sheet that hasn't been pulled yet) serves an empty table rather
+    than 500-ing."""
+    conn = sqlite3.connect(_resolve_warehouse_db_path())
+    conn.row_factory = sqlite3.Row
+    conn.executescript(WAREHOUSE_SCHEMA)
+    conn.commit()
+    return conn
+
+
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
@@ -3254,12 +3298,30 @@ def api_port_options(entity_name):
             # Reverse tag gate: drop bespoke items the port can't satisfy.
             options = [o for o in options if _item_required_ok(o.get("tags"), hp["port_tags"])]
 
-    # de-dup by entity_name, keep stable order; drop placeholders; sort size→name
-    seen, uniq = set(), []
+    # Clean the option list (applies to every mode):
+    #  1. Drop non-selectable engine variants — LOD render meshes (*_lowpoly, which
+    #     are never installed) and placeholders (*_dummy, plus CIG's
+    #     "<= PLACEHOLDER =>" names). They carry a real item's display name and
+    #     just pad the picker.
+    #  2. Collapse entities that share a (display name, size) to one canonical
+    #     option. CIG ships turret/collector/bespoke variants — and even distinct
+    #     guns — under one name: the S7 "M9A Cannon" alone spans 8 entities, and
+    #     they're indistinguishable in a name-based picker. Prefer the base entity
+    #     (fewest name segments, then shortest) so the plain weapon wins over its
+    #     _turret / _idris_m / _collector sibling. Keyed on size too, so genuinely
+    #     different sizes of the same-named weapon are never merged.
+    best = {}
     for o in options:
-        k = (o.get("entity_name") or "").lower()
-        if k and k not in seen and not is_placeholder(o.get("display_name")):
-            seen.add(k); uniq.append(o)
+        ent = (o.get("entity_name") or "").lower()
+        if not ent or ent.endswith(("_lowpoly", "_dummy")) \
+                or is_placeholder(o.get("display_name")):
+            continue
+        key = ((o.get("display_name") or ent).lower(), o.get("size"))
+        rank = (ent.count("_"), len(ent))
+        cur = best.get(key)
+        if cur is None or rank < cur[0]:
+            best[key] = (rank, o)
+    uniq = [v[1] for v in best.values()]
     uniq.sort(key=lambda o: (o.get("size") or 0, (o.get("display_name") or "")))
     return jsonify({"entity_name": entity_name, "patch_version": p,
                     "context": ctx, "count": len(uniq), "options": uniq})
@@ -4971,6 +5033,209 @@ def api_officers_shopping_list():
     resources.sort(key=lambda r: r["total_qty"], reverse=True)
     plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
     return jsonify({"resources": resources, "items": plain_items})
+
+
+# ── API: Org fleet composition ────────────────────────────────────────────────
+# GET /api/officers/fleet
+# Every prod ship claim, joined to the catalog and rolled up two ways: by hull
+# (what the org flies) and by member (who brings what). Built for Org Night
+# planning, so the headline numbers are crew seats and cargo, not just hulls.
+#
+# Returns the whole fleet in one payload and lets the client filter. The org's
+# claim count is in the hundreds at most, so paging/server-side filtering would
+# cost a round trip per keystroke to save nothing.
+
+# Catalog `size` is a word, not a number — order it by hull scale for display
+# rather than the alphabetical order SQL would give.
+FLEET_SIZE_ORDER = ['snub', 'small', 'medium', 'large', 'capital', 'vehicle']
+
+
+def _fleet_claims(own_conn):
+    """Deduped prod ship claims, oldest first.
+
+    Dedup is on (discord_id, rsi_id) because the table's legacy UNIQUE is
+    (discord_id, ship_entity, patch_version) — a member who claimed the same
+    hull under two patches has two rows, and counting both would inflate the
+    fleet. Claiming is one-per-member-per-hull (server.py api_ship_claim
+    dedups on rsi_id), so distinct pairs is the true hull count.
+
+    Oldest row wins: it carries the original claimed_at.
+    """
+    rows = own_conn.execute('''
+        SELECT discord_id, rsi_id, ship_name, source, claimed_at
+        FROM ship_ownership
+        WHERE env = ? AND rsi_id IS NOT NULL
+        ORDER BY claimed_at
+    ''', (OFFICER_OWNERSHIP_ENV,)).fetchall()
+    seen, claims = set(), []
+    for r in rows:
+        key = (r['discord_id'], r['rsi_id'])
+        if key in seen:
+            continue
+        seen.add(key)
+        claims.append(r)
+    return claims
+
+
+@app.route('/api/officers/fleet')
+@require_officer
+def api_officers_fleet():
+    # Legacy claims predate the rsi_id column; backfill before reading or they
+    # drop out of the join. Idempotent and self-guarding.
+    _migrate_claims_rsi_id()
+
+    conn = get_db()
+    patch = latest_patch(conn)
+    # Same notion of "an ownable ship" as /api/ships and the claim endpoint:
+    # every ship_catalog row at this patch, concepts included. focus is TRIMmed
+    # because the source data has both 'Racing' and 'Racing ' as distinct values.
+    cat_rows = conn.execute('''
+        SELECT rsi_id, rsi_name, rsi_slug, manufacturer, manufacturer_code,
+               TRIM(COALESCE(focus, '')) AS focus, type, size,
+               production_status, flyable, cargo_scu, max_crew, min_crew
+        FROM ship_catalog
+        WHERE patch_version = ?
+    ''', (patch,)).fetchall()
+    conn.close()
+    catalog = {r['rsi_id']: r for r in cat_rows}
+
+    own = get_ship_ownership_db()
+    claims = _fleet_claims(own)
+    own.close()
+
+    names = _resolve_discord_display_names(
+        sorted({c['discord_id'] for c in claims}))
+
+    by_ship, by_member, stale = {}, {}, 0
+    for c in claims:
+        cat = catalog.get(c['rsi_id'])
+        if not cat:
+            # Claim on a hull the current patch no longer lists. Counted only
+            # as a stale tally — mirrors how the coverage tile drops claims on
+            # blueprints that fell out of the catalog.
+            stale += 1
+            continue
+
+        crew  = cat['max_crew'] or 0
+        cargo = cat['cargo_scu'] or 0
+
+        ship = by_ship.get(c['rsi_id'])
+        if not ship:
+            ship = by_ship[c['rsi_id']] = {
+                'rsi_id':            c['rsi_id'],
+                'name':              cat['rsi_name'] or cat['rsi_slug'] or c['ship_name'],
+                'manufacturer':      cat['manufacturer'] or '—',
+                'manufacturer_code': cat['manufacturer_code'] or '',
+                'type':              cat['type'] or 'unknown',
+                'focus':             cat['focus'] or '',
+                'size':              cat['size'] or 'unknown',
+                'production_status': cat['production_status'] or '',
+                'flyable':           bool(cat['flyable']),
+                'max_crew':          crew,
+                'cargo_scu':         cargo,
+                'count':             0,
+                'owners':            [],
+            }
+        ship['count'] += 1
+        ship['owners'].append({
+            'discord_id':   c['discord_id'],
+            'display_name': names.get(c['discord_id']) or c['discord_id'],
+            'source':       c['source'],
+            'claimed_at':   c['claimed_at'],
+        })
+
+        m = by_member.get(c['discord_id'])
+        if not m:
+            m = by_member[c['discord_id']] = {
+                'discord_id':   c['discord_id'],
+                'display_name': names.get(c['discord_id']) or c['discord_id'],
+                'ships': 0, 'crew_seats': 0, 'cargo_scu': 0,
+                'pledge': 0, 'in_game': 0, 'types': {},
+            }
+        m['ships']      += 1
+        m['crew_seats'] += crew
+        m['cargo_scu']  += cargo
+        if c['source'] == 'pledge':
+            m['pledge'] += 1
+        elif c['source'] == 'in-game':
+            m['in_game'] += 1
+        t = cat['type'] or 'unknown'
+        m['types'][t] = m['types'].get(t, 0) + 1
+
+    ships = sorted(by_ship.values(), key=lambda s: (-s['count'], s['name']))
+    for s in ships:
+        s['owners'].sort(key=lambda o: (o['display_name'] or '').lower())
+    members = sorted(by_member.values(),
+                     key=lambda m: (-m['ships'], (m['display_name'] or '').lower()))
+
+    def breakdown(key, order=None):
+        """Hull counts grouped by a catalog facet, biggest first (or in the
+        given display order when one is supplied)."""
+        agg = {}
+        for s in ships:
+            agg[s[key]] = agg.get(s[key], 0) + s['count']
+        items = [{'key': k, 'count': v} for k, v in agg.items()]
+        if order:
+            items.sort(key=lambda i: order.index(i['key'])
+                       if i['key'] in order else len(order))
+        else:
+            items.sort(key=lambda i: -i['count'])
+        return items
+
+    total_hulls = sum(s['count'] for s in ships)
+    return jsonify({
+        'env':   OFFICER_OWNERSHIP_ENV,
+        'patch': patch,
+        'totals': {
+            'hulls':          total_hulls,
+            'models':         len(ships),
+            'owners':         len(members),
+            'crew_seats':     sum(m['crew_seats'] for m in members),
+            'cargo_scu':      sum(m['cargo_scu'] for m in members),
+            'catalog_models': len(catalog),
+            'concepts':       sum(s['count'] for s in ships if not s['flyable']),
+            'stale_claims':   stale,
+        },
+        'breakdowns': {
+            'type': breakdown('type'),
+            'size': breakdown('size', FLEET_SIZE_ORDER),
+        },
+        'ships':   ships,
+        'members': members,
+    })
+
+
+# ── API: Warehouse ore inventory ──────────────────────────────────────────────
+# GET /api/officers/warehouse
+# Org ore reserves, mirrored from the warehouse Google Sheet by the cron pull
+# script. Read-only — returns the current snapshot plus freshness metadata so
+# the dashboard can flag stale data.
+
+@app.route('/api/officers/warehouse')
+@require_officer
+def api_officers_warehouse():
+    conn = get_warehouse_db()
+    rows = conn.execute(
+        "SELECT material, qty, quality, location "
+        "FROM warehouse_inventory ORDER BY row_index, material"
+    ).fetchall()
+    meta = {r['key']: r['value'] for r in conn.execute(
+        "SELECT key, value FROM warehouse_meta")}
+    conn.close()
+
+    pulled_at = None
+    if meta.get('pulled_at'):
+        try:
+            pulled_at = int(meta['pulled_at'])
+        except (TypeError, ValueError):
+            pulled_at = None
+
+    return jsonify({
+        "items":     [dict(r) for r in rows],
+        "pulled_at": pulled_at,
+        "status":    meta.get('status'),
+        "source":    meta.get('source'),
+    })
 
 
 
