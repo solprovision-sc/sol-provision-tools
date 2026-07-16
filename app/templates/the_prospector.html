@@ -1,0 +1,716 @@
+{% extends "base.html" %}
+{% block title %}The Prospector — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<!-- html2canvas powers the "copy intel as image" export on each card -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  /* ── The Prospector — ore heatmap + market wire ──────────────────────────
+     Reconciled to theme.css. Brand/surface/border/font colors now reference the
+     shared tokens; only genuinely non-brand functional colors are kept local. */
+  :root {
+    /* Discord brand blue — external, has no theme equivalent */
+    --discord: #5865F2;
+    /* Market-wire price tiers: deliberately outside the warm palette so a
+       commodity's value magnitude reads at a glance. White/grey defer to theme. */
+    --mw-gold:  #FFD700;
+    --mw-blue:  #00BFFF;
+    --mw-white: var(--text);
+    --mw-grey:  var(--text3);
+  }
+
+  /* Buffer so the fixed market-wire ticker never hides the last row of cards. */
+  body { padding-bottom: 50px; }
+
+  .layout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 24px;
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+
+  /* ── Sidebar ──────────────────────────────────────────────── */
+  .ore-sidebar { width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .sidebar-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--rust);
+    padding: 20px;
+  }
+
+  .sec-title {
+    font-family: var(--font-title);
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .sec-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── Dynamic Ore Buttons (Chip Layout) ─────────────────────────────── */
+  #dynamic-ore-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 450px;
+    overflow-y: auto;
+    padding-right: 5px;
+  }
+
+  #dynamic-ore-list::-webkit-scrollbar, .sys-dropdown-list::-webkit-scrollbar { width: 4px; }
+  #dynamic-ore-list::-webkit-scrollbar-track, .sys-dropdown-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+  #dynamic-ore-list::-webkit-scrollbar-thumb, .sys-dropdown-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  #dynamic-ore-list::-webkit-scrollbar-thumb:hover, .sys-dropdown-list::-webkit-scrollbar-thumb:hover { background: var(--rust); }
+
+  .ore-btn {
+    background: var(--bg3);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family: var(--font-title);
+    font-size: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    flex-grow: 1;
+  }
+  .ore-btn:hover { background: var(--rust); color: var(--text); border-color: var(--rust); }
+  .ore-btn.active { background: var(--accent); color: var(--ink-900); border-color: var(--accent); font-weight: bold; }
+
+  .clear-btn {
+    background: var(--accent-dim);
+    border: 1px solid var(--rust);
+    color: var(--rust);
+    font-family: var(--font-title);
+    font-size: 10px;
+    padding: 10px;
+    width: 100%;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 15px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .clear-btn:hover { background: var(--rust); color: var(--text); }
+
+  /* ── Heatmap Results & Filters ──────────────────────────────────────── */
+  .heatmap-main {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--rust);
+    padding: 25px;
+  }
+
+  .main-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+
+  .results-header {
+    font-family: var(--font-title);
+    letter-spacing: 4px;
+    font-size: 20px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin: 0;
+  }
+
+  /* Multi-Select System Dropdown */
+  .multi-select-container { position: relative; display: inline-block; }
+
+  .filter-btn {
+    background: var(--bg);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    font-family: var(--font-title);
+    padding: 8px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    cursor: pointer;
+    outline: none;
+    min-width: 160px;
+    text-align: right;
+  }
+  .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .sys-dropdown-list {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: var(--panel);
+    border: 1px solid var(--gold);
+    min-width: 180px;
+    z-index: 100;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+    max-height: 250px;
+    overflow-y: auto;
+  }
+  .sys-dropdown-list.open { display: block; }
+
+  .sys-check-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .sys-check-row:hover { background: var(--bg3); }
+  .sys-check-row:last-child { border-bottom: none; }
+
+  .sys-check-row input[type="checkbox"] {
+    accent-color: var(--accent);
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+  }
+  .sys-check-row label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    width: 100%;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  /* ── Grid & Cards ─────────────────────────────────────────────────── */
+  .heatmap-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; align-items: start;
+  }
+
+  .location-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+    transition: transform 0.1s;
+  }
+  .location-card:hover { transform: translateY(-2px); }
+
+  .loc-name { font-family: var(--font-title); font-size: 14px; font-weight: 700; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; padding-right: 80px; }
+  .loc-meta { font-family: var(--font-mono); font-size: 10px; color: var(--gold); text-transform: uppercase; margin-bottom: 8px; }
+
+  /* Discord Copy Button */
+  .card-copy-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--gold);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 4px 6px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .card-copy-btn:hover { border-color: var(--discord); color: var(--discord); }
+
+  .ore-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border);
+    padding: 6px 0;
+  }
+  .ore-row:last-child { border-bottom: none; }
+  .ore-label { font-family: var(--font-mono); font-size: 11px; color: var(--gold); font-weight: bold; letter-spacing: 1px; }
+  .ore-pct { font-family: var(--font-title); font-size: 16px; font-weight: 700; color: var(--accent); }
+
+  /* MULTI-YIELD OVERRIDES */
+  .multi-yield-card {
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 15px var(--accent-dim);
+    background: var(--accent-dim);
+  }
+  .multi-badge {
+    position: absolute;
+    top: -10px;
+    left: 15px;
+    background: var(--accent);
+    color: var(--ink-900);
+    font-family: var(--font-title);
+    font-size: 9px;
+    font-weight: 900;
+    padding: 4px 8px;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+  }
+
+  .empty-state {
+    font-family: var(--font-mono); font-size: 12px; color: var(--gold); opacity: 0.5;
+    padding: 40px; text-align: center; border: 1px dashed var(--border);
+  }
+
+  /* ── Market Wire Ticker ───────────────────────────────────────────── */
+  #market-wire {
+    position: fixed;
+    bottom: 0; left: 0; width: 100%;
+    background: var(--ink-900);
+    border-top: 2px solid var(--border);
+    padding: 8px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    z-index: 2000;
+    font-family: var(--font-title);
+    box-shadow: 0 -5px 15px rgba(0,0,0,0.8);
+    display: none;
+  }
+  .ticker-wrapper {
+    display: inline-block;
+    white-space: nowrap;
+    padding-left: 100vw;
+    animation: ticker 90s linear infinite;
+  }
+  .ticker-wrapper:hover {
+    animation-play-state: paused;
+  }
+  @keyframes ticker {
+    0% { transform: translate3d(0, 0, 0); }
+    100% { transform: translate3d(-100%, 0, 0); }
+  }
+
+  .t-item { margin-right: 50px; font-size: 13px; font-weight: bold; letter-spacing: 1px; }
+  .t-price { color: var(--text2); font-family: var(--font-mono); margin-left: 5px; font-size: 14px;}
+  .t-up { color: var(--positive); font-size: 11px; margin-left: 4px; }
+  .t-down { color: var(--status-red); font-size: 11px; margin-left: 4px; }
+  .t-flat { color: var(--text3); font-size: 11px; margin-left: 4px; }
+</style>
+{% endblock %}
+
+{% block body %}
+  <div class="layout">
+    <aside id="sidebar" class="ore-sidebar">
+
+      <div style="padding-bottom: 15px; border-bottom: 1px solid var(--border); margin-bottom: 15px;">
+        <div style="font-family: var(--font-title); font-size: 20px; font-weight: 900; color: var(--accent); letter-spacing: 2px; text-transform: uppercase;">THE PROSPECTOR</div>
+        <div style="font-family: var(--font-mono); font-size: 10px; color: var(--gold); letter-spacing: 1px;">SOL PROVISION // ACQUISITIONS</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sec-title">01. Target Ore</div>
+        <div id="dynamic-ore-list">
+          <span style="color:var(--gold); font-size: 10px; opacity: 0.5;">FETCHING DATABANKS...</span>
+        </div>
+        <button id="clear-btn" class="clear-btn" style="display: none;" onclick="clearTargets()">[ CLEAR TARGETS ]</button>
+      </div>
+    </aside>
+
+    <main class="heatmap-main">
+      <div class="main-header-row">
+        <div class="results-header" id="results-title">SELECT AN ORE</div>
+
+        <div class="multi-select-container" id="system-filter-container">
+          <button class="filter-btn" id="sys-filter-toggle" onclick="toggleSysFilter()">SYSTEMS: ALL ▾</button>
+          <div class="sys-dropdown-list" id="sys-dropdown-list">
+            </div>
+        </div>
+
+      </div>
+
+      <div id="heatmap-results" class="heatmap-grid">
+        <div class="empty-state" style="grid-column: 1 / -1;">Awaiting telemetry. Select target ores to view concentration hotspots.</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="market-wire">
+    <div class="ticker-wrapper" id="ticker-content">
+      </div>
+  </div>
+
+  <div id="render-receipt" style="display:none; position:absolute; top:-9999px; left:-9999px; width:600px; background:var(--panel); padding:30px; font-family:var(--font-mono); color:var(--text2); box-sizing:border-box; border:1px solid var(--border); border-top:3px solid var(--rust);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:20px; border-bottom:1px solid var(--border); padding-bottom:15px;">
+      <div>
+        <div style="font-family:var(--font-title); font-weight:900; font-size:24px; color:var(--accent); letter-spacing:2px; margin-bottom:5px;">THE PROSPECTOR</div>
+        <div style="font-size:12px; letter-spacing:1px; color:var(--gold);">SOL PROVISION // ROUTE TELEMETRY</div>
+      </div>
+    </div>
+
+    <div style="font-family:var(--font-title); font-size:18px; color:var(--text); margin-bottom: 5px;" id="img-location">LOCATION</div>
+    <div style="color:var(--gold); font-size:12px; margin-bottom:25px; text-transform: uppercase;">SECTOR SCAN COMPLETE</div>
+
+    <div style="font-family:var(--font-title); font-size:14px; color:var(--accent); border-bottom:1px solid var(--rust); padding-bottom:5px; margin-bottom:15px;">IDENTIFIED TARGETS</div>
+    <div id="img-manifest" style="margin-bottom:10px; font-size:14px;"></div>
+  </div>
+{% endblock %}
+
+{% block page_script %}
+    const MASTER_ORE_LIST_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoNsu0-9062i6kIWhJl-Z21-GxnHk9Y9F8j2aqcOmpOMwVNHxVr1hbSq_zfs-iWbwy5bXJVsUW5u18/pub?gid=968308495&single=true&output=csv";
+    const HEATMAP_DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRoNsu0-9062i6kIWhJl-Z21-GxnHk9Y9F8j2aqcOmpOMwVNHxVr1hbSq_zfs-iWbwy5bXJVsUW5u18/pub?gid=1057906010&single=true&output=csv";
+    const UEX_API_KEY = "316fdc3256f6b41817b4b58abdaa50e15d5d70cd";
+
+    let heatmapData = [];
+    let activeOres = new Set();
+    let activeSystems = new Set();
+    let groupedLocationsMap = {};
+    let uexBaselinePrices = {};
+
+    // ── System Dropdown Toggle ──
+    function toggleSysFilter() {
+        document.getElementById('sys-dropdown-list').classList.toggle('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        const container = document.getElementById('system-filter-container');
+        if (container && !container.contains(e.target)) {
+            document.getElementById('sys-dropdown-list').classList.remove('open');
+        }
+    });
+
+    // ── Core Data Parsers ──
+    function parseCSV(csvText) {
+        const lines = csvText.split('\n').filter(line => line.trim() !== '');
+        if (lines.length === 0) return [];
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+
+        return lines.slice(1).map(line => {
+            const values = line.split(',');
+            let rowObject = {};
+            headers.forEach((header, index) => {
+                rowObject[header] = values[index] ? values[index].trim() : '';
+            });
+            return rowObject;
+        });
+    }
+
+    function parseHeatmapGrid(csvText) {
+        const lines = csvText.split('\n').filter(line => line.trim() !== '');
+        if (lines.length < 3) return [];
+        function splitCsvRow(str) {
+            return str.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/(^"|"$)/g, '').trim());
+        }
+        const rows = lines.map(splitCsvRow);
+        const oreHeaders = rows[1];
+        let normalizedData = [];
+        for (let i = 2; i < rows.length; i++) {
+            const row = rows[i];
+            const location = row[0];
+            if (!location) continue;
+            for (let j = 1; j < oreHeaders.length; j++) {
+                const oreName = oreHeaders[j];
+                const pctString = row[j];
+                if (oreName && pctString && pctString !== '') {
+                    normalizedData.push({
+                        ore_name: oreName,
+                        location: location,
+                        percentage: parseFloat(pctString.replace('%', '')) || 0
+                    });
+                }
+            }
+        }
+        return normalizedData;
+    }
+
+    // ── Populate System Checkboxes ──
+    function populateSystemFilter(data) {
+        const list = document.getElementById('sys-dropdown-list');
+        list.innerHTML = '';
+        const systems = new Set();
+        data.forEach(row => {
+            if (row.location) {
+                const parts = row.location.split('-');
+                if (parts.length > 0) systems.add(parts[0].trim().toUpperCase());
+            }
+        });
+        const sortedSystems = Array.from(systems).sort();
+        sortedSystems.forEach(sys => {
+            const rowHtml = document.createElement('div');
+            rowHtml.className = 'sys-check-row';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = sys;
+            cb.id = 'sys-cb-' + sys;
+
+            cb.onchange = (e) => {
+                if (e.target.checked) activeSystems.add(sys);
+                else activeSystems.delete(sys);
+
+                const btn = document.getElementById('sys-filter-toggle');
+                if (activeSystems.size === 0) btn.textContent = 'SYSTEMS: ALL ▾';
+                else if (activeSystems.size === 1) btn.textContent = `SYSTEM: ${Array.from(activeSystems)[0]} ▾`;
+                else btn.textContent = `SYSTEMS: ${activeSystems.size} SELECTED ▾`;
+                renderHeatmap();
+            };
+            const lbl = document.createElement('label');
+            lbl.htmlFor = 'sys-cb-' + sys;
+            lbl.textContent = sys;
+            rowHtml.appendChild(cb);
+            rowHtml.appendChild(lbl);
+            list.appendChild(rowHtml);
+        });
+    }
+
+    async function initMiningApp() {
+        const container = document.getElementById('dynamic-ore-list');
+        try {
+            const oreResponse = await fetch(MASTER_ORE_LIST_URL);
+            if (!oreResponse.ok) throw new Error(`Status ${oreResponse.status}`);
+            const oreCsv = await oreResponse.text();
+            const oreList = parseCSV(oreCsv);
+
+            const heatmapResponse = await fetch(HEATMAP_DATA_URL);
+            if (!heatmapResponse.ok) throw new Error(`Status ${heatmapResponse.status}`);
+            const heatmapCsv = await heatmapResponse.text();
+            heatmapData = parseHeatmapGrid(heatmapCsv);
+
+            populateSystemFilter(heatmapData);
+            renderOreSidebar(oreList);
+
+            fetchMarketWire();
+            setInterval(fetchMarketWire, 300000);
+
+        } catch (error) {
+            console.error("Fetch Error:", error);
+            container.innerHTML = `
+                <div style="color:var(--rust); font-family:var(--font-title); font-size: 11px; font-weight: bold; margin-bottom: 5px;">CONNECTION FAILED</div>
+                <div style="color:var(--gold); font-size: 10px; word-wrap: break-word;">${error.message}</div>
+            `;
+        }
+    }
+
+    function renderOreSidebar(oreList) {
+        const container = document.getElementById('dynamic-ore-list');
+        container.innerHTML = '';
+        if (oreList.length === 0) {
+            container.innerHTML = `<span style="color:var(--gold); font-size: 10px; opacity:0.5;">NO ORES IN MANIFEST.</span>`;
+            return;
+        }
+
+        const uniqueOres = new Set();
+        oreList.forEach(row => {
+            const oreName = row.ore_name || row.ore || row.name || row[Object.keys(row)[0]];
+            if (!oreName || uniqueOres.has(oreName) || oreName.toLowerCase() === "ore") return;
+            uniqueOres.add(oreName);
+        });
+
+        const sortedOres = Array.from(uniqueOres).sort((a, b) => a.localeCompare(b));
+        sortedOres.forEach(oreName => {
+            const btn = document.createElement('button');
+            btn.className = 'ore-btn';
+            btn.textContent = oreName;
+            btn.onclick = () => {
+                if (activeOres.has(oreName)) {
+                    activeOres.delete(oreName);
+                    btn.classList.remove('active');
+                } else {
+                    activeOres.add(oreName);
+                    btn.classList.add('active');
+                }
+                renderHeatmap();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function clearTargets() {
+        activeOres.clear();
+        document.querySelectorAll('.ore-btn').forEach(b => b.classList.remove('active'));
+        renderHeatmap();
+    }
+
+    function renderHeatmap() {
+        const resultsContainer = document.getElementById('heatmap-results');
+        const titleContainer = document.getElementById('results-title');
+        const clearBtn = document.getElementById('clear-btn');
+        groupedLocationsMap = {};
+
+        if (activeOres.size === 0) {
+            titleContainer.textContent = `SELECT AN ORE`;
+            clearBtn.style.display = 'none';
+            resultsContainer.innerHTML = `
+                <div class="empty-state" style="grid-column: 1 / -1;">
+                    Awaiting telemetry. Select target ores to view concentration hotspots.
+                </div>`;
+            return;
+        }
+
+        titleContainer.textContent = `TRACKING ${activeOres.size} TARGET(S)`;
+        clearBtn.style.display = 'block';
+
+        const matches = heatmapData.filter(row => {
+            if (activeSystems.size > 0) {
+                let sysMatch = false;
+                for (let sys of activeSystems) {
+                    if (row.location.toUpperCase().startsWith(sys)) {
+                        sysMatch = true;
+                        break;
+                    }
+                }
+                if (!sysMatch) return false;
+            }
+            for (let selected of activeOres) {
+                if (row.ore_name.toLowerCase() === selected.toLowerCase()) return true;
+            }
+            return false;
+        });
+
+        if (matches.length === 0) {
+            resultsContainer.innerHTML = `
+                <div class="empty-state" style="grid-column: 1 / -1;">
+                    No significant signatures found for targets in selected systems.
+                </div>`;
+            return;
+        }
+
+        const groupedData = {};
+        matches.forEach(match => {
+            if (!groupedData[match.location]) groupedData[match.location] = [];
+            groupedData[match.location].push({ ore: match.ore_name, pct: match.percentage });
+        });
+
+        const locationsArray = Object.keys(groupedData).map(loc => {
+            const oresInLoc = groupedData[loc];
+            oresInLoc.sort((a, b) => b.pct - a.pct);
+            groupedLocationsMap[loc] = oresInLoc;
+            return { location: loc, ores: oresInLoc, maxPct: oresInLoc[0].pct };
+        });
+
+        locationsArray.sort((a, b) => b.maxPct - a.maxPct);
+
+        resultsContainer.innerHTML = locationsArray.map(locData => {
+            const isMultiYield = locData.ores.length > 1;
+            const cardClass = isMultiYield ? "location-card multi-yield-card" : "location-card";
+            const badgeHtml = isMultiYield ? `<div class="multi-badge">MULTI-YIELD</div>` : "";
+            const oresHtml = locData.ores.map(o => `
+                <div class="ore-row">
+                    <span class="ore-label">${o.ore.toUpperCase()}</span>
+                    <span class="ore-pct">${o.pct.toFixed(2)}%</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="${cardClass}">
+                    ${badgeHtml}
+                    <button class="card-copy-btn" onclick="exportDiscordReceipt('${locData.location}')">[ ⎘ INTEL ]</button>
+                    <div class="loc-name">${locData.location}</div>
+                    <div class="loc-meta">System Scan Complete</div>
+                    ${oresHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // ── MARKET WIRE ENGINE ──
+    async function fetchMarketWire() {
+        try {
+            const res = await fetch("https://api.uexcorp.space/2.0/commodities", {
+                headers: { "Authorization": `Bearer ${UEX_API_KEY}` }
+            });
+            if (!res.ok) throw new Error("UEX API Blocked");
+
+            const json = await res.json();
+            if (!json.data) return;
+
+            let tickerHtml = "";
+
+            json.data.forEach(item => {
+                const name = item.name.toUpperCase();
+                const currentPrice = parseFloat(item.price_sell) || parseFloat(item.price) || 0;
+                if (currentPrice === 0) return;
+
+                if (!uexBaselinePrices[name]) uexBaselinePrices[name] = currentPrice;
+
+                let trendStr = "−";
+                let trendClass = "t-flat";
+                if (currentPrice > uexBaselinePrices[name]) { trendStr = "▲"; trendClass = "t-up"; }
+                else if (currentPrice < uexBaselinePrices[name]) { trendStr = "▼"; trendClass = "t-down"; }
+
+                let colorClass = "var(--mw-grey)";
+                if (currentPrice >= 15000) colorClass = "var(--mw-gold)";
+                else if (currentPrice >= 5000) colorClass = "var(--mw-blue)";
+                else if (currentPrice >= 1000) colorClass = "var(--mw-white)";
+
+                tickerHtml += `
+                <span class="t-item" style="color: ${colorClass};">
+                    ${name} <span class="t-price">${currentPrice.toLocaleString()} aUEC</span>
+                    <span class="${trendClass}">${trendStr}</span>
+                </span>`;
+            });
+
+            const tickerContainer = document.getElementById('ticker-content');
+            tickerContainer.innerHTML = tickerHtml;
+
+            tickerContainer.style.animationDuration = `${json.data.length * 1.5}s`;
+            document.getElementById('market-wire').style.display = 'block';
+
+        } catch (error) {
+            console.error("Market Wire Error:", error);
+        }
+    }
+
+    // ── HTML2Canvas Discord Export Engine ──
+    function exportDiscordReceipt(locationName) {
+        const ores = groupedLocationsMap[locationName];
+        if (!ores) return;
+        document.getElementById('img-location').innerText = locationName.toUpperCase();
+        let mHtml = '';
+        ores.forEach(o => {
+            mHtml += `
+            <div style="margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+                    <span style="color:var(--text2); font-weight:bold;">${o.ore.toUpperCase()}</span>
+                    <span style="color:var(--accent); font-family:var(--font-title); font-weight:bold;">${o.pct.toFixed(2)}%</span>
+                </div>
+                <div style="background:var(--bg); height:8px; border:1px solid var(--border);">
+                    <div style="background:var(--rust); width:${o.pct}%; height:100%;"></div>
+                </div>
+            </div>`;
+        });
+        document.getElementById('img-manifest').innerHTML = mHtml;
+        const el = document.getElementById('render-receipt');
+        el.style.display = 'block';
+
+        const btns = document.querySelectorAll('.card-copy-btn');
+        btns.forEach(b => {
+            if(b.getAttribute('onclick').includes(locationName)) {
+                const originalText = b.innerText;
+                b.innerText = "[ PROCESSING... ]";
+                b.style.color = "var(--accent)";
+                // html2canvas needs a concrete fill, not a CSS var — keep the panel hex.
+                html2canvas(el, {backgroundColor:'#1a1817', scale:2}).then(canvas => {
+                    el.style.display = 'none';
+                    canvas.toBlob(blob => {
+                        const item = new ClipboardItem({'image/png': blob});
+                        navigator.clipboard.write([item]).then(() => {
+                            b.innerText = "[ COPIED! ]";
+                            b.style.color = "var(--positive)";
+                            setTimeout(() => {
+                                b.innerText = originalText;
+                                b.style.color = "var(--gold)";
+                            }, 2000);
+                        });
+                    });
+                });
+            }
+        });
+    }
+
+    initMiningApp();
+{% endblock %}
