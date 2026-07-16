@@ -3254,12 +3254,30 @@ def api_port_options(entity_name):
             # Reverse tag gate: drop bespoke items the port can't satisfy.
             options = [o for o in options if _item_required_ok(o.get("tags"), hp["port_tags"])]
 
-    # de-dup by entity_name, keep stable order; drop placeholders; sort size→name
-    seen, uniq = set(), []
+    # Clean the option list (applies to every mode):
+    #  1. Drop non-selectable engine variants — LOD render meshes (*_lowpoly, which
+    #     are never installed) and placeholders (*_dummy, plus CIG's
+    #     "<= PLACEHOLDER =>" names). They carry a real item's display name and
+    #     just pad the picker.
+    #  2. Collapse entities that share a (display name, size) to one canonical
+    #     option. CIG ships turret/collector/bespoke variants — and even distinct
+    #     guns — under one name: the S7 "M9A Cannon" alone spans 8 entities, and
+    #     they're indistinguishable in a name-based picker. Prefer the base entity
+    #     (fewest name segments, then shortest) so the plain weapon wins over its
+    #     _turret / _idris_m / _collector sibling. Keyed on size too, so genuinely
+    #     different sizes of the same-named weapon are never merged.
+    best = {}
     for o in options:
-        k = (o.get("entity_name") or "").lower()
-        if k and k not in seen and not is_placeholder(o.get("display_name")):
-            seen.add(k); uniq.append(o)
+        ent = (o.get("entity_name") or "").lower()
+        if not ent or ent.endswith(("_lowpoly", "_dummy")) \
+                or is_placeholder(o.get("display_name")):
+            continue
+        key = ((o.get("display_name") or ent).lower(), o.get("size"))
+        rank = (ent.count("_"), len(ent))
+        cur = best.get(key)
+        if cur is None or rank < cur[0]:
+            best[key] = (rank, o)
+    uniq = [v[1] for v in best.values()]
     uniq.sort(key=lambda o: (o.get("size") or 0, (o.get("display_name") or "")))
     return jsonify({"entity_name": entity_name, "patch_version": p,
                     "context": ctx, "count": len(uniq), "options": uniq})
