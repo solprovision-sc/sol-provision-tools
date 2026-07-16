@@ -1,10 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Acquisitions — Sol Provision</title>
+{% extends "base.html" %}
+{% block title %}Acquisitions — Sol Provision{% endblock %}
 
+{% block extra_css %}
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -13,7 +10,7 @@
 
   <style>
     /* ── SOL PROVISION CORE STYLING ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
 
     :root {
       --cr: #7E2619; --kh: #9A8C64; --bn: #E8855C; --pc: #CBB8AA;
@@ -27,7 +24,7 @@
     html, body { min-height: 100vh; background: var(--d1); color: var(--pc); font-family: var(--fm); font-size: 14px; }
     body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(rgba(126,38,25,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(126,38,25,0.025) 1px, transparent 1px); background-size: 40px 40px; pointer-events: none; z-index: 0; }
 
-    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 20px; }
+    .page-content { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 52px); padding: 40px 20px; }
     .panel { text-align: center; width: 450px; padding: 40px; background: var(--d2); border: 1px solid var(--bdr); border-top: 3px solid var(--cr); display: none; }
 
     .splash-btn { background: var(--d3); border: 1px solid var(--kh); color: var(--kh); padding: 18px; width: 100%; margin-top: 15px; font-family: var(--fh); cursor: pointer; text-transform: uppercase; letter-spacing: 2px; }
@@ -54,9 +51,9 @@
     .ledger-table td { padding: 12px; border-bottom: 1px solid var(--bdr); }
     .util-bar { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
   </style>
-</head>
-<body>
+{% endblock %}
 
+{% block body %}
 <div class="page-content">
 
   <div id="splash" class="panel">
@@ -159,8 +156,9 @@
   <div style="font-family:'Orbitron',sans-serif; font-size:18px; color:#E8855C; border-bottom:1px solid #7E2619; padding-bottom:10px; margin-bottom:15px;">ACQUISITION MANIFEST</div>
   <div id="img-manifest" style="margin-bottom:40px; font-size:14px;"></div>
 </div>
+{% endblock %}
 
-<script>
+{% block page_script %}
   // --- FIREBASE CONFIG ---
   const firebaseConfig = { 
     apiKey: "AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E", 
@@ -288,6 +286,4 @@
       canvas.toBlob(blob => { const item = new ClipboardItem({'image/png': blob}); navigator.clipboard.write([item]).then(()=>alert("MANIFEST COPIED! Paste into Discord.")); });
     });
   }
-</script>
-</body>
-</html>
+{% endblock %}
