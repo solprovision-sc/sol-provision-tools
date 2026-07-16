@@ -716,6 +716,8 @@
   justify-content: center;
   padding: 8px;
   align-self: stretch;
+  position: relative;   /* anchor the corner ribbon */
+  overflow: hidden;     /* clip the diagonal ribbon to the corner */
 }
 
 .silhouette img {
@@ -725,26 +727,63 @@
   display: block;
 }
 
+/* ── "Image Coming Soon" placeholder (shown when a ship has no lineart) ── */
 .sil-placeholder {
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  gap: 8px; 
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px 24px;
+  width: 100%;
+  min-height: 220px;
+  /* faint inset frame so the empty state reads as intentional, not broken */
+  border: 1px dashed rgba(154,140,100,0.22);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(232,133,92,0.06), transparent 60%);
 }
 
-.sil-label { 
-  font-size: 9px; 
-  letter-spacing: 2px; 
-  color: var(--khaki); 
-  text-transform: uppercase; 
+.sil-icon {
+  width: 54px;
+  height: 54px;
+  color: var(--khaki);
+  opacity: 0.5;
 }
 
-.sil-sub { 
-  font-size: 9px; 
-  color: rgba(154,140,100,0.4); 
-  letter-spacing: 1px; 
-  font-style: italic; 
+.sil-label {
+  font-family: var(--font-title, 'Orbitron', sans-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: var(--khaki);
+  text-transform: uppercase;
+}
+
+.sil-sub {
+  font-size: 9px;
+  color: rgba(154,140,100,0.5);
+  letter-spacing: 1px;
+  font-style: italic;
+}
+
+/* Diagonal corner ribbon */
+.sil-ribbon {
+  position: absolute;
+  top: 16px;
+  right: -42px;
+  transform: rotate(45deg);
+  width: 150px;
+  text-align: center;
+  padding: 5px 0;
+  background: linear-gradient(135deg, var(--terracotta, #E8855C), var(--rust, #7E2619));
+  color: #fff;
+  font-family: var(--font-title, 'Orbitron', sans-serif);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  pointer-events: none;
 }
 
 /* ── STAT BLOCKS (Overview) ────────────────────────────────────────────── */
@@ -2309,8 +2348,15 @@ body::before {
           <div class="silhouette" id="sil-container">
 			<img id="sil-img" src="" alt="Ship silhouette" style="display:none;">
 			<div class="sil-placeholder" id="sil-fallback" style="display:flex;">
-				<div class="sil-label">Ortho Silhouette</div>
-				<div class="sil-sub">Lineart not yet available for this vessel</div>
+				<div class="sil-ribbon">Coming Soon</div>
+				<svg class="sil-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor"
+				     stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<rect x="6" y="9" width="36" height="30" rx="2"/>
+					<circle cx="16.5" cy="19" r="3.2"/>
+					<path d="M7 34 L18.5 23 L27 30.5 L33 25.5 L41 33"/>
+				</svg>
+				<div class="sil-label">Image Coming Soon</div>
+				<div class="sil-sub">Orthographic lineart in production</div>
 			</div>
 		  </div>
           <div class="overview-right">
@@ -4740,15 +4786,20 @@ body::before {
     document.getElementById('ov-entity-note').textContent = ENTITY_NAME;
 
     const img = document.getElementById('sil-img');
-	if (ship.lineart_file) {
-		img.src = `/static/img/ship_silhouette/${ship.lineart_file}`;
-		img.alt = `${ship.display_name} orthographic silhouette`;
-		img.style.display = 'block';
-		document.getElementById('sil-fallback').style.display = 'none';
-	} else {
-		img.style.display = 'none';
-		document.getElementById('sil-fallback').style.display = 'flex';
-	}
+    const fallback = document.getElementById('sil-fallback');
+    const showComingSoon = () => { img.style.display = 'none'; fallback.style.display = 'flex'; };
+    const showImage      = () => { img.style.display = 'block'; fallback.style.display = 'none'; };
+    if (ship.lineart_file) {
+      // A lineart_file value doesn't guarantee the file exists on disk — many
+      // ships reference art we haven't drawn yet. Fall back to the "Image Coming
+      // Soon" placeholder on load error, not just when the field is null.
+      img.onerror = showComingSoon;
+      img.alt = `${ship.display_name} orthographic silhouette`;
+      img.src = `/static/img/ship_silhouette/${ship.lineart_file}`;
+      showImage();
+    } else {
+      showComingSoon();
+    }
 
     if (ship.cargo_scu != null) {
       // A known capacity — including RSI's authoritative 0 — renders as "N SCU".
