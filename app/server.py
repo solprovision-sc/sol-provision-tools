@@ -405,50 +405,6 @@ def _migrate_claims_rsi_id():
         print(f"  Claim rsi_id migration skipped: {e}")
 
 
-# ── Warehouse inventory DB (org ore reserves, fed from a Google Sheet) ────────
-# Standalone file, same rationale as the ownership DBs: this is org operational
-# state (not catalog data), so it lives outside dataforge.db and survives the
-# wholesale patch swaps. A cron script (tools/pull_warehouse_inventory.py)
-# mirrors a shared Google Sheet into warehouse_inventory on a schedule; the
-# /api/officers/warehouse endpoint only reads it. The pull is the sole writer.
-
-WAREHOUSE_SCHEMA = """
-    CREATE TABLE IF NOT EXISTS warehouse_inventory (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        material   TEXT NOT NULL,
-        qty        REAL,
-        quality    TEXT,            -- refinery quality band, e.g. '750-799'
-        location   TEXT,
-        row_index  INTEGER,         -- source sheet order, for stable display
-        pulled_at  INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS warehouse_meta (
-        key   TEXT PRIMARY KEY,
-        value TEXT
-    );
-"""
-
-
-def _resolve_warehouse_db_path():
-    """WAREHOUSE_DB env var wins; otherwise next to DB_PATH (lazy so --db
-    overrides in __main__ still resolve correctly)."""
-    explicit = os.environ.get('WAREHOUSE_DB')
-    if explicit:
-        return explicit
-    return str(Path(DB_PATH).resolve().parent / 'warehouse_inventory.db')
-
-
-def get_warehouse_db():
-    """Connect to the warehouse inventory DB. Auto-creates the schema so a fresh
-    deploy (or a sheet that hasn't been pulled yet) serves an empty table rather
-    than 500-ing."""
-    conn = sqlite3.connect(_resolve_warehouse_db_path())
-    conn.row_factory = sqlite3.Row
-    conn.executescript(WAREHOUSE_SCHEMA)
-    conn.commit()
-    return conn
-
-
 def latest_patch(conn):
     row = conn.execute("SELECT patch_version FROM patch_history ORDER BY imported_at DESC LIMIT 1").fetchone()
     return row["patch_version"] if row else "4.6"
@@ -848,6 +804,11 @@ def mission_rep():
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
+@app.route("/prospector")
+@require_page_login
+def prospector_page():
+    return render_template("the_prospector.html", active_page="/prospector")
+
 @app.route("/cargo-planner")
 @require_page_login
 def cargo_planner_page():
@@ -1097,6 +1058,201 @@ def api_trade_commodity_detail(id_commodity):
         },
         "terminals": terminals,
     })
+
+
+# ── Trade Routes (greedy profit optimizer) ────────────────────────────────────
+# The route math lives in helpers/trade_routes.py (pure, unit-tested). These
+# endpoints marshal the live feed into a per-location market and, when a quantum
+# drive is supplied, enrich each leg with QT time via the existing nav engine.
+
+_TRADE_MARKET_SQL = """
+    WITH latest AS (
+        SELECT ps.*, ROW_NUMBER() OVER (PARTITION BY ps.id_commodity, ps.id_terminal
+                                        ORDER BY ps.pulled_at DESC) AS rn
+        FROM price_snapshots ps
+        WHERE (ps.price_buy > 0) OR (ps.price_sell > 0)
+    )
+    SELECT l.id_commodity, l.id_terminal, l.price_buy, l.price_sell,
+           l.scu_buy, l.scu_sell,
+           c.code AS commodity_code, c.name AS commodity_name,
+           t.name AS terminal_name,
+           t.id_star_system, t.star_system_name, t.id_planet, t.planet_name,
+           t.id_orbit, t.orbit_name, t.id_moon, t.moon_name,
+           t.space_station_name, t.city_name, t.outpost_name, t.faction_name
+    FROM latest l
+    JOIN commodities c ON c.id_commodity = l.id_commodity
+    LEFT JOIN terminals t ON t.id_terminal = l.id_terminal
+    WHERE l.rn = 1
+"""
+
+
+def _build_trade_market():
+    """Build the per-location market from the latest snapshot per (commodity,
+    terminal). Returns (market, as_of)."""
+    from helpers.trade_routes import build_market
+    conn = get_uex_db()
+    try:
+        rows = conn.execute(_TRADE_MARKET_SQL).fetchall()
+        as_of = conn.execute("SELECT MAX(pulled_at) FROM price_snapshots").fetchone()[0]
+    finally:
+        conn.close()
+    return build_market(rows), as_of
+
+
+def _enrich_legs_with_qt(legs, market, ship_uuid, qd_uuid):
+    """Best-effort: stamp each leg with QT time/fuel by matching its from/to
+    locations to dataforge nav_points and reusing plan_leg(). Mutates legs in
+    place; unmatched or cross-system-unreachable legs get qt={'unknown': True}.
+    Returns (total_time_s, total_fuel_scu, unknown_count)."""
+    from helpers.quantum_travel import plan_leg
+    from helpers.trade_routes import build_navpoint_index, match_location_to_navpoint
+
+    conn = get_db()
+    try:
+        p = PATCH or latest_patch(conn)
+        qd_row = conn.execute(
+            "SELECT * FROM item_quantum_drives WHERE patch_version=? AND uuid=?",
+            (p, qd_uuid)).fetchone()
+        if not qd_row:
+            return None, None, len(legs)
+        qd = dict(qd_row)
+        ship = {}
+        if ship_uuid:
+            srow = conn.execute("SELECT * FROM ships WHERE patch_version=? AND uuid=?",
+                                (p, ship_uuid)).fetchone()
+            if srow:
+                ship = dict(srow)
+
+        nav = _get_nav_graph(conn, p)
+        by_uuid, resolve = _build_navpt_hierarchy(conn, p)
+        index = build_navpoint_index(by_uuid, resolve)
+
+        # Resolve each market location to a nav uuid once.
+        uuid_of = {}
+        for key, loc in market.items():
+            uuid_of[key] = match_location_to_navpoint(loc, index)
+
+        total_t, total_f, unknown = 0.0, 0.0, 0
+        for leg in legs:
+            o, d = uuid_of.get(leg["from_key"]), uuid_of.get(leg["to_key"])
+            if not o or not d:
+                leg["qt"] = {"unknown": True, "reason": "location not on nav map"}
+                unknown += 1
+                continue
+            try:
+                sub = plan_leg(o, d, ship, qd, nav)
+                t = sum(s.get("time_s", 0) or 0 for s in sub)
+                f = sum(s.get("fuel_scu", 0) or 0 for s in sub)
+                dist = sum(s.get("distance_m", 0) or 0 for s in sub)
+                jumps = sum(1 for s in sub if s.get("kind") == "jump")
+                leg["qt"] = {"unknown": False, "time_s": round(t, 1),
+                             "fuel_scu": round(f, 2), "distance_m": dist, "jumps": jumps}
+                total_t += t
+                total_f += f
+            except Exception as e:  # CrossSystemError, missing geometry, etc.
+                leg["qt"] = {"unknown": True, "reason": str(e)}
+                unknown += 1
+        return round(total_t, 1), round(total_f, 2), unknown
+    finally:
+        conn.close()
+
+
+@app.route("/api/trade/locations")
+def api_trade_locations():
+    """Selectable start/end locations for the route planner: every grouped
+    location that has at least one buy or sell, ordered by system then label.
+
+    location_meta_available tells the UI whether terminal location metadata has
+    synced from UEX yet — when false, locations collapse to one-per-terminal and
+    grouped routing isn't meaningful."""
+    market, as_of = _build_trade_market()
+    locations = []
+    meta_available = False
+    for loc in market.values():
+        if loc["system"]:
+            meta_available = True
+        locations.append({
+            "key": loc["key"],
+            "label": loc["label"],
+            "system": loc["system"],
+            "buy_commodities": len(loc["buys"]),
+            "sell_commodities": len(loc["sells"]),
+        })
+    locations.sort(key=lambda x: (x["system"] or "zzz", x["label"] or ""))
+    return jsonify({
+        "as_of": as_of,
+        "count": len(locations),
+        "location_meta_available": meta_available,
+        "locations": locations,
+    })
+
+
+@app.route("/api/trade/route", methods=["POST"])
+def api_trade_route():
+    """Greedy max-profit route. Body: {capital, start_key, stops, end_key?,
+    cargo_scu? | ship_uuid?, qd_uuid?}. Reinvests each leg's proceeds into the
+    next; only the final leg is forced to end_key. With a qd_uuid, each leg also
+    gets a best-effort QT time/fuel estimate."""
+    from helpers.trade_routes import plan_trade_route, RouteParams
+
+    body = request.get_json(silent=True) or {}
+    try:
+        capital = float(body.get("capital"))
+        stops = int(body.get("stops"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "capital and stops are required numbers"}), 400
+    start_key = body.get("start_key")
+    end_key = body.get("end_key") or None
+    if not start_key:
+        return jsonify({"error": "start_key is required"}), 400
+    if stops < 1 or stops > 12:
+        return jsonify({"error": "stops must be between 1 and 12"}), 400
+    if capital <= 0:
+        return jsonify({"error": "capital must be positive"}), 400
+
+    # Cargo capacity: explicit override, else look up the ship in dataforge.
+    cargo_scu = body.get("cargo_scu")
+    ship_uuid = body.get("ship_uuid")
+    qd_uuid = body.get("qd_uuid") or body.get("quantum_drive_uuid")
+    if cargo_scu is None and ship_uuid:
+        dconn = get_db()
+        try:
+            p = PATCH or latest_patch(dconn)
+            srow = dconn.execute(
+                "SELECT COALESCE(NULLIF(rsi_cargo_scu,0), cargo_scu) AS scu "
+                "FROM ships WHERE patch_version=? AND uuid=?", (p, ship_uuid)).fetchone()
+            if srow:
+                cargo_scu = srow["scu"]
+        finally:
+            dconn.close()
+    try:
+        cargo_scu = float(cargo_scu)
+    except (TypeError, ValueError):
+        return jsonify({"error": "cargo_scu (or a ship with cargo) is required"}), 400
+    if cargo_scu <= 0:
+        return jsonify({"error": "ship has no cargo capacity"}), 400
+
+    market, as_of = _build_trade_market()
+    if start_key not in market:
+        return jsonify({"error": "unknown start location"}), 400
+
+    result = plan_trade_route(market, RouteParams(
+        cargo_scu=cargo_scu, capital=capital, start_key=start_key,
+        stops=stops, end_key=end_key, same_system=bool(body.get("same_system"))))
+
+    qt_time = qt_fuel = qt_unknown = None
+    if qd_uuid and result["legs"]:
+        qt_time, qt_fuel, qt_unknown = _enrich_legs_with_qt(
+            result["legs"], market, ship_uuid, qd_uuid)
+
+    result.update({
+        "as_of": as_of,
+        "cargo_scu": cargo_scu,
+        "qt_total_time_s": qt_time,
+        "qt_total_fuel_scu": qt_fuel,
+        "qt_unknown_legs": qt_unknown,
+    })
+    return jsonify(result)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -1736,7 +1892,10 @@ def api_ships():
             "role":         r["role"],
             "size_class":   r["size_class"],
             "crew_size":    r["crew_size"],
-            "cargo_scu":    (r["rsi_cargo_scu"] or r["cargo_scu"]),
+            # RSI published spec is authoritative — including a published 0
+            # (combat/mining/special hulls RSI rates at 0 cargo). Only fall
+            # back to the in-game value when RSI has no row at all (NULL).
+            "cargo_scu":    (r["rsi_cargo_scu"] if r["rsi_cargo_scu"] is not None else r["cargo_scu"]),
             "cargo_game_scu": r["cargo_scu"],
             "cargo_rsi_scu":  r["rsi_cargo_scu"],
             "length_m":     r["length_m"],
@@ -1757,8 +1916,18 @@ def get_ship_components(conn, ship_entity, patch):
     Returns a dict keyed by component category.
     """
     def q(sql):
-        return [dict(r) for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall()
-                if not is_placeholder(dict(r).get("display_name"))]
+        rows = []
+        for r in conn.execute(sql, {"ship": ship_entity, "patch": patch}).fetchall():
+            d = dict(r)
+            if is_placeholder(d.get("display_name")):
+                continue
+            # Bespoke ship items (e.g. RADR_RSI_S04_Polaris) carry a loc_name_key
+            # CIG never shipped a string for, so display_name comes back blank.
+            # Fall back to a formatted entity name — same pattern as ship names.
+            if not (d.get("display_name") or "").strip():
+                d["display_name"] = best_name(d.get("display_name"), d.get("entity_name"))
+            rows.append(d)
+        return rows
 
     # Reusable join fragment — all component queries share this structure
     def join(tbl):
@@ -2080,9 +2249,12 @@ def get_ship_components(conn, ship_entity, patch):
     def _is_turret_port(n):
         pt  = (n.get("port_type") or "").lower()
         acc = n.get("accepted_types") or ""
+        # A crewed/remote turret sits on a TurretBase (needs a seat/base). Plain
+        # 'Turret:' mounts (nose/canard/ball/gun turret mounts) are pilot-fired
+        # even when their accepted_types omit WeaponGun, so they must NOT be
+        # treated as crew turrets — that buried e.g. the Starfarer's side cannons
+        # and the Hornet's nose/ball guns in Crew DPS.
         if pt == "turretbase" or "TurretBase:" in acc:
-            return True
-        if pt in ("turret", "utilityturret") and "WeaponGun" not in acc:
             return True
         return False
 
@@ -2094,6 +2266,22 @@ def get_ship_components(conn, ship_entity, patch):
         if "remote" in nm or "unmanned" in nm:
             return "remote"
         return "manned"
+
+    # A crewed turret can sit one level down inside a room/seat wrapper (kind
+    # 'empty') — e.g. the Star Runner's turret seats live under a 'room' port,
+    # so classifying only the top node buries the turret's guns in Pilot. Promote
+    # through empty non-turret wrappers so the turretbase surfaces for
+    # classification, but STOP at turret ports so an empty turret base (whose
+    # default guns are foundry-backfilled) still stays its own group root.
+    def _expand_wrappers(nodes):
+        out = []
+        for n in nodes:
+            if n["kind"] == "empty" and not _is_turret_port(n):
+                out.extend(_expand_wrappers(n["children"]))
+            else:
+                out.append(n)
+        return out
+    tops = _expand_wrappers(tops)
 
     # Turret tops keep their node as the group root (even an empty turret base
     # whose default guns are foundry-backfilled) so all-turret ships like the
@@ -2167,20 +2355,48 @@ def get_ship_components(conn, ship_entity, patch):
         if not shot:
             return 0.0, 0.0
         fms = (item or {}).get("fire_modes") or []
+        # Charge weapons (Banu Singe/Tachyon cannons) fire one shot per charge
+        # cycle; their primary mode is 'Charged' with a charge_time and no
+        # fire_rate. Falling through to the fire_rate scan below picks the
+        # alternate rapid mode and massively overstates DPS (Singe read 1519 vs
+        # spviewer ~319), so handle the charged primary mode explicitly.
+        primary = fms[0] if fms else None
+        if primary and (primary.get("fire_mode_type") or "").lower() == "charged" \
+                and (primary.get("charge_time") or 0) > 0:
+            alpha = shot * (primary.get("pellet_count") or 1)
+            cycle = primary["charge_time"] + (primary.get("cooldown_time") or 0)
+            return (alpha / cycle if cycle else 0.0), alpha
         fm = next((f for f in fms if (f.get("fire_rate") or 0) > 0), None)
         if not fm:
             return 0.0, 0.0
         alpha = shot * (fm.get("pellet_count") or 1)
         return alpha * (fm["fire_rate"] / 60.0), alpha
 
+    # Utility tools (tractor/tow beams, tool arms, mining/salvage heads) are not
+    # weapons. Some carry a phantom default gun in a nested class slot (a foundry
+    # backfill artifact), so their subtree must be skipped entirely or those guns
+    # inflate weapon DPS — e.g. the Hull C's tractor-beam turrets each nest a
+    # spurious Panther. spviewer excludes them.
+    _UTILITY_ITEM_TYPES = {"tractorbeam", "towbeam", "toolarm",
+                           "mininglaser", "salvagehead", "salvagemodifier"}
+
     def _sum_dps_alpha(roots):
         dps, alpha, stack = 0.0, 0.0, list(roots)
         while stack:
             n = stack.pop()
-            if n.get("kind") == "weapon":
-                d, a = _weapon_dps_alpha(n.get("item"))
+            it = n.get("item") or {}
+            if (it.get("item_type") or "").lower() in _UTILITY_ITEM_TYPES:
+                continue  # utility tool — skip its whole subtree (phantom guns)
+            kids = n.get("children") or []
+            # Only count LEAF guns. Some hardpoints resolve the same weapon on both
+            # the port and a nested class-slot child (e.g. Sabre Firebird's wing
+            # Mantis appears as parent AND child) — counting the parent too would
+            # double the DPS. A weapon node with a weapon child is acting as a
+            # mount, so skip it and count the child.
+            if n.get("kind") == "weapon" and not any(c.get("kind") == "weapon" for c in kids):
+                d, a = _weapon_dps_alpha(it)
                 dps += d; alpha += a
-            stack.extend(n.get("children") or [])
+            stack.extend(kids)
         return dps, alpha
 
     _turret_roots = (turret_groups["manned"] + turret_groups["remote"]
@@ -2551,9 +2767,11 @@ def api_ship_detail(entity_name):
         "career":                 clean_career(ship["career"] or ""),
         "role": ship["role_display"] or clean_role(ship["role"] or ""),
         "crew_size":              ship["crew_size"],
-        # Display cargo = RSI published capacity when present (authoritative),
-        # else the in-game grid sum. Both raw values exposed for transparency.
-        "cargo_scu":              (ship["rsi_cargo_scu"] or ship["cargo_scu"]),
+        # Display cargo = RSI published capacity when RSI lists the hull
+        # (authoritative, including a published 0 for combat/mining/special
+        # ships). Fall back to the in-game value only when RSI has no row
+        # (NULL). Both raw values exposed for transparency.
+        "cargo_scu":              (ship["rsi_cargo_scu"] if ship["rsi_cargo_scu"] is not None else ship["cargo_scu"]),
         "cargo_game_scu":         ship["cargo_scu"],
         "cargo_rsi_scu":          ship["rsi_cargo_scu"],
         "cargo_total_calculated": round(cargo_total, 1),
@@ -4753,39 +4971,6 @@ def api_officers_shopping_list():
     resources.sort(key=lambda r: r["total_qty"], reverse=True)
     plain_items.sort(key=lambda r: r["total_qty"], reverse=True)
     return jsonify({"resources": resources, "items": plain_items})
-
-
-# ── API: Warehouse ore inventory ──────────────────────────────────────────────
-# GET /api/officers/warehouse
-# Org ore reserves, mirrored from the warehouse Google Sheet by the cron pull
-# script. Read-only — returns the current snapshot plus freshness metadata so
-# the dashboard can flag stale data.
-
-@app.route('/api/officers/warehouse')
-@require_officer
-def api_officers_warehouse():
-    conn = get_warehouse_db()
-    rows = conn.execute(
-        "SELECT material, qty, quality, location "
-        "FROM warehouse_inventory ORDER BY row_index, material"
-    ).fetchall()
-    meta = {r['key']: r['value'] for r in conn.execute(
-        "SELECT key, value FROM warehouse_meta")}
-    conn.close()
-
-    pulled_at = None
-    if meta.get('pulled_at'):
-        try:
-            pulled_at = int(meta['pulled_at'])
-        except (TypeError, ValueError):
-            pulled_at = None
-
-    return jsonify({
-        "items":     [dict(r) for r in rows],
-        "pulled_at": pulled_at,
-        "status":    meta.get('status'),
-        "source":    meta.get('source'),
-    })
 
 
 
