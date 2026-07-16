@@ -480,9 +480,9 @@
   transition: border-color 0.15s, color 0.15s;
 }
 
-.modal-close:hover { 
-  border-color: var(--red);
-  color: var(--red);
+.modal-close:hover {
+  border-color: var(--status-red);
+  color: var(--status-red);
   }
 
 .modal-meta {
@@ -1972,7 +1972,7 @@ async function openOwnersPopup(uuid) {
   try {
     data = await api(`/api/crafting/blueprint/${encodeURIComponent(uuid)}/owners`);
   } catch (e) {
-    body.innerHTML = `<div style="font-family:var(--font-mono);font-size:0.8rem;color:var(--red);padding:12px 4px;">Failed to load owners.</div>`;
+    body.innerHTML = `<div style="font-family:var(--font-mono);font-size:0.8rem;color:var(--status-red);padding:12px 4px;">Failed to load owners.</div>`;
     return;
   }
   const owners = data.owners || [];
