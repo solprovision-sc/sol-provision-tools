@@ -804,6 +804,11 @@ def mission_rep():
 def mining_signatures_page():
     return render_template("mining_signatures.html", active_page="/mining-signatures")
 
+@app.route("/prospector")
+@require_page_login
+def prospector_page():
+    return render_template("the_prospector.html", active_page="/prospector")
+
 @app.route("/cargo-planner")
 @require_page_login
 def cargo_planner_page():
