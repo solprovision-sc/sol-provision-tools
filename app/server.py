@@ -52,6 +52,25 @@ app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
+
+@app.context_processor
+def inject_asset_version():
+    """Cache-busting stamp for static assets referenced in templates.
+
+    theme.css / common.js are served at a fixed URL, so when we ship a change
+    (e.g. the brand refresh) returning browsers keep the stale cached copy and
+    render new markup against old tokens — mismatched colors that only clear in
+    incognito. Templates append ?v={{ asset_v('css/theme.css') }} so the URL
+    changes whenever the file's mtime does, forcing a fresh fetch on the next
+    load. mtime is cheap and updates on every deploy that rewrites the file.
+    """
+    def asset_v(rel_path):
+        try:
+            return int(os.path.getmtime(os.path.join(app.static_folder, rel_path)))
+        except OSError:
+            return ""
+    return {"asset_v": asset_v}
+
 # Initialize Firebase Admin SDK (for token verification).
 # FIREBASE_SERVICE_ACCOUNT / FIREBASE_DB_URL env vars override the resolved
 # defaults so ops can swap credentials without code changes.
