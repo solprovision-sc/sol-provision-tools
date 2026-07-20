@@ -2652,19 +2652,33 @@ body::before {
     // Extract hardpoint metadata from hardpoints object.
     // Keys must match the API's raw port_type values ('quantumdrive', no underscore).
     const hardpointTypes = ['powerplant', 'shield', 'cooler', 'quantumdrive', 'radar'];
-	
-	console.log('[DEBUG] ship.hardpoints:', ship.hardpoints);
-    console.log('[DEBUG] ship.hardpoints.powerplant:', ship.hardpoints.powerplant);
-    
+    // Raw port_type -> installed-components list key, for the size fallback below.
+    const hpListKey = { powerplant: 'powerplants', shield: 'shields', cooler: 'coolers',
+                        quantumdrive: 'quantum_drives', radar: 'radars' };
+
     hardpointTypes.forEach(type => {
       if (ship.hardpoints && ship.hardpoints[type]) {
-        shipLoadout.hardpoints[type] = ship.hardpoints[type].map((hp, idx) => ({
-          port_name: hp.port_name,
-          size: hp.max_size,
-          min_size: hp.min_size,
-          max_size: hp.max_size,
-          current_index: idx
-        }));
+        const installed = ship.components[hpListKey[type]] || [];
+        shipLoadout.hardpoints[type] = ship.hardpoints[type].map((hp, idx) => {
+          // Some ports have no declared size in the data (e.g. ~200 radar ports),
+          // which left the swap query with size= empty → the API 400s and the
+          // modal shows "Failed to load compatible components". Fall back to the
+          // size of the component currently in the port, which is the effective
+          // slot size anyway.
+          let size = hp.max_size;
+          if (size == null && hp.installed_name) {
+            const inst = installed.find(c =>
+              (c.entity_name || '').toLowerCase() === hp.installed_name.toLowerCase());
+            if (inst && inst.size != null) size = inst.size;
+          }
+          return {
+            port_name: hp.port_name,
+            size: size,
+            min_size: hp.min_size,
+            max_size: hp.max_size,
+            current_index: idx
+          };
+        });
       }
     });
     
