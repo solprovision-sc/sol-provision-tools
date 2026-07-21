@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Sol Provision — Data Intelligence{% endblock %}</title>
-<link rel="stylesheet" href="/static/css/theme.css">
+<link rel="stylesheet" href="/static/css/theme.css?v={{ asset_v('css/theme.css') }}">
 <link rel="stylesheet" href="https://use.typekit.net/kwn2pkf.css">
 {% block extra_css %}{% endblock %}
 </head>
@@ -22,7 +22,7 @@
 
 {% block body %}{% endblock %}
 
-<script src="/static/js/common.js"></script>
+<script src="/static/js/common.js?v={{ asset_v('js/common.js') }}"></script>
 <script>
 const PAGE = '{{ active_page }}';
 renderHeader(PAGE);
