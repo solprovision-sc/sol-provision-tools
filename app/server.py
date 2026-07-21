@@ -2225,7 +2225,7 @@ def get_ship_components(conn, ship_entity, patch):
         return (_is_mining_item(node.get("item"))
                 or any(_has_mining(ch) for ch in node["children"]))
 
-    def _build_node(hp):
+    def _build_node(hp, ancestors=()):
         name  = hp["installed_name"]
         lname = (name or "").lower()
         kind, item = "empty", None
@@ -2240,20 +2240,26 @@ def get_ship_components(conn, ship_entity, patch):
                     "missile" if "missile" in it else "other")
         elif name:
             kind, item = "unknown", {"entity_name": name, "display_name": name}
+        cur_port = (hp["port_name"] or "").lower()
         # ship_hardpoints links children to parents by port NAME, which is not
         # unique across the tree: a ship's matching top/bottom turrets both use
         # e.g. hardpoint_weapon_left → hardpoint_class_2, so a namesake parent
         # would otherwise pull in every twin's guns. Dedup children by their own
         # port_name (each physical slot appears once per parent).
         # (Proper fix = unique parent paths in the extractor; tracked as follow-up.)
+        # Cycle guard: the data can also contain a self-referential parent_port
+        # (mining ships ship a hardpoint_mining_laser row whose parent is
+        # hardpoint_mining_laser), which recursed forever → 500. Skip any child
+        # whose port is already an ancestor on this path.
+        path = ancestors + (cur_port,) if cur_port else ancestors
         seen_ports, child_rows = set(), []
-        for ch in children_map.get((hp["port_name"] or "").lower(), []):
+        for ch in children_map.get(cur_port, []):
             key = (ch["port_name"] or "").lower()
-            if key in seen_ports:
+            if key in seen_ports or key in path:
                 continue
             seen_ports.add(key)
             child_rows.append(ch)
-        children = [_build_node(ch) for ch in child_rows]
+        children = [_build_node(ch, path) for ch in child_rows]
         # Drop non-weapon/non-salvage/non-mining child subtrees (MFDs, seats, …).
         children = [c for c in children if _has_weapon(c) or _has_salvage(c) or _has_mining(c)]
         return {
