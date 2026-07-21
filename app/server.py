@@ -2247,15 +2247,20 @@ def get_ship_components(conn, ship_entity, patch):
         # would otherwise pull in every twin's guns. Dedup children by their own
         # port_name (each physical slot appears once per parent).
         # (Proper fix = unique parent paths in the extractor; tracked as follow-up.)
-        # Cycle guard: the data can also contain a self-referential parent_port
-        # (mining ships ship a hardpoint_mining_laser row whose parent is
-        # hardpoint_mining_laser), which recursed forever → 500. Skip any child
-        # whose port is already an ancestor on this path.
-        path = ancestors + (cur_port,) if cur_port else ancestors
+        # Cycle guard by ROW IDENTITY: the data nests a port inside a same-named
+        # parent — mining ships put the mining laser row under the same-named
+        # mount port, so the laser legitimately shares its parent's port_name.
+        # Keying the guard on port name dropped the laser from the tree; keying
+        # on the actual row object only stops a row that is literally its own
+        # ancestor (the self-referential hardpoint_mining_laser → itself edge that
+        # otherwise recursed forever → 500).
+        path = ancestors + (id(hp),)
         seen_ports, child_rows = set(), []
         for ch in children_map.get(cur_port, []):
+            if id(ch) in path:
+                continue
             key = (ch["port_name"] or "").lower()
-            if key in seen_ports or key in path:
+            if key in seen_ports:
                 continue
             seen_ports.add(key)
             child_rows.append(ch)
