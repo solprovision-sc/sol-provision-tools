@@ -5418,13 +5418,36 @@ body::before {
     return [...map.values()].sort((a, b) => (b.scu * b.count) - (a.scu * a.count));
   }
 
-  function cargoCard(g) {
+  // Ore pods (Prospector / Mole) are swappable — the alternative pods are
+  // Container/Cargo items in item_components. Register a types-mode swap on the
+  // existing armament registry (same path the mining-laser modules use): the
+  // apply callback replaces every active pod of this group in cargo_grids with
+  // the picked pod, then applyArmamentSwap re-renders the cargo card.
+  function isSwappablePod(entity) {
+    return /mining_pod|shipmining|groundvehiclemining/.test((entity || '').toLowerCase());
+  }
+  function regCargoPodSwap(ship, g) {
+    const podEntity = (g.entity_name || '').toLowerCase();
+    return regSlot({ installed_name: g.entity_name, item: { entity_name: g.entity_name } },
+      'types', { types: 'Container', min: 1, max: 1 }, opt => {
+        (ship.cargo_grids || []).forEach(row => {
+          if ((row.entity_name || '').toLowerCase() === podEntity && (row.scu || 0) > 0) {
+            row.entity_name = opt.entity_name;
+            if (opt.scu != null) row.scu = opt.scu;
+          }
+        });
+      });
+  }
+
+  function cargoCard(g, ship) {
     const w = cargoCells(g.dim_x), d = cargoCells(g.dim_y), h = cargoCells(g.dim_z);
     const hasDims = w != null;
     const dims = hasDims ? `${fmtCells(w)}×${fmtCells(d)}×${fmtCells(h)} cells` : null;
     const name = cargoGridName(g.entity_name);
     const count = g.count > 1 ? `<span class="cargo-count"> ×${g.count}</span>` : '';
     const totalScu = (g.scu || 0) * g.count;
+    const pod = !hasDims && isSwappablePod(g.entity_name);
+    const slotId = pod ? regCargoPodSwap(ship, g) : null;
     const tags = [];
     if (g.is_external) tags.push('<span class="wpn-tag">External</span>');
     if (!hasDims) tags.push('<span class="wpn-tag">Pod</span>');
@@ -5432,7 +5455,7 @@ body::before {
       ? `${dims}${g.count > 1 ? ` · ${fmt(g.scu, 0)} SCU each` : ''}`
       : (g.count > 1 ? `${fmt(g.scu, 0)} SCU each` : 'Modular cargo pod');
     return `
-        <div class="comp-card-h">
+        <div class="comp-card-h${swapAttrs(slotId)}>
           <div class="comp-hdr-h">
             ${iconPrimary('cargo')}
             <div class="comp-title-h">
@@ -5448,6 +5471,12 @@ body::before {
     const el = document.getElementById('cargo-content');
     const card = document.getElementById('cargo-card');
     if (!el || !card) return;
+    // Pristine cargo snapshot (once per ship) so RESET can undo pod swaps —
+    // __armamentOriginal only covers ship.components, not cargo_grids.
+    if (window.__cargoOrigShip !== ENTITY_NAME) {
+      window.__cargoOriginal = JSON.parse(JSON.stringify(ship.cargo_grids || []));
+      window.__cargoOrigShip = ENTITY_NAME;
+    }
     const grids = (ship.cargo_grids || []).filter(g => (g.scu || 0) > 0);
     const cargo = grids.filter(g => !g.is_personal);
     const personal = grids.filter(g => g.is_personal);
@@ -5471,7 +5500,7 @@ body::before {
           <div class="loadout-card-hdr">Cargo Grids</div>
           <div class="comp-actions-top"><span class="cargo-total">${totalTxt}</span></div>
         </div>
-        <div class="comp-grid">${groups.map(cargoCard).join('')}</div>`;
+        <div class="comp-grid">${groups.map(g => cargoCard(g, ship)).join('')}</div>`;
     }
     if (personal.length) {
       const pg = groupCargoGrids(personal);
@@ -5880,7 +5909,11 @@ body::before {
   function resetArmament() {
     if (window.__currentShip && window.__armamentOriginal) {
       window.__currentShip.components = JSON.parse(JSON.stringify(window.__armamentOriginal));
+      if (window.__cargoOriginal) {
+        window.__currentShip.cargo_grids = JSON.parse(JSON.stringify(window.__cargoOriginal));
+      }
       populateWeapons(window.__currentShip);
+      populateCargo(window.__currentShip);
       armamentSidebarRefresh();
     }
   }
@@ -6050,6 +6083,7 @@ body::before {
     if (o.kind === 'rack')  return 'rack';
     if (o.kind === 'bomb')  return 'bomb';
     if (o.kind === 'missile') return o.tracking_signal_type || 'missile';
+    if (o.item_type === 'Container' && o.scu != null) return `${fmt(o.scu, 0)} SCU`;  // ore pods
     const sub = (o.item_sub_type && o.item_sub_type !== 'UNDEFINED') ? o.item_sub_type : null;
     return sub || o.item_type || 'weapon';   // weapon / mining / generic item
   }
@@ -6094,7 +6128,7 @@ body::before {
     if (slot.apply) {                                          // custom apply (types-mode cards)
       slot.apply(opt);
       closeArmamentSwap();
-      if (window.__currentShip) populateWeapons(window.__currentShip);
+      if (window.__currentShip) { populateWeapons(window.__currentShip); populateCargo(window.__currentShip); }
       armamentSidebarRefresh();
       return;
     }
@@ -6116,7 +6150,7 @@ body::before {
       node.children = [];
     }
     closeArmamentSwap();
-    if (window.__currentShip) populateWeapons(window.__currentShip);
+    if (window.__currentShip) { populateWeapons(window.__currentShip); populateCargo(window.__currentShip); }
     armamentSidebarRefresh();
   }
 
