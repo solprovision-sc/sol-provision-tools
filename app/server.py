@@ -3277,6 +3277,8 @@ def api_port_options(entity_name):
                 "salvage_speed_multiplier", "radius_multiplier", "extraction_efficiency"]),
             "ToolArm": ("item_tool_arms", [
                 "power_draw", "em_signature", "ir_signature"]),
+            # Ore pods (Container/Cargo): capacity is the swap-relevant stat.
+            "Container": ("item_mining_pods", ["capacity_scu"]),
         }
         for o in options:
             o["kind"] = "item"
@@ -3295,6 +3297,40 @@ def api_port_options(entity_name):
                     f"WHERE uuid=? AND patch_version=?", (o["uuid"], p)).fetchone()
                 if row:
                     o.update(dict(row))
+        # Container/Cargo pods (ore pods): expose capacity as `scu` (matching
+        # cargo_grids) and restrict to the pods that actually fit THIS ship's pod
+        # ports. Type alone (Container:Cargo, size 1) is too coarse — a Prospector
+        # would otherwise be offered the Drake Golem's bespoke pod and the Greycat
+        # ROC's ground-vehicle pods. Two real constraints separate them:
+        #   • category — ship pods (cargo_shipmining_*) vs ground-vehicle pods
+        #     (cargo_groundvehiclemining_*); a ship port only takes its own kind.
+        #   • bespoke lock — a $-prefixed item tag ($DRAK_Golem) means the pod only
+        #     fits ports that advertise that tag, so it's locked to its own ship.
+        # Collapsed/template variants have no item_mining_pods row (capacity_scu
+        # is None) and drop out here too.
+        if "Container" in tlist:
+            inst = conn.execute(
+                "SELECT installed_name FROM ship_hardpoints "
+                "WHERE ship_entity_name=? AND patch_version=? AND installed_name IS NOT NULL "
+                "  AND LOWER(accepted_types) LIKE 'container:cargo%' LIMIT 1",
+                (entity_name, p)).fetchone()
+            inst_name = (inst["installed_name"] if inst else "").lower()
+            inst_ground = "groundvehicle" in inst_name
+            kept = []
+            for o in options:
+                if o["item_type"] != "Container":
+                    kept.append(o); continue
+                if o.get("capacity_scu") is None:
+                    continue                                     # collapsed/template
+                en = o["entity_name"].lower()
+                if ("groundvehicle" in en) != inst_ground:
+                    continue                                     # ship vs ground-vehicle
+                bespoke = any(t.startswith("$") for t in (o.get("tags") or "").split())
+                if bespoke and en != inst_name:
+                    continue                                     # locked to another ship
+                o["scu"] = o["capacity_scu"]
+                kept.append(o)
+            options = kept
     elif port:
         hp = conn.execute(
             "SELECT accepted_types, required_tags, port_tags, min_size, max_size "
