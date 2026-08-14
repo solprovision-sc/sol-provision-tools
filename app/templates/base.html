@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@200;300;400;600&display=swap" rel="stylesheet">
+<!-- Shared brand tokens MUST load before theme.css — theme.css consumes them. -->
+<link rel="stylesheet" href="/brand/css/brand.css?v={{ asset_v('brand/css/brand.css') }}">
 <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_v('css/theme.css') }}">
 {% block extra_css %}{% endblock %}
 </head>
