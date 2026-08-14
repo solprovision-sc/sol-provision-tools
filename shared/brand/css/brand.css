@@ -1,0 +1,204 @@
+/* ──   Sol Provision — SHARED BRAND TOKENS   ──────────────────────────── */
+/* ============================================================
+   SOL PROVISION — Colors & Type
+   Provisions for the Soul
+   A tactical/industrial speakeasy brand (Star Citizen org).
+   Dark-first. Warm desert-rust palette. Orbitron display.
+
+   ⚠ SHARED FILE — consumed by BOTH the tools app and the portal.
+
+   Lives at  shared/brand/css/brand.css
+   Served at /brand/css/brand.css  by each app (see BRAND_DIR in server.py).
+
+   Edit brand tokens HERE and every Sol Provision site moves together.
+   App-specific component CSS does NOT belong in this file — put it in
+   that app's own stylesheet and reference these custom properties.
+   ============================================================ */
+
+/* ----------  FONTS  ---------- */
+@font-face {
+  font-family: "Orbitron";
+  src: url("../fonts/Orbitron-latin.woff2") format("woff2");
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-400-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-500-latin.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-600-latin.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Bai Jamjuree";
+  src: url("../fonts/BaiJamjuree-700-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* ----------  RAW BRAND PALETTE (from branding guide)  ---------- */
+  --rust:        #7E2619; /* primary — deep brick rust */
+  --khaki:       #9A8C64; /* secondary — aged olive gold */
+  --terracotta:  #E8855C; /* accent — warm sun glow */
+  --sand:        #CBB8AA; /* light warm neutral / parchment */
+  --charcoal:    #393635; /* dark surface */
+  --graymauve:   #5C5356; /* mid neutral */
+  --fieldtan:    #6B6250; /* NEW mid-tone — bridges khaki & charcoal */
+  --black:       #000000;
+  --white:       #FFFFFF;
+
+  /* ----------  DERIVED TONAL SCALES  ---------- */
+  /* Warm neutral / ink ramp (dark → light) */
+  --ink-900: #0c0b0b;
+  --ink-850: #131110;
+  --ink-800: #1a1817;
+  --ink-700: #242120;
+  --ink-600: #2e2b2a;
+  --ink-500: #393635; /* = charcoal */
+  --ink-450: #6b6250; /* = field tan (new mid-tone) */
+  --ink-400: #5c5356; /* = graymauve */
+  --ink-300: #7d7570;
+  --ink-200: #a59b92;
+  --ink-100: #cbb8aa; /* = sand */
+  --ink-050: #e8ddd2; /* light parchment */
+  --ink-000: #f5efe7; /* warm white */
+
+  /* Rust ramp */
+  --rust-900: #1a0c08;
+  --rust-800: #3d140d;
+  --rust-700: #5a1a11;
+  --rust-600: #6c2014;
+  --rust-500: #7e2619; /* base */
+  --rust-400: #9a3422;
+  --rust-300: #b8472f;
+
+  /* Terracotta / sun ramp */
+  --sun-600: #c96a42;
+  --sun-500: #e8855c; /* base */
+  --sun-400: #ef9d79;
+  --sun-300: #f5b89c;
+
+  /* ----------  SEMANTIC: SURFACES (dark-first)  ---------- */
+  --bg-base:      var(--ink-900);   /* page background */
+  --bg-surface:   var(--ink-800);   /* primary panels */
+  --bg-elevated:  var(--ink-700);   /* cards, raised */
+  --bg-overlay:   var(--ink-600);   /* menus, popovers */
+  --bg-tint:      var(--ink-450);   /* warm raised tint (field tan) */
+  --bg-inset:     var(--ink-850);   /* wells, inputs */
+  --bg-hover:     rgba(255,255,255,0.05);
+  --bg-active:    rgba(255,255,255,0.09);
+
+  /* ----------  SEMANTIC: FOREGROUND  ---------- */
+  --fg1: var(--ink-000);  /* primary text — warm white */
+  --fg2: var(--ink-100);  /* secondary text — sand */
+  --fg3: var(--ink-200);  /* tertiary / captions */
+  --fg-muted: var(--ink-300); /* disabled, placeholder */
+  --fg-inverse: var(--ink-900); /* on light/bright surfaces */
+
+  /* ----------  SEMANTIC: BRAND / INTERACTIVE  ---------- */
+  --brand:          var(--rust-500);
+  --brand-hover:    var(--rust-400);
+  --brand-active:   var(--rust-600);
+  --accent:         var(--terracotta);
+  --accent-hover:   var(--sun-400);
+  --gold:           var(--khaki);
+  --tan:            var(--fieldtan);  /* new warm mid-tone */
+  --on-brand:       var(--ink-000);
+
+  /* ----------  SEMANTIC: BORDERS / LINES  ---------- */
+  --line:          rgba(203,184,170,0.14);  /* hairline */
+  --line-strong:   rgba(203,184,170,0.28);
+  --line-brand:    var(--rust-400);
+  --line-accent:   var(--terracotta);
+  --stencil-line:  rgba(203,184,170,0.10);
+
+  /* ----------  SEMANTIC: STATUS  ---------- */
+  --positive: #7c8a4e;  /* olive-green, on-brand */
+  --warning:  var(--terracotta);
+  --danger:   #b8472f;
+  --info:     var(--khaki);
+
+  /* ----------  SEMANTIC: STATUS INDICATORS (standalone)  ---------- */
+  --status-green: var(--positive);  /* owned / success indicator */
+  --status-red:   #c44545;          /* unclaim / error indicator */
+  --status-green-glow: rgba(124,138,78,0.5);  /* matches --positive */
+  --status-red-glow:   rgba(196,69,69,0.5);   /* matches --status-red */
+
+  /* ----------  TYPE FAMILIES  ---------- */
+  --font-display: "Orbitron", "Bai Jamjuree", system-ui, sans-serif;
+  --font-body:    "Bai Jamjuree", system-ui, -apple-system, sans-serif;
+  --font-cond:    "Bai Jamjuree", system-ui, sans-serif;
+  --font-mono:    "Bai Jamjuree", ui-monospace, "SFMono-Regular", monospace;
+
+  /* ----------  TYPE SCALE  ---------- */
+  --text-3xs:   8px;
+  --text-2xs:  10px;
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-base: 16px;
+  --text-md:   18px;
+  --text-lg:   22px;
+  --text-xl:   28px;
+  --text-2xl:  36px;
+  --text-3xl:  48px;
+  --text-4xl:  64px;
+  --text-5xl:  84px;
+
+  --leading-tight: 1.05;
+  --leading-snug:  1.25;
+  --leading-body:  1.55;
+
+  /* Display letter-spacing — Orbitron reads best with air */
+  --track-display: 0.08em;
+  --track-label:   0.18em; /* all-caps eyebrows / buttons */
+  --track-body:    0.005em;
+
+  /* ----------  SPACING (4px base)  ---------- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+
+  /* ----------  RADII (hard, industrial — small)  ---------- */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+  /* Brand uses chamfers more than rounds */
+  --chamfer: 10px;
+
+  /* ----------  SHADOWS / ELEVATION  ---------- */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md: 0 4px 14px rgba(0,0,0,0.55);
+  --shadow-lg: 0 18px 48px rgba(0,0,0,0.6);
+  --glow-sun: 0 0 24px rgba(232,133,92,0.35);
+  /* Warm "lift" glows — lighter tones bloom behind dark boxes on the dark theme */
+  --lift-sand: 0 12px 42px -6px rgba(203,184,170,0.42);
+  --lift-gold: 0 12px 42px -6px rgba(154,140,100,0.58);
+  --lift-tan:  0 12px 42px -6px rgba(107,98,80,0.72);
+  --lift-sun:  0 16px 48px -6px rgba(232,133,92,0.62);
+  --inset-line: inset 0 0 0 1px var(--line);
+}

@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════════════
 import os, json, argparse, sqlite3, re, uuid
 from pathlib import Path
-from flask import Flask, jsonify, request, render_template, session, redirect
+from flask import Flask, jsonify, request, render_template, session, redirect, send_from_directory
 import requests
 import time
 from datetime import timedelta, datetime, timezone
@@ -53,6 +53,22 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 
+# Shared brand layer (fonts + design tokens), lives OUTSIDE this app's static
+# folder so the portal app can consume the exact same files. Served at /brand/…
+# rather than /static/… precisely because it is not owned by this app.
+BRAND_DIR = Path(__file__).resolve().parent.parent / 'shared' / 'brand'
+
+
+@app.route('/brand/<path:filename>')
+def brand_static(filename):
+    """Serve the shared brand bundle (brand.css + the woff2 faces).
+
+    nginx can shortcut this with its own /brand/ location in production; this
+    route is what makes it work locally and keeps the apps self-contained.
+    """
+    return send_from_directory(BRAND_DIR, filename)
+
+
 @app.context_processor
 def inject_asset_version():
     """Cache-busting stamp for static assets referenced in templates.
@@ -63,10 +79,18 @@ def inject_asset_version():
     incognito. Templates append ?v={{ asset_v('css/theme.css') }} so the URL
     changes whenever the file's mtime does, forcing a fresh fetch on the next
     load. mtime is cheap and updates on every deploy that rewrites the file.
+
+    'brand/…' paths resolve against BRAND_DIR instead of the static folder —
+    without that, a token change in the shared brand.css would ship with a
+    stale ?v= and reintroduce exactly the stale-cache mismatch described above.
     """
     def asset_v(rel_path):
+        if rel_path.startswith('brand/'):
+            base, rel = BRAND_DIR, rel_path[len('brand/'):]
+        else:
+            base, rel = app.static_folder, rel_path
         try:
-            return int(os.path.getmtime(os.path.join(app.static_folder, rel_path)))
+            return int(os.path.getmtime(os.path.join(base, rel)))
         except OSError:
             return ""
     return {"asset_v": asset_v}
