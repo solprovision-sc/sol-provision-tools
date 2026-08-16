@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}The Provisioner Portal — Sol Provision{% endblock %}</title>
+
+<!-- Shared brand tokens MUST load before portal.css — portal.css consumes them. -->
+<link rel="stylesheet" href="/brand/css/brand.css?v={{ asset_v('brand/css/brand.css') }}">
+<link rel="stylesheet" href="/static/css/portal.css?v={{ asset_v('css/portal.css') }}">
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<header class="portal-header">
+  <div class="brand-lockup">
+    <span class="wordmark">SOL PROVISION</span>
+    <span class="tagline">Provisions for the Soul</span>
+  </div>
+  <div class="header-right">
+    {% if env != 'prod' %}<span class="env-badge">{{ env|upper }}</span>{% endif %}
+    <div class="user-chip" id="userChip" hidden>
+      <span class="callsign" id="userCallsign"></span>
+      <button type="button" class="link-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+</header>
+
+{% block body %}{% endblock %}
+
+<footer class="portal-footer">
+  <span>SOL PROVISION</span>
+  <span class="sep">//</span>
+  <span>PROVISIONS FOR THE SOUL</span>
+</footer>
+
+{% block page_script %}{% endblock %}
+</body>
+</html>

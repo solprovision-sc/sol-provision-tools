@@ -1,0 +1,49 @@
+name: Deploy Portal to VPS (Dev)
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'portal/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-portal-dev.yml'
+  workflow_dispatch:
+
+# The portal and the tools app share ONE git checkout on the VPS
+# (/var/www/sol-provision-tools-dev). Both deploy workflows run `git reset
+# --hard` in that directory, so a push touching app/ and portal/ together would
+# otherwise fire them concurrently and race on .git/index.lock. This group is
+# shared with deploy-dev.yml so the two serialise instead.
+concurrency:
+  group: vps-deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /var/www/sol-provision-tools-dev
+            git config --global --add safe.directory /var/www/sol-provision-tools-dev
+            git fetch origin dev
+            git reset --hard origin/dev
+            # Portal's OWN venv — never the tools venv, so a portal dependency
+            # cannot change what the tools app imports on its next restart.
+            /var/www/sol-provision-tools-dev/portal/venv/bin/pip install \
+                -r portal/requirements.txt --quiet
+            sudo systemctl restart solprovision-portal-dev
+            # Fail the deploy if the service didn't come back up. `is-active`
+            # needs no privileges, so sudo only ever has to allow the restart.
+            sleep 3
+            systemctl is-active --quiet solprovision-portal-dev
+            curl -fsS http://127.0.0.1:5002/api/health > /dev/null

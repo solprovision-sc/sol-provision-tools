@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+{% endblock %}
+
+{% block body %}
+
+<!-- ── Login overlay ─────────────────────────────────────────────────────── -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="eyebrow">COMMAND DECK</div>
+    <h1>The Provisioner Portal</h1>
+    <p class="lede">Operational access for accepted Provisioners.</p>
+
+    <button type="button" class="btn-discord" id="discordLoginBtn">
+      LOGIN WITH DISCORD
+    </button>
+
+    <p class="auth-status" id="authStatus">AWAITING AUTHORIZATION…</p>
+
+    {% if not auth_enabled %}
+    <p class="auth-warn">
+      Authentication is not configured on this server. Set
+      <code>FIREBASE_SERVICE_ACCOUNT</code> to enable sign-in.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Gated content ─────────────────────────────────────────────────────── -->
+<main class="portal-body blurred" id="portalBody">
+  <section class="command-deck">
+    <div class="eyebrow">COMMAND DECK</div>
+    <h1>Welcome to the Provisioner Portal</h1>
+    <p class="lede">Operational access for accepted Provisioners.</p>
+  </section>
+
+  <section class="deck-grid">
+    <article class="deck-card">
+      <h2>Mission Board</h2>
+      <p>Upcoming missions, schedules, and operation briefs.</p>
+      <span class="card-tag">BRIEF</span>
+    </article>
+    <article class="deck-card">
+      <h2>Doctrine Library</h2>
+      <p>Standards, SOPs, orientation, and organizational doctrine.</p>
+      <span class="card-tag">REVIEW</span>
+    </article>
+    <article class="deck-card">
+      <h2>Comms Hub</h2>
+      <p>Discord roles, voice channels, and communication guidance.</p>
+      <span class="card-tag">COMMS</span>
+    </article>
+    <article class="deck-card">
+      <h2>Member Resources</h2>
+      <p>Ship registry, tools, forms, and internal resources.</p>
+      <span class="card-tag">RESOURCES</span>
+    </article>
+  </section>
+
+  <section class="scaffold-note">
+    <p>
+      Auth skeleton only — section content is carried over from the existing
+      portal in later passes.
+    </p>
+  </section>
+</main>
+
+{% endblock %}
+
+{% block page_script %}
+<script>
+(function () {
+  'use strict';
+
+  // Config comes from the server so the JS SDK and the Admin SDK can never
+  // end up pointed at different Firebase projects.
+  var firebaseConfig = {{ firebase_config | tojson }};
+  var ENV = {{ env | tojson }};
+  var AUTH_ENABLED = {{ auth_enabled | tojson }};
+
+  var overlay    = document.getElementById('authOverlay');
+  var body       = document.getElementById('portalBody');
+  var statusText = document.getElementById('authStatus');
+  var loginBtn   = document.getElementById('discordLoginBtn');
+  var userChip   = document.getElementById('userChip');
+  var callsignEl = document.getElementById('userCallsign');
+  var logoutBtn  = document.getElementById('logoutBtn');
+
+  var auth = null;
+
+  function showApp(user) {
+    overlay.classList.add('hidden');
+    body.classList.remove('blurred');
+    window.currentUser = user;
+    if (user && user.callsign) {
+      callsignEl.textContent = user.callsign;
+      userChip.hidden = false;
+    }
+  }
+
+  function showLogin(message) {
+    overlay.classList.remove('hidden');
+    body.classList.add('blurred');
+    userChip.hidden = true;
+    statusText.textContent = message || 'AWAITING AUTHORIZATION…';
+  }
+
+  // Local development bypass. Driven by the SERVER's environment, not by
+  // sniffing window.location.hostname — a hostname check would also fire for
+  // anyone reaching a deployed instance through a localhost tunnel.
+  if (ENV === 'local' && !AUTH_ENABLED) {
+    console.info('[portal] local env without Firebase — auth bypassed');
+    showApp({ discord_id: '123456789', username: 'TestUser', callsign: 'Test User', rank: 9 });
+    loginBtn.disabled = true;
+    return;
+  }
+
+  if (!AUTH_ENABLED) {
+    showLogin('AUTH UNAVAILABLE');
+    loginBtn.disabled = true;
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+
+  auth.onAuthStateChanged(async function (user) {
+    if (!user) {
+      showLogin();
+      return;
+    }
+    try {
+      var idToken = await user.getIdToken();
+      var res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'Verification failed');
+      showApp(data);
+    } catch (err) {
+      console.error('[portal] auth error:', err);
+      statusText.textContent = (err.message || 'VERIFICATION ERROR').toUpperCase();
+      // Drop the Firebase session too, otherwise onAuthStateChanged keeps
+      // reporting a signed-in user that this server has already rejected.
+      await auth.signOut();
+    }
+  });
+
+  loginBtn.addEventListener('click', async function () {
+    statusText.textContent = 'CONNECTING TO DISCORD…';
+    var provider = new firebase.auth.OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+    try {
+      await auth.signInWithPopup(provider);
+      statusText.textContent = 'VERIFYING MEMBERSHIP…';
+    } catch (err) {
+      console.error('[portal] login error:', err);
+      statusText.textContent = 'AUTH ERROR: ' + (err.message || err.code || 'unknown');
+    }
+  });
+
+  logoutBtn.addEventListener('click', async function () {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    if (auth) await auth.signOut();
+    showLogin('SIGNED OUT');
+  });
+})();
+</script>
+{% endblock %}
