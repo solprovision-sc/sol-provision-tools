@@ -1,6 +1,6 @@
 # Provisioner Portal — dev deployment
 
-One-time setup for `portal-dev.solprovision.com` on the OCI VPS.
+One-time setup for `portal-dev.solprovision.com` on the OCI VPS
 
 **Ports on this box:** 5000 tools prod · 5001 tools dev · **5002 portal dev** · 5003 reserved for portal prod.
 
