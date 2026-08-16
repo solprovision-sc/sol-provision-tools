@@ -45,12 +45,11 @@
     <div class="readiness-grid">
       {% for d in readiness %}
       <article class="div-card status-{{ d.status }}">
-        <div class="div-code">{{ d.code }}</div>
+        <div class="div-name">{{ d.name }}</div>
         <div class="div-status">
           <span class="dot" aria-hidden="true"></span>
           {{ statuses | selectattr('code', 'equalto', d.status) | map(attribute='label') | first }}
         </div>
-        <div class="div-name">{{ d.name }}</div>
         {% if d.posture %}<p class="div-posture">{{ d.posture }}</p>{% endif %}
         {% if d.updated_at %}
         <time class="div-updated" datetime="{{ d.updated_at }}">{{ d.updated_at[:10] }}</time>
@@ -99,11 +98,11 @@
       <p>Discord roles, voice channels, and communication guidance.</p>
       <span class="card-tag">COMMS</span>
     </article>
-    <article class="deck-card">
-      <h2>Member Resources</h2>
-      <p>Ship registry, tools, forms, and internal resources.</p>
-      <span class="card-tag">RESOURCES</span>
-    </article>
+    <a class="deck-card" href="https://tools.solprovision.com/">
+      <h2>Org Tools</h2>
+      <p>Ship database, loadouts, trade and cargo planning, mining tools.</p>
+      <span class="card-tag">OPEN TOOLS &#8599;</span>
+    </a>
   </section>
 
 </main>

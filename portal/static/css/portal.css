@@ -216,6 +216,21 @@ body {
   border-radius: var(--radius-md);
 }
 
+/* Cards that are real destinations. The other three are still placeholders, so
+   only the linked ones get hover affordance — a card that lights up but goes
+   nowhere is worse than one that plainly doesn't. */
+a.deck-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+a.deck-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--lift-sun);
+}
+a.deck-card:hover h2 { color: var(--accent); }
+
 .deck-card h2 {
   font-family: var(--font-display);
   font-size: var(--text-lg);
@@ -265,7 +280,9 @@ body {
 }
 
 .div-card {
-  padding: var(--space-5);
+  /* Tighter bottom padding than top — the date sits close to the base, so the
+     symmetric 24px read as a gap rather than breathing room. */
+  padding: var(--space-5) var(--space-5) var(--space-3);
   background: var(--bg-elevated);
   border: 1px solid var(--line);
   border-left: 3px solid var(--status-color);
@@ -278,13 +295,6 @@ body {
 .status-heightened     { --status-color: var(--warning); }
 .status-critical       { --status-color: var(--danger); }
 .status-reconstitution { --status-color: var(--ink-400); }
-
-.div-code {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  letter-spacing: var(--track-label);
-  color: var(--fg-muted);
-}
 
 .div-status {
   display: flex;
@@ -307,8 +317,8 @@ body {
   flex: none;
 }
 
+/* Division name now heads the card, in place of the three-letter code. */
 .div-name {
-  margin-top: var(--space-3);
   font-family: var(--font-display);
   font-size: var(--text-md);
   letter-spacing: 0.04em;
