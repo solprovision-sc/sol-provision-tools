@@ -3,6 +3,19 @@ on:
   push:
     branches:
       - dev
+    # Portal-only changes are deployed by deploy-portal-dev.yml; without this
+    # every portal commit would also restart the tools app for no reason.
+    # shared/** is deliberately NOT ignored — a brand token change affects both.
+    paths-ignore:
+      - 'portal/**'
+
+# Shared with deploy-portal-dev.yml. Both workflows `git reset --hard` the same
+# checkout on the VPS, so a push touching app/ and portal/ together must not run
+# them concurrently — they would race on .git/index.lock.
+concurrency:
+  group: vps-deploy-dev
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest

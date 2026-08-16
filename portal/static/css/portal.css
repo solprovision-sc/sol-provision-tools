@@ -1,0 +1,262 @@
+/* ──   Provisioner Portal — App CSS   ──────────────────────────────────── */
+/* ============================================================
+   Component + layout CSS for the PORTAL app only.
+
+   Every colour, font, size, and spacing value below comes from
+   shared/brand/css/brand.css, which base.html loads first. Do not
+   define brand tokens here — change them in brand.css so the tools
+   app moves with us.
+   ============================================================ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-base);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.portal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: var(--space-4) var(--space-6);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: inset 0 -1px 0 0 var(--line);
+}
+
+.brand-lockup { display: flex; flex-direction: column; gap: 2px; }
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-md);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+
+.tagline {
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: var(--text-xs);
+  color: var(--fg3);
+}
+
+.header-right { display: flex; align-items: center; gap: var(--space-4); }
+
+.env-badge {
+  font-family: var(--font-cond);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--ink-900);
+  background: var(--accent);
+  padding: 3px 9px;
+  border-radius: var(--radius-xs);
+}
+
+.user-chip { display: flex; align-items: center; gap: var(--space-3); }
+
+.callsign {
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--fg1);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: var(--text-xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--fg3);
+}
+.link-btn:hover { color: var(--accent); }
+
+/* ── Login overlay ─────────────────────────────────────────────────────── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background:
+    radial-gradient(120% 70% at 82% -8%, rgba(232,133,92,0.10), transparent 52%),
+    radial-gradient(90% 60% at 6% 102%, rgba(126,38,25,0.16), transparent 60%),
+    var(--ink-900);
+}
+.auth-overlay.hidden { display: none; }
+
+.auth-card {
+  width: min(520px, 100%);
+  padding: var(--space-7) var(--space-6);
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--brand);
+  border-radius: var(--radius-md);
+  box-shadow: var(--lift-tan);
+}
+
+.eyebrow {
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.auth-card h1,
+.command-deck h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.lede {
+  font-style: italic;
+  color: var(--fg2);
+  max-width: 46ch;
+  margin: 0 auto;
+}
+
+.btn-discord {
+  margin-top: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--line-brand);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.btn-discord:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-discord:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.auth-status {
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+}
+
+.auth-warn {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--warning);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--warning);
+  border-radius: var(--radius-xs);
+  text-align: left;
+}
+.auth-warn code { font-family: var(--font-mono); color: var(--sand); }
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+.portal-body {
+  flex: 1;
+  padding: var(--space-8) var(--space-6);
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+  transition: filter 180ms ease;
+}
+.portal-body.blurred { filter: blur(7px); pointer-events: none; user-select: none; }
+
+.command-deck { text-align: center; margin-bottom: var(--space-8); }
+
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.deck-card {
+  padding: var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+.deck-card h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin-bottom: var(--space-2);
+}
+
+.deck-card p { font-size: var(--text-sm); color: var(--fg2); }
+
+.card-tag {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.scaffold-note {
+  margin-top: var(--space-7);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--tan);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+  color: var(--fg3);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+.portal-footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-cond);
+  font-size: var(--text-xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.portal-footer .sep { color: var(--accent); }
+
+@media (max-width: 640px) {
+  .portal-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  .portal-body { padding: var(--space-6) var(--space-4); }
+}
