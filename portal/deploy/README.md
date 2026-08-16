@@ -83,22 +83,27 @@ sudo visudo -f /etc/sudoers.d/solprovision-deploy
 ```
 
 ```
-marauder ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart solprovision-portal-dev
+solprovision ALL=(ALL) NOPASSWD: /bin/systemctl restart solprovision-portal-dev
 ```
 
-`/usr/bin/systemctl` is the path on this box (confirmed 2026-08-15). The path in the rule must match
-exactly — a rule naming `/bin/systemctl` silently grants nothing. Replace `marauder` if `VPS_USER`
-differs; GitHub secrets can't be read back, so confirm it from the SSH log instead:
+**The user is `solprovision`, not your interactive login.** `VPS_USER` is `solprovision`; `marauder` is
+the human account you SSH in as. Getting this wrong fails the deploy with
+`sudo: a password is required` — the pull and pip install succeed, only the restart dies, so the
+running service is left untouched.
+
+**Use `/bin/systemctl`, matching the existing rule at `/etc/sudoers:58`** which already grants
+`solprovision` restart rights on `solprovision` and `solprovision-dev`. `command -v systemctl` reports
+`/usr/bin/systemctl` on this box, but `/bin` is a symlink to `/usr/bin` here and the proven-working
+rule spells it `/bin/systemctl` — mirror what works rather than what `command -v` prints.
+
+Verify the grant landed on the right account:
 
 ```bash
-sudo journalctl -u ssh -u sshd --since "14 days ago" | grep "Accepted publickey" | tail -20
+sudo -l -U solprovision | grep portal
 ```
 
 Restart is the only privileged call the deploy makes — the health checks that follow it
 (`systemctl is-active`, `curl /api/health`) need no privileges.
-
-Replace `marauder` with whatever `VPS_USER` is, and check whether systemctl is at `/bin/systemctl` or
-`/usr/bin/systemctl` on this box (`command -v systemctl`) — the path in the rule must match exactly.
 
 ### 6. nginx
 
