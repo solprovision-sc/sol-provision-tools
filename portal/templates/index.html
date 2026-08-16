@@ -31,6 +31,52 @@
 
 <!-- ── Gated content ─────────────────────────────────────────────────────── -->
 <main class="portal-body blurred" id="portalBody">
+
+  <!-- ── Division Readiness Matrix ──────────────────────────────────────────
+       Deliberately first: this is the status board members open the portal to
+       check. The divider below separates it from the navigational deck. -->
+  <section class="readiness" id="readiness">
+    <header class="section-head">
+      <h2>Division Readiness Matrix</h2>
+      <p class="section-sub">Live posture across Sol Provision commands.</p>
+    </header>
+
+    {% if readiness %}
+    <div class="readiness-grid">
+      {% for d in readiness %}
+      <article class="div-card status-{{ d.status }}">
+        <div class="div-code">{{ d.code }}</div>
+        <div class="div-status">
+          <span class="dot" aria-hidden="true"></span>
+          {{ statuses | selectattr('code', 'equalto', d.status) | map(attribute='label') | first }}
+        </div>
+        <div class="div-name">{{ d.name }}</div>
+        {% if d.posture %}<p class="div-posture">{{ d.posture }}</p>{% endif %}
+        {% if d.updated_at %}
+        <time class="div-updated" datetime="{{ d.updated_at }}">{{ d.updated_at[:10] }}</time>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+
+    <dl class="readiness-legend">
+      {% for s in statuses %}
+      <div class="legend-item status-{{ s.code }}">
+        <dt><span class="dot" aria-hidden="true"></span>{{ s.label }}</dt>
+        <dd>{{ s.description }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    {% else %}
+    <p class="scaffold-note">
+      Readiness has not been published yet. An officer sets it from the HQ
+      dashboard's Portal Administration panel.
+    </p>
+    {% endif %}
+  </section>
+
+  <hr class="section-divider">
+
   <section class="command-deck">
     <div class="eyebrow">COMMAND DECK</div>
     <h1>Welcome to the Provisioner Portal</h1>
@@ -60,12 +106,6 @@
     </article>
   </section>
 
-  <section class="scaffold-note">
-    <p>
-      Auth skeleton only — section content is carried over from the existing
-      portal in later passes.
-    </p>
-  </section>
 </main>
 
 {% endblock %}

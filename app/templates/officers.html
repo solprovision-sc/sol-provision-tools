@@ -540,6 +540,103 @@
   font-family: var(--font-mono); font-size: 0.76rem; color: var(--text3);
   padding: 26px 4px; text-align: center;
 }
+
+/* ── Portal Administration panel ───────────────────────────────────────────
+   Visually distinct from the reporting tabs: warm tint, accent rule, and its
+   own header, so "this writes to the public site" reads at a glance. */
+.admin-panel {
+  margin: 18px 0 26px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+.admin-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding: 16px 20px;
+}
+.admin-title {
+  font-family: var(--font-title); font-size: 1.02rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text); margin: 0;
+}
+.admin-sub {
+  font-family: var(--font-ui); font-size: .74rem; letter-spacing: .04em;
+  color: var(--accent); margin-top: 4px;
+}
+.admin-toggle {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text3); cursor: pointer; padding: 4px 12px;
+  font-family: var(--font-ui); font-size: .7rem; letter-spacing: .12em;
+  text-transform: uppercase; flex: none;
+}
+.admin-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.admin-body { padding: 0 20px 18px; }
+.admin-body[hidden] { display: none; }
+
+.admin-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.admin-section-head h3 {
+  font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text2); margin: 0;
+}
+.admin-section-sub { font-family: var(--font-ui); font-size: .72rem; color: var(--text3); }
+
+.readiness-row {
+  display: grid;
+  grid-template-columns: 150px 190px 1fr;
+  gap: 12px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.readiness-row:first-child { border-top: 0; }
+.rr-div { display: flex; flex-direction: column; gap: 2px; }
+.rr-name {
+  font-family: var(--font-ui); font-size: .84rem; font-weight: 600;
+  letter-spacing: .04em; color: var(--text);
+}
+.rr-meta { font-family: var(--font-mono); font-size: .66rem; color: var(--text3); }
+.readiness-row select,
+.readiness-row input[type=text] {
+  background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 9px; font-family: var(--font-ui); font-size: .8rem; width: 100%;
+}
+.readiness-row select:focus,
+.readiness-row input[type=text]:focus { outline: none; border-color: var(--accent); }
+/* Status colour rides on the select itself so the row reads at a glance. */
+.readiness-row select.s-operational    { border-left: 3px solid var(--green); }
+.readiness-row select.s-heightened     { border-left: 3px solid var(--accent); }
+.readiness-row select.s-critical       { border-left: 3px solid var(--danger); }
+.readiness-row select.s-reconstitution { border-left: 3px solid var(--text3); }
+
+.admin-actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.btn-save {
+  background: var(--brand); color: var(--on-brand);
+  border: 1px solid var(--line-brand); border-radius: var(--radius-sm);
+  padding: 8px 18px; cursor: pointer;
+  font-family: var(--font-ui); font-size: .76rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.btn-save:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-save:disabled { opacity: .5; cursor: not-allowed; }
+.admin-msg { font-family: var(--font-mono); font-size: .72rem; color: var(--text3); }
+.admin-msg.ok { color: var(--green); }
+.admin-msg.err { color: var(--danger); }
+.readiness-msg { font-family: var(--font-mono); font-size: .74rem; color: var(--text3); padding: 8px 0; }
+
+.admin-history { margin-top: 16px; }
+.admin-history summary {
+  cursor: pointer; font-family: var(--font-ui); font-size: .72rem;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text3);
+}
+.admin-history summary:hover { color: var(--accent); }
+.history-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.history-list li {
+  font-family: var(--font-mono); font-size: .7rem; color: var(--text3);
+  padding: 3px 0; border-top: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+  .readiness-row { grid-template-columns: 1fr; gap: 6px; }
+}
 </style>
 {% endblock %}
 
@@ -547,6 +644,45 @@
 <div class="officers-page">
   <h1 class="officers-page-title">Officer Dashboard</h1>
   <div class="officers-page-sub">Org-wide acquisition &amp; ownership intelligence — prod data</div>
+
+  <!-- ── Portal Administration ─────────────────────────────────────────────
+       Deliberately segregated from the tabs below. Everything in those tabs is
+       read-only reporting; everything in here changes what the whole org sees
+       on the public portal. Built to hold Upcoming Tasking and Action Required
+       alongside Division Readiness as those move off Squarespace. -->
+  <section class="admin-panel" id="admin-panel">
+    <header class="admin-head">
+      <div>
+        <h2 class="admin-title">Portal Administration</h2>
+        <div class="admin-sub">Publishes to the Provisioner Portal — visible to all members</div>
+      </div>
+      <button type="button" class="admin-toggle" id="admin-toggle"
+              aria-expanded="true" aria-controls="admin-body">Hide</button>
+    </header>
+
+    <div class="admin-body" id="admin-body">
+      <div class="admin-section">
+        <div class="admin-section-head">
+          <h3>Division Readiness</h3>
+          <span class="admin-section-sub">Any officer may update any division.</span>
+        </div>
+
+        <div class="readiness-rows" id="readiness-rows">
+          <div class="readiness-msg">Loading…</div>
+        </div>
+
+        <div class="admin-actions">
+          <button type="button" class="btn-save" id="readiness-save">Save Readiness</button>
+          <span class="admin-msg" id="readiness-msg"></span>
+        </div>
+
+        <details class="admin-history">
+          <summary>Recent changes</summary>
+          <ul id="readiness-history" class="history-list"></ul>
+        </details>
+      </div>
+    </div>
+  </section>
 
   <div class="tabs" id="dash-tabs" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-blueprints" data-tab="blueprints" onclick="setTab(this)">Blueprints</button>
@@ -1550,10 +1686,118 @@ function setTab(btn) {
   history.replaceState(null, "", "#" + name);
 }
 
+// ── Portal Administration: Division Readiness ──────────────────────────
+// Writes to org_status.db through /api/officers/readiness; the portal reads
+// that same file read-only. Save submits every division and the server writes
+// only the ones that actually changed — otherwise whoever hits Save would be
+// recorded as the author of all four.
+
+let READINESS_STATUSES = [];
+
+async function loadReadiness() {
+  const rows = document.getElementById("readiness-rows");
+  try {
+    const r = await fetch("/api/officers/readiness");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    READINESS_STATUSES = data.statuses || [];
+    renderReadinessRows(data.divisions || []);
+    renderReadinessHistory(data.recent || []);
+  } catch (err) {
+    rows.innerHTML = '<div class="readiness-msg">Could not load readiness: '
+                   + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function renderReadinessRows(divisions) {
+  const rows = document.getElementById("readiness-rows");
+  rows.innerHTML = divisions.map(d => {
+    const opts = READINESS_STATUSES.map(s =>
+      '<option value="' + s.code + '"' + (s.code === d.status ? " selected" : "") + ">"
+      + escapeHtml(s.label) + "</option>").join("");
+    const who = d.updated_by_name
+      ? "updated " + escapeHtml((d.updated_at || "").slice(0, 10))
+        + " by " + escapeHtml(d.updated_by_name)
+      : "never set";
+    return '<div class="readiness-row" data-code="' + escapeHtml(d.code) + '">'
+      + '<div class="rr-div">'
+      +   '<span class="rr-name">' + escapeHtml(d.name) + '</span>'
+      +   '<span class="rr-meta">' + escapeHtml(d.code) + " · " + who + '</span>'
+      + '</div>'
+      + '<select class="rr-status s-' + escapeHtml(d.status) + '">' + opts + '</select>'
+      + '<input type="text" class="rr-posture" maxlength="120"'
+      +   ' placeholder="Brief posture description"'
+      +   ' value="' + escapeHtml(d.posture || "") + '">'
+      + '</div>';
+  }).join("");
+
+  // Keep the colour bar in step with the selection before it's even saved.
+  rows.querySelectorAll(".rr-status").forEach(sel => {
+    sel.addEventListener("change", () => { sel.className = "rr-status s-" + sel.value; });
+  });
+}
+
+function renderReadinessHistory(recent) {
+  const ul = document.getElementById("readiness-history");
+  if (!recent.length) { ul.innerHTML = "<li>No changes recorded yet.</li>"; return; }
+  ul.innerHTML = recent.map(r =>
+    "<li>" + escapeHtml((r.updated_at || "").slice(0, 10)) + " · "
+    + escapeHtml(r.division_code) + " → " + escapeHtml(r.status)
+    + (r.updated_by_name ? " · " + escapeHtml(r.updated_by_name) : "")
+    + "</li>").join("");
+}
+
+async function saveReadiness() {
+  const btn = document.getElementById("readiness-save");
+  const msg = document.getElementById("readiness-msg");
+  const divisions = Array.from(document.querySelectorAll(".readiness-row")).map(row => ({
+    code: row.dataset.code,
+    status: row.querySelector(".rr-status").value,
+    posture: row.querySelector(".rr-posture").value,
+  }));
+
+  btn.disabled = true;
+  msg.className = "admin-msg";
+  msg.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/officers/readiness", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisions }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    msg.className = "admin-msg ok";
+    msg.textContent = data.saved === 0
+      ? "No changes to save."
+      : data.saved + (data.saved === 1 ? " division updated." : " divisions updated.");
+    await loadReadiness();   // repaint rows + history from the server's view
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Save failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function toggleAdminPanel() {
+  const body = document.getElementById("admin-body");
+  const btn = document.getElementById("admin-toggle");
+  const wasHidden = body.hasAttribute("hidden");
+  if (wasHidden) { body.removeAttribute("hidden"); } else { body.setAttribute("hidden", ""); }
+  btn.textContent = wasHidden ? "Hide" : "Show";
+  btn.setAttribute("aria-expanded", String(wasHidden));
+}
+
 // ── Init ───────────────────────────────────────────────────────────────
 (function init() {
   document.getElementById("shopping-calc-btn")
           .addEventListener("click", calculateShoppingList);
+  document.getElementById("readiness-save")
+          .addEventListener("click", saveReadiness);
+  document.getElementById("admin-toggle")
+          .addEventListener("click", toggleAdminPanel);
+  loadReadiness();
   activateTab((location.hash || "").replace(/^#/, ""));
 })();
 {% endblock %}

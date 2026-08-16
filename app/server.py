@@ -8,6 +8,17 @@ import requests
 import time
 from datetime import timedelta, datetime, timezone
 from functools import wraps
+import sys
+
+# Code shared with the portal app lives under shared/. The two are separate
+# processes with separate venvs, so each puts the repo root on sys.path rather
+# than relying on an installed package. org_status owns the ONE definition of
+# where org_status.db lives — if each app resolved that path its own way, an
+# env var set on one side would silently point them at different files.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from shared import org_status
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -215,7 +226,24 @@ def get_user_db():
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
-    
+
+
+def get_org_status_db(read_only=False):
+    """Connect to the org-status DB (division readiness shown on the portal).
+
+    This app is the only WRITER; the portal opens the same file read-only.
+    Mirrors get_ownership_db()'s auto-create-on-first-use so a fresh deploy
+    needs no manual sqlite3 setup — but the schema is version-tracked with
+    PRAGMA user_version inside shared/org_status.py rather than re-running
+    CREATE TABLE IF NOT EXISTS, so an older file can't sit at a stale shape and
+    fail at query time with no signal.
+    """
+    conn = org_status.connect(read_only=read_only)
+    if not read_only:
+        org_status.migrate(conn)
+    return conn
+
+
 # ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
 # The extractor pipeline replaces dataforge.db wholesale every patch, so the
 # ownership rows have to live in their own file. Default location sits next to
@@ -4963,6 +4991,78 @@ def api_officers_coverage():
 # ── API: Member leaderboard ───────────────────────────────────────────────────
 # GET /api/officers/members
 # Per-member totals + per-category counts, with Discord display names.
+
+# ══════════════════════════════════════════════════════════════════════
+# PORTAL ADMINISTRATION — Division Readiness
+# ══════════════════════════════════════════════════════════════════════
+# Officers set division posture here; the portal renders it read-only. This app
+# is the only writer. Any officer may edit any division on purpose: Science has
+# no rank-5 member, so division-scoped editing would leave it permanently
+# unmanageable. Accountability is by attribution (updated_by_name), not by lock.
+
+@app.route('/api/officers/readiness', methods=['GET'])
+@require_officer
+def api_officers_readiness():
+    """Current readiness for all divisions, plus the status vocabulary and a
+    short change history for the HQ panel."""
+    conn = get_org_status_db()
+    try:
+        return jsonify({
+            "divisions": org_status.get_readiness(conn),
+            "statuses": [dict(s) for s in org_status.STATUSES],
+            "recent": org_status.recent_changes(conn, limit=10),
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/readiness', methods=['PUT'])
+@require_officer
+def api_officers_readiness_save():
+    """Save readiness. Accepts the whole form; writes only what changed."""
+    payload = request.get_json(silent=True) or {}
+    submitted = payload.get("divisions")
+    if not isinstance(submitted, list):
+        return jsonify({"error": "expected a 'divisions' list"}), 400
+
+    actor_id = session.get('discord_id')
+    actor_name = session.get('callsign') or session.get('username')
+
+    conn = get_org_status_db()
+    try:
+        current = {d["code"]: d for d in org_status.get_readiness(conn)}
+        changed = []
+        for item in submitted:
+            if not isinstance(item, dict):
+                return jsonify({"error": "malformed division entry"}), 400
+            code = item.get("code")
+            status = item.get("status")
+            posture = (item.get("posture") or "").strip()
+
+            existing = current.get(code)
+            if existing is None:
+                return jsonify({"error": f"unknown division: {code}"}), 400
+
+            # Only write what actually moved. Saving all four on every submit
+            # would stamp every division with this officer's name and fill the
+            # change log with entries that record nothing.
+            if existing["status"] == status and existing["posture"] == posture:
+                continue
+
+            try:
+                changed.append(org_status.set_readiness(
+                    conn, code, status, posture, actor_id, actor_name))
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
+        return jsonify({
+            "saved": len(changed),
+            "changed": changed,
+            "divisions": org_status.get_readiness(conn),
+        })
+    finally:
+        conn.close()
+
 
 @app.route('/api/officers/members')
 @require_officer

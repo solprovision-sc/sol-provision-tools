@@ -22,6 +22,7 @@ config, which would invalidate every live tools session on deploy.
 
 import os
 import sqlite3
+import sys
 from datetime import timedelta
 from functools import wraps
 from pathlib import Path
@@ -31,6 +32,12 @@ from flask import (Flask, jsonify, redirect, render_template, request,
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BRAND_DIR = REPO_ROOT / 'shared' / 'brand'
+
+# Shared code with the tools app. Both are separate processes, so each puts the
+# repo root on sys.path rather than relying on an installed package.
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from shared import org_status  # noqa: E402
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -396,11 +403,33 @@ def health():
 # ══════════════════════════════════════════════════════════════════════
 # PAGES
 # ══════════════════════════════════════════════════════════════════════
+def read_readiness():
+    """Division readiness, read-only, from the DB the tools app writes.
+
+    Returns [] rather than raising if the file isn't there yet — on a fresh
+    deploy the portal may come up before an officer has ever opened the HQ
+    admin panel, and a missing side-database must not 500 the landing page.
+    """
+    try:
+        conn = org_status.connect(read_only=True)
+    except sqlite3.OperationalError as exc:
+        app.logger.warning('org_status.db unavailable (%s) — rendering empty matrix', exc)
+        return []
+    try:
+        return org_status.get_readiness(conn)
+    finally:
+        conn.close()
+
+
 @app.route('/')
 def index():
     """Landing page. Hosts the login overlay; content behind it stays blurred
     until a session exists, matching the tools app's pattern."""
-    return render_template('index.html')
+    return render_template(
+        'index.html',
+        readiness=read_readiness(),
+        statuses=[dict(s) for s in org_status.STATUSES],
+    )
 
 
 if __name__ == '__main__':
