@@ -83,7 +83,15 @@ sudo visudo -f /etc/sudoers.d/solprovision-deploy
 ```
 
 ```
-marauder ALL=(ALL) NOPASSWD: /bin/systemctl restart solprovision-portal-dev
+marauder ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart solprovision-portal-dev
+```
+
+`/usr/bin/systemctl` is the path on this box (confirmed 2026-08-15). The path in the rule must match
+exactly — a rule naming `/bin/systemctl` silently grants nothing. Replace `marauder` if `VPS_USER`
+differs; GitHub secrets can't be read back, so confirm it from the SSH log instead:
+
+```bash
+sudo journalctl -u ssh -u sshd --since "14 days ago" | grep "Accepted publickey" | tail -20
 ```
 
 Restart is the only privileged call the deploy makes — the health checks that follow it
