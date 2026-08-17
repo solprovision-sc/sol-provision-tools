@@ -124,9 +124,7 @@
   var body       = document.getElementById('portalBody');
   var statusText = document.getElementById('authStatus');
   var loginBtn   = document.getElementById('discordLoginBtn');
-  var userChip   = document.getElementById('userChip');
-  var callsignEl = document.getElementById('userCallsign');
-  var logoutBtn  = document.getElementById('logoutBtn');
+  var headerMeta = document.getElementById('header-meta');
 
   var auth = null;
 
@@ -134,16 +132,13 @@
     overlay.classList.add('hidden');
     body.classList.remove('blurred');
     window.currentUser = user;
-    if (user && user.callsign) {
-      callsignEl.textContent = user.callsign;
-      userChip.hidden = false;
-    }
+    window.renderPortalHeader(user);   // fills callsign/rank, adds HQ for 5+
   }
 
   function showLogin(message) {
     overlay.classList.remove('hidden');
     body.classList.add('blurred');
-    userChip.hidden = true;
+    window.renderPortalHeader(null);   // clears the user block and HQ link
     statusText.textContent = message || 'AWAITING AUTHORIZATION…';
   }
 
@@ -203,7 +198,10 @@
     }
   });
 
-  logoutBtn.addEventListener('click', async function () {
+  // Delegated: the sign-out button is created by renderPortalHeader(), so it
+  // doesn't exist at wiring time.
+  headerMeta.addEventListener('click', async function (e) {
+    if (!e.target || e.target.id !== 'logoutBtn') return;
     await fetch('/api/auth/logout', { method: 'POST' });
     if (auth) await auth.signOut();
     showLogin('SIGNED OUT');

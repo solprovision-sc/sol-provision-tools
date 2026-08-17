@@ -23,43 +23,104 @@ body {
   flex-direction: column;
 }
 
-/* ── Header ────────────────────────────────────────────────────────────── */
+/* ── Header ──────────────────────────────────────────────────────────────
+   Mirrors the tools app header so the two sites read as one product. The
+   values are lifted from theme.css; only the token NAMES differ, because the
+   tools stylesheet still refers to its legacy compat-bridge aliases
+   (--bg2 / --text3 / --border2 / --font-title) while the portal consumes the
+   brand tokens those alias to. Change either side and update both. */
 .portal-header {
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--bg-inset) 100%);
+  border-bottom: 1px solid var(--line-strong);
+  padding: 0 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-5);
-  padding: var(--space-4) var(--space-6);
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--line);
-  box-shadow: inset 0 -1px 0 0 var(--line);
+  height: 112px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+/* Left accent stripe. Anchors to the header because `sticky` is a positioned
+   ancestor. */
+.portal-header::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
 }
 
-.brand-lockup { display: flex; flex-direction: column; gap: 2px; }
+.logo { display: flex; align-items: center; gap: 16px; text-decoration: none; }
+.logo-mark { width: 72px; height: 72px; flex-shrink: 0; }
+.logo-mark img { width: 100%; height: 100%; object-fit: contain; }
 
-.wordmark {
+.logo-text {
   font-family: var(--font-display);
-  font-weight: 900;
-  font-size: var(--text-md);
-  letter-spacing: var(--track-display);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg1);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-top: 5px;
 }
 
-.tagline {
-  font-family: var(--font-body);
-  font-style: italic;
-  font-size: var(--text-xs);
+.header-right { display: flex; align-items: center; gap: 20px; }
+
+.header-meta {
+  font-family: var(--font-mono);
+  font-size: 13px;
   color: var(--fg3);
+  text-align: right;
+  line-height: 1.6;
 }
 
-.header-right { display: flex; align-items: center; gap: var(--space-4); }
+nav.section-nav { display: flex; gap: 0; }
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  color: var(--fg3);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.nav-link:hover { color: var(--fg2); border-bottom-color: var(--line-strong); }
+.nav-link.active { color: var(--gold); border-bottom-color: var(--accent); }
+
+.user-info { text-align: right; }
+.user-callsign {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.user-rank {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
 
 .env-badge {
-  font-family: var(--font-cond);
-  font-size: var(--text-2xs);
+  font-family: var(--font-mono);
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: var(--track-label);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-900);
   background: var(--accent);
@@ -67,25 +128,17 @@ body {
   border-radius: var(--radius-xs);
 }
 
-.user-chip { display: flex; align-items: center; gap: var(--space-3); }
-
-.callsign {
-  font-family: var(--font-cond);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--fg1);
-}
-
 .link-btn {
   background: none;
   border: none;
   cursor: pointer;
-  font-family: var(--font-cond);
-  font-size: var(--text-xs);
-  letter-spacing: var(--track-label);
+  padding: 0;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--fg3);
+  color: var(--fg-muted);
 }
 .link-btn:hover { color: var(--accent); }
 
@@ -396,6 +449,13 @@ a.deck-card:hover h2 { color: var(--accent); }
 .portal-footer .sep { color: var(--accent); }
 
 @media (max-width: 640px) {
-  .portal-header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+  /* Height must go to auto here — the fixed 112px would clip a stacked header. */
+  .portal-header {
+    flex-direction: column; align-items: flex-start;
+    height: auto; gap: var(--space-3); padding: var(--space-4);
+  }
+  .logo-mark { width: 52px; height: 52px; }
+  .logo-text { font-size: 20px; }
+  .header-right { flex-wrap: wrap; gap: var(--space-3); }
   .portal-body { padding: var(--space-6) var(--space-4); }
 }

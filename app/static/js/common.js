@@ -75,7 +75,7 @@ function logoHTML() {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
-        <img src="/static/img/Circular_Badge_Logo_White_1080x1080.png" alt="Sol Provision" />
+        <img src="/brand/img/Circular_Badge_Logo_White_1080x1080.png" alt="Sol Provision" />
       </div>
       <div>
         <div class="logo-text">Sol Provision</div>

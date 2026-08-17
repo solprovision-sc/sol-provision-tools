@@ -12,19 +12,81 @@
 </head>
 <body>
 
+<!-- Mirrors the tools app header (app/static/js/common.js renderHeader) so the
+     two sites read as one product. The logo now lives in shared/brand/img/
+     alongside the fonts and tokens, served at /brand/ by both apps. -->
 <header class="portal-header">
-  <div class="brand-lockup">
-    <span class="wordmark">SOL PROVISION</span>
-    <span class="tagline">Provisions for the Soul</span>
-  </div>
-  <div class="header-right">
-    {% if env != 'prod' %}<span class="env-badge">{{ env|upper }}</span>{% endif %}
-    <div class="user-chip" id="userChip" hidden>
-      <span class="callsign" id="userCallsign"></span>
-      <button type="button" class="link-btn" id="logoutBtn">Sign out</button>
+  <a href="/" class="logo">
+    <div class="logo-mark">
+      <img src="/brand/img/Circular_Badge_Logo_White_1080x1080.png?v={{ asset_v('brand/img/Circular_Badge_Logo_White_1080x1080.png') }}"
+           alt="Sol Provision">
     </div>
+    <div>
+      <div class="logo-text">Sol Provision</div>
+      <div class="logo-sub">Provisioner Portal</div>
+    </div>
+  </a>
+
+  <div class="header-right">
+    <nav class="section-nav" id="header-nav">
+      <a href="/" class="nav-link active">Portal</a>
+      <a href="{{ tools_url }}/" class="nav-link">Tools</a>
+      <!-- HQ is appended by renderPortalHeader() for rank 5+. The tools app
+           enforces the same gate server-side; this only hides the link. -->
+    </nav>
+    {% if env != 'prod' %}<span class="env-badge">{{ env|upper }}</span>{% endif %}
+    <div class="header-meta" id="header-meta"></div>
   </div>
 </header>
+
+<script>
+// Header user block, rendered from the same session data the login overlay
+// already holds — so it fills in on sign-in and clears on sign-out without a
+// second round trip.
+window.TOOLS_URL = {{ tools_url | tojson }};
+
+window.renderPortalHeader = function (user) {
+  var meta = document.getElementById('header-meta');
+  var nav  = document.getElementById('header-nav');
+  var hq   = document.getElementById('nav-hq');
+
+  if (!user) {
+    meta.innerHTML = '';
+    if (hq) hq.remove();
+    return;
+  }
+
+  // Rank arrives as int or string depending on the roster snapshot; coerce so a
+  // stringy "5" still counts. (The tools app compares === 5 and misses that.)
+  var rank = parseInt(user.rank, 10) || 0;
+  var division = user.division || 'Unassigned';
+  var rankDisplay;
+  if (user.callsign === 'Sulyce')  { rankDisplay = 'CEO'; }
+  else if (rank === 5)             { rankDisplay = division + ' · Officer'; }
+  else if (rank === 4)             { rankDisplay = division + ' · Wing Commander'; }
+  else                             { rankDisplay = division + ' · Rank ' + rank; }
+
+  meta.innerHTML =
+    '<div class="user-info">'
+    + '<div class="user-callsign"></div>'
+    + '<div class="user-rank"></div>'
+    + '<button type="button" class="link-btn" id="logoutBtn">Sign out</button>'
+    + '</div>';
+  meta.querySelector('.user-callsign').textContent = user.callsign || user.username || '';
+  meta.querySelector('.user-rank').textContent = rankDisplay;
+
+  if (rank >= 5 && !hq) {
+    var a = document.createElement('a');
+    a.id = 'nav-hq';
+    a.className = 'nav-link';
+    a.href = window.TOOLS_URL + '/officers';
+    a.textContent = 'HQ';
+    nav.appendChild(a);
+  } else if (rank < 5 && hq) {
+    hq.remove();
+  }
+};
+</script>
 
 {% block body %}{% endblock %}
 
