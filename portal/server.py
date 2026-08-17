@@ -101,6 +101,14 @@ app.config['SESSION_COOKIE_NAME'] = 'sp_portal_session' + ('' if ENV == 'prod' e
 # The web API key is not a secret: it identifies the project to Firebase's
 # public endpoints, and access is governed by Firebase rules plus the
 # authorized-domains list.
+# Sibling tools site, linked from the portal header. Points at the matching
+# environment so portal-dev doesn't send testers into production tools.
+TOOLS_URL = os.environ.get(
+    'TOOLS_URL',
+    'https://tools.solprovision.com' if ENV == 'prod'
+    else 'https://tools-dev.solprovision.com',
+).rstrip('/')
+
 FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', 'sp-ledger')
 FIREBASE_API_KEY = os.environ.get(
     'FIREBASE_API_KEY', 'AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E')
@@ -287,6 +295,7 @@ def inject_globals():
     return {
         'asset_v': asset_v,
         'env': ENV,
+        'tools_url': TOOLS_URL,
         'firebase_config': {
             'apiKey': FIREBASE_API_KEY,
             'authDomain': FIREBASE_AUTH_DOMAIN,
