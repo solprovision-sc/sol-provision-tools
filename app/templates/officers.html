@@ -541,37 +541,39 @@
   padding: 26px 4px; text-align: center;
 }
 
-/* ── Portal Administration panel ───────────────────────────────────────────
-   Visually distinct from the reporting tabs: warm tint, accent rule, and its
-   own header, so "this writes to the public site" reads at a glance. */
-.admin-panel {
-  margin: 18px 0 26px;
+/* ── Top-level view switch (Data View | Admin) ─────────────────────────────
+   Reporting and anything that writes to the public portal are different jobs;
+   they no longer share a screen. */
+.view-tabs { margin-bottom: 18px; }
+.view-panel { display: none; }
+.view-panel.active { display: block; }
+
+.admin-note {
+  margin-bottom: 14px; padding: 9px 14px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-left: 2px solid var(--accent); border-radius: var(--radius-sm);
+  font-family: var(--font-ui); font-size: .74rem; letter-spacing: .03em;
+  color: var(--accent);
+}
+
+/* Side-by-side, but auto-fit so a narrow window stacks them rather than
+   squeezing. align-items:start keeps each card at its own height instead of
+   stretching the shorter one to match. */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-card {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-top: 2px solid var(--accent);
   border-radius: var(--radius-md);
+  padding: 16px 20px 18px;
+  min-width: 0;                 /* lets the grid actually shrink the card */
 }
-.admin-head {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 16px; padding: 16px 20px;
-}
-.admin-title {
-  font-family: var(--font-title); font-size: 1.02rem; font-weight: 700;
-  letter-spacing: .06em; text-transform: uppercase; color: var(--text); margin: 0;
-}
-.admin-sub {
-  font-family: var(--font-ui); font-size: .74rem; letter-spacing: .04em;
-  color: var(--accent); margin-top: 4px;
-}
-.admin-toggle {
-  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  color: var(--text3); cursor: pointer; padding: 4px 12px;
-  font-family: var(--font-ui); font-size: .7rem; letter-spacing: .12em;
-  text-transform: uppercase; flex: none;
-}
-.admin-toggle:hover { color: var(--accent); border-color: var(--accent); }
-.admin-body { padding: 0 20px 18px; }
-.admin-body[hidden] { display: none; }
 
 .admin-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
 .admin-section-head h3 {
@@ -582,8 +584,10 @@
 
 .readiness-row {
   display: grid;
-  grid-template-columns: 150px 190px 1fr;
-  gap: 12px; align-items: center;
+  /* Division | status | posture. Narrower than the old full-width panel, so
+     the posture field takes what's left rather than a fixed share. */
+  grid-template-columns: 118px 150px minmax(0, 1fr);
+  gap: 10px; align-items: center;
   padding: 10px 0; border-top: 1px solid var(--border);
 }
 .readiness-row:first-child { border-top: 0; }
@@ -592,7 +596,10 @@
   font-family: var(--font-ui); font-size: .84rem; font-weight: 600;
   letter-spacing: .04em; color: var(--text);
 }
-.rr-meta { font-family: var(--font-mono); font-size: .66rem; color: var(--text3); }
+.rr-meta {
+  font-family: var(--font-mono); font-size: .66rem; color: var(--text3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .readiness-row select,
 .readiness-row input[type=text] {
   background: var(--bg3); color: var(--text);
@@ -634,8 +641,6 @@
   padding: 3px 0; border-top: 1px solid var(--border);
 }
 
-.admin-section-sep { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border2); }
-
 .apps-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .count-chip {
   display: flex; align-items: baseline; gap: 6px;
@@ -654,6 +659,7 @@
 .count-chip.st-new .n    { color: var(--accent); }
 .count-chip.st-reviewing { border-color: var(--gold); }
 
+.apps-list { max-height: 460px; overflow-y: auto; }
 .apps-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .apps-filter label {
   font-family: var(--font-ui); font-size: .68rem; letter-spacing: .12em;
@@ -668,9 +674,15 @@
 .app-row { border-top: 1px solid var(--border); }
 .app-row:first-child { border-top: 0; }
 .app-row > summary {
-  display: grid; grid-template-columns: 92px 1fr 1fr 150px 96px;
-  gap: 12px; align-items: center; padding: 9px 0; cursor: pointer;
+  display: grid; grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center; padding: 9px 0; cursor: pointer;
   font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
+}
+.app-main { min-width: 0; }
+.app-meta {
+  display: block; font-family: var(--font-mono); font-size: .66rem;
+  color: var(--text3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .app-row > summary::-webkit-details-marker { display: none; }
 .app-row > summary:hover { color: var(--text); }
@@ -688,8 +700,8 @@
 .app-badge.st-accepted  { border-color: var(--green);  color: var(--green); }
 .app-badge.st-declined  { border-color: var(--danger); color: var(--danger); }
 
-.app-detail { padding: 4px 0 16px 92px; }
-.app-detail dl { display: grid; grid-template-columns: 130px 1fr; gap: 6px 14px; margin: 0; }
+.app-detail { padding: 4px 0 16px 76px; }
+.app-detail dl { display: grid; grid-template-columns: 118px minmax(0,1fr); gap: 6px 12px; margin: 0; }
 .app-detail dt {
   font-family: var(--font-ui); font-size: .66rem; letter-spacing: .1em;
   text-transform: uppercase; color: var(--text3);
@@ -714,67 +726,14 @@
   <h1 class="officers-page-title">Officer Dashboard</h1>
   <div class="officers-page-sub">Org-wide acquisition &amp; ownership intelligence — prod data</div>
 
-  <!-- ── Portal Administration ─────────────────────────────────────────────
-       Deliberately segregated from the tabs below. Everything in those tabs is
-       read-only reporting; everything in here changes what the whole org sees
-       on the public portal. Built to hold Upcoming Tasking and Action Required
-       alongside Division Readiness as those move off Squarespace. -->
-  <section class="admin-panel" id="admin-panel">
-    <!-- A <div>, NOT a <header>: theme.css styles the bare `header` element as
-         the sticky 112px site bar, so a <header> here silently became a second
-         sticky bar overlapping the first. -->
-    <div class="admin-head">
-      <div>
-        <h2 class="admin-title">Portal Administration</h2>
-        <div class="admin-sub">Publishes to the Provisioner Portal — visible to all members</div>
-      </div>
-      <button type="button" class="admin-toggle" id="admin-toggle"
-              aria-expanded="true" aria-controls="admin-body">Hide</button>
-    </div>
+  <!-- Top-level split: reporting on one side, anything that writes to the
+       public portal on the other. The Data View tabs are nested inside it. -->
+  <div class="tabs view-tabs" id="view-tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="view-data"  data-view="data"  onclick="setView(this)">Data View</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="view-admin" data-view="admin" onclick="setView(this)">Admin</button>
+  </div>
 
-    <div class="admin-body" id="admin-body">
-      <div class="admin-section">
-        <div class="admin-section-head">
-          <h3>Division Readiness</h3>
-          <span class="admin-section-sub">Any officer may update any division.</span>
-        </div>
-
-        <div class="readiness-rows" id="readiness-rows">
-          <div class="readiness-msg">Loading…</div>
-        </div>
-
-        <div class="admin-actions">
-          <button type="button" class="btn-save" id="readiness-save">Save Readiness</button>
-          <span class="admin-msg" id="readiness-msg"></span>
-        </div>
-
-        <details class="admin-history">
-          <summary>Recent changes</summary>
-          <ul id="readiness-history" class="history-list"></ul>
-        </details>
-      </div>
-
-      <div class="admin-section admin-section-sep">
-        <div class="admin-section-head">
-          <h3>Membership Applications</h3>
-          <span class="admin-section-sub">From the public join page.</span>
-        </div>
-
-        <div class="apps-counts" id="apps-counts"></div>
-
-        <div class="apps-filter">
-          <label for="apps-status">Show</label>
-          <select id="apps-status">
-            <option value="">All</option>
-          </select>
-        </div>
-
-        <div class="apps-list" id="apps-list">
-          <div class="readiness-msg">Loading…</div>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="view-panel active" id="view-data">
 
   <div class="tabs" id="dash-tabs" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-blueprints" data-tab="blueprints" onclick="setTab(this)">Blueprints</button>
@@ -907,6 +866,57 @@
       </div>
     </div>
   </section>
+  </div><!-- /#view-data -->
+
+  <div class="view-panel" id="view-admin">
+    <div class="admin-note">
+      Everything here changes what the whole org sees on the Provisioner Portal.
+    </div>
+    <div class="admin-grid">
+
+      <section class="admin-card" id="card-readiness">
+        <div class="admin-section-head">
+          <h3>Division Readiness</h3>
+          <span class="admin-section-sub">Any officer may update any division.</span>
+        </div>
+
+        <div class="readiness-rows" id="readiness-rows">
+          <div class="readiness-msg">Loading…</div>
+        </div>
+
+        <div class="admin-actions">
+          <button type="button" class="btn-save" id="readiness-save">Save Readiness</button>
+          <span class="admin-msg" id="readiness-msg"></span>
+        </div>
+
+        <details class="admin-history">
+          <summary>Recent changes</summary>
+          <ul id="readiness-history" class="history-list"></ul>
+        </details>
+      </section>
+
+      <section class="admin-card" id="card-applications">
+        <div class="admin-section-head">
+          <h3>Membership Applications</h3>
+          <span class="admin-section-sub">From the public join page.</span>
+        </div>
+
+        <div class="apps-counts" id="apps-counts"></div>
+
+        <div class="apps-filter">
+          <label for="apps-status">Show</label>
+          <select id="apps-status">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="apps-list" id="apps-list">
+          <div class="readiness-msg">Loading…</div>
+        </div>
+      </section>
+
+    </div>
+  </div><!-- /#view-admin -->
 </div>
 {% endblock %}
 
@@ -1807,14 +1817,19 @@ function renderReadinessRows(divisions) {
     const opts = READINESS_STATUSES.map(s =>
       '<option value="' + s.code + '"' + (s.code === d.status ? " selected" : "") + ">"
       + escapeHtml(s.label) + "</option>").join("");
-    const who = d.updated_by_name
-      ? "updated " + escapeHtml((d.updated_at || "").slice(0, 10))
-        + " by " + escapeHtml(d.updated_by_name)
-      : "never set";
+    // Code + date only; the editor's name moves to the tooltip. At half width
+    // "updated 2026-08-16 by seed (imported from Squarespace portal)" wrapped
+    // to four lines and made every row tall.
+    const when = (d.updated_at || "").slice(0, 10);
+    const who = d.updated_by_name ? escapeHtml(when) : "never set";
+    const whoTitle = d.updated_by_name
+      ? "Updated " + when + " by " + d.updated_by_name
+      : "Never set";
     return '<div class="readiness-row" data-code="' + escapeHtml(d.code) + '">'
       + '<div class="rr-div">'
       +   '<span class="rr-name">' + escapeHtml(d.name) + '</span>'
-      +   '<span class="rr-meta">' + escapeHtml(d.code) + " · " + who + '</span>'
+      +   '<span class="rr-meta" title="' + escapeHtml(whoTitle) + '">'
+      +     escapeHtml(d.code) + " · " + who + '</span>'
       + '</div>'
       + '<select class="rr-status s-' + escapeHtml(d.status) + '">' + opts + '</select>'
       + '<input type="text" class="rr-posture" maxlength="120"'
@@ -1941,9 +1956,11 @@ function renderAppRows(apps) {
     return '<details class="app-row">'
       + "<summary>"
       +   '<span class="app-when">' + escapeHtml(fmtDate(a.submitted_at)) + "</span>"
-      +   '<span class="app-rsi">' + escapeHtml(a.rsi_username || "") + "</span>"
-      +   "<span>" + escapeHtml(a.discord_username || "") + "</span>"
-      +   "<span>" + escapeHtml(a.division_interest || "") + "</span>"
+      +   '<span class="app-main">'
+      +     '<span class="app-rsi">' + escapeHtml(a.rsi_username || "") + "</span>"
+      +     '<span class="app-meta">' + escapeHtml(a.discord_username || "")
+      +       "  ·  " + escapeHtml(a.division_interest || "") + "</span>"
+      +   "</span>"
       +   '<span class="app-badge st-' + escapeHtml(a.status) + '">'
       +     escapeHtml(a.status) + "</span>"
       + "</summary>"
@@ -1962,13 +1979,36 @@ function renderAppRows(apps) {
   }).join("");
 }
 
-function toggleAdminPanel() {
-  const body = document.getElementById("admin-body");
-  const btn = document.getElementById("admin-toggle");
-  const wasHidden = body.hasAttribute("hidden");
-  if (wasHidden) { body.removeAttribute("hidden"); } else { body.setAttribute("hidden", ""); }
-  btn.textContent = wasHidden ? "Hide" : "Show";
-  btn.setAttribute("aria-expanded", String(wasHidden));
+// ── Top-level view switch ──────────────────────────────────────────────
+const VIEW_NAMES = ["data", "admin"];
+let adminLoaded = false;
+
+function activateView(name) {
+  if (!VIEW_NAMES.includes(name)) name = "data";
+
+  document.querySelectorAll("#view-tabs .tab-btn").forEach(b => {
+    const on = b.dataset.view === name;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll(".view-panel").forEach(v => {
+    v.classList.toggle("active", v.id === "view-" + name);
+  });
+
+  // Admin data is fetched on first reveal rather than on every HQ load. The
+  // applications list carries applicant emails; there's no reason to pull it
+  // for an officer who came in to look at ore.
+  if (name === "admin" && !adminLoaded) {
+    adminLoaded = true;
+    loadReadiness();
+    loadApplications();
+  }
+  return name;
+}
+
+function setView(btn) {
+  const name = activateView(btn.dataset.view);
+  history.replaceState(null, "", "#" + name);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────
@@ -1977,12 +2017,15 @@ function toggleAdminPanel() {
           .addEventListener("click", calculateShoppingList);
   document.getElementById("readiness-save")
           .addEventListener("click", saveReadiness);
-  document.getElementById("admin-toggle")
-          .addEventListener("click", toggleAdminPanel);
   document.getElementById("apps-status")
           .addEventListener("change", loadApplications);
-  loadReadiness();
-  loadApplications();
-  activateTab((location.hash || "").replace(/^#/, ""));
+
+  // The hash is either a view ("admin") or a Data View tab ("ore"), the latter
+  // implying the data view. Set the tab first so the data view is ready
+  // underneath whichever view ends up showing.
+  const hash = (location.hash || "").replace(/^#/, "");
+  const isView = VIEW_NAMES.includes(hash);
+  activateTab(isView ? "" : hash);
+  activateView(isView ? hash : "data");
 })();
 {% endblock %}
