@@ -16,29 +16,38 @@
      two sites read as one product. The logo now lives in shared/brand/img/
      alongside the fonts and tokens, served at /brand/ by both apps. -->
 <header class="portal-header">
-  <a href="/" class="logo">
+  <a href="{{ '/join' if public_page else '/' }}" class="logo">
     <div class="logo-mark">
       <img src="/brand/img/Circular_Badge_Logo_White_1080x1080.png?v={{ asset_v('brand/img/Circular_Badge_Logo_White_1080x1080.png') }}"
            alt="Sol Provision">
     </div>
     <div>
       <div class="logo-text">Sol Provision</div>
-      <div class="logo-sub">Provisioner Portal</div>
+      <div class="logo-sub">{{ 'Membership Accession' if public_page else 'Provisioner Portal' }}</div>
     </div>
   </a>
 
   <div class="header-right">
+    {% if public_page %}
+    <!-- Public page: no member nav. Portal and Tools both sit behind Discord
+         auth, so linking a prospect at them is a dead end. -->
+    <nav class="section-nav">
+      <a href="#apply" class="nav-link">Apply</a>
+    </nav>
+    {% else %}
     <nav class="section-nav" id="header-nav">
       <a href="/" class="nav-link active">Portal</a>
       <a href="{{ tools_url }}/" class="nav-link">Tools</a>
       <!-- HQ is appended by renderPortalHeader() for rank 5+. The tools app
            enforces the same gate server-side; this only hides the link. -->
     </nav>
+    {% endif %}
     {% if env != 'prod' %}<span class="env-badge">{{ env|upper }}</span>{% endif %}
-    <div class="header-meta" id="header-meta"></div>
+    {% if not public_page %}<div class="header-meta" id="header-meta"></div>{% endif %}
   </div>
 </header>
 
+{% if not public_page %}
 <script>
 // Header user block, rendered from the same session data the login overlay
 // already holds — so it fills in on sign-in and clears on sign-out without a
@@ -87,6 +96,7 @@ window.renderPortalHeader = function (user) {
   }
 };
 </script>
+{% endif %}
 
 {% block body %}{% endblock %}
 

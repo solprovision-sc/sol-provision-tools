@@ -634,8 +634,77 @@
   padding: 3px 0; border-top: 1px solid var(--border);
 }
 
+.admin-section-sep { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border2); }
+
+.apps-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.count-chip {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 5px 11px; border: 1px solid var(--border); border-radius: var(--radius-pill);
+  background: var(--bg3);
+}
+.count-chip .n {
+  font-family: var(--font-mono); font-size: .82rem; font-weight: 700; color: var(--text);
+}
+.count-chip .s {
+  font-family: var(--font-ui); font-size: .64rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text3);
+}
+/* Colour only the states that want attention; accepted/declined stay neutral. */
+.count-chip.st-new       { border-color: var(--accent); }
+.count-chip.st-new .n    { color: var(--accent); }
+.count-chip.st-reviewing { border-color: var(--gold); }
+
+.apps-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.apps-filter label {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text3);
+}
+.apps-filter select {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 5px 8px;
+  font-family: var(--font-ui); font-size: .76rem;
+}
+
+.app-row { border-top: 1px solid var(--border); }
+.app-row:first-child { border-top: 0; }
+.app-row > summary {
+  display: grid; grid-template-columns: 92px 1fr 1fr 150px 96px;
+  gap: 12px; align-items: center; padding: 9px 0; cursor: pointer;
+  font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
+}
+.app-row > summary::-webkit-details-marker { display: none; }
+.app-row > summary:hover { color: var(--text); }
+.app-when { font-family: var(--font-mono); font-size: .7rem; color: var(--text3); }
+.app-rsi { color: var(--text); font-weight: 600; }
+.app-badge {
+  justify-self: start;
+  font-family: var(--font-ui); font-size: .62rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.app-badge.st-new       { border-color: var(--accent); color: var(--accent); }
+.app-badge.st-reviewing { border-color: var(--gold);   color: var(--gold); }
+.app-badge.st-accepted  { border-color: var(--green);  color: var(--green); }
+.app-badge.st-declined  { border-color: var(--danger); color: var(--danger); }
+
+.app-detail { padding: 4px 0 16px 92px; }
+.app-detail dl { display: grid; grid-template-columns: 130px 1fr; gap: 6px 14px; margin: 0; }
+.app-detail dt {
+  font-family: var(--font-ui); font-size: .66rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+}
+.app-detail dd { margin: 0; font-size: .8rem; color: var(--text2); white-space: pre-wrap; }
+.app-src {
+  font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em;
+  color: var(--text3);
+}
+
 @media (max-width: 720px) {
   .readiness-row { grid-template-columns: 1fr; gap: 6px; }
+  .app-row > summary { grid-template-columns: 1fr; gap: 3px; }
+  .app-detail { padding-left: 0; }
+  .app-detail dl { grid-template-columns: 1fr; }
 }
 </style>
 {% endblock %}
@@ -651,14 +720,17 @@
        on the public portal. Built to hold Upcoming Tasking and Action Required
        alongside Division Readiness as those move off Squarespace. -->
   <section class="admin-panel" id="admin-panel">
-    <header class="admin-head">
+    <!-- A <div>, NOT a <header>: theme.css styles the bare `header` element as
+         the sticky 112px site bar, so a <header> here silently became a second
+         sticky bar overlapping the first. -->
+    <div class="admin-head">
       <div>
         <h2 class="admin-title">Portal Administration</h2>
         <div class="admin-sub">Publishes to the Provisioner Portal — visible to all members</div>
       </div>
       <button type="button" class="admin-toggle" id="admin-toggle"
               aria-expanded="true" aria-controls="admin-body">Hide</button>
-    </header>
+    </div>
 
     <div class="admin-body" id="admin-body">
       <div class="admin-section">
@@ -680,6 +752,26 @@
           <summary>Recent changes</summary>
           <ul id="readiness-history" class="history-list"></ul>
         </details>
+      </div>
+
+      <div class="admin-section admin-section-sep">
+        <div class="admin-section-head">
+          <h3>Membership Applications</h3>
+          <span class="admin-section-sub">From the public join page.</span>
+        </div>
+
+        <div class="apps-counts" id="apps-counts"></div>
+
+        <div class="apps-filter">
+          <label for="apps-status">Show</label>
+          <select id="apps-status">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="apps-list" id="apps-list">
+          <div class="readiness-msg">Loading…</div>
+        </div>
       </div>
     </div>
   </section>
@@ -1780,6 +1872,96 @@ async function saveReadiness() {
   }
 }
 
+// ── Portal Administration: Membership Applications ─────────────────────
+// Read-only. The portal owns writes to applications.db; this panel is a review
+// surface, not an editor.
+
+var APPS_CACHE = [];
+
+function fmtDate(iso) {
+  return (iso || '').slice(0, 10);
+}
+
+async function loadApplications() {
+  var list = document.getElementById("apps-list");
+  var status = document.getElementById("apps-status").value;
+  try {
+    var url = "/api/officers/applications" + (status ? "?status=" + encodeURIComponent(status) : "");
+    var r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var data = await r.json();
+
+    if (!data.available) {
+      document.getElementById("apps-counts").innerHTML = "";
+      list.innerHTML = '<div class="readiness-msg">No applications database yet — '
+                     + 'it is created by the first submission on the join page.</div>';
+      return;
+    }
+    APPS_CACHE = data.applications || [];
+    renderAppStatusOptions(data.statuses || []);
+    renderAppCounts(data.counts || {});
+    renderAppRows(APPS_CACHE);
+  } catch (err) {
+    list.innerHTML = '<div class="readiness-msg">Could not load applications: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderAppStatusOptions(statuses) {
+  var sel = document.getElementById("apps-status");
+  if (sel.options.length > 1) return;            // populate once
+  statuses.forEach(function (st) {
+    var o = document.createElement("option");
+    o.value = st;
+    o.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+    sel.appendChild(o);
+  });
+}
+
+function renderAppCounts(counts) {
+  var order = ["new", "reviewing", "accepted", "declined", "withdrawn"];
+  var total = order.reduce(function (a, k) { return a + (counts[k] || 0); }, 0);
+  var html = '<div class="count-chip"><span class="n">' + total
+           + '</span><span class="s">Total</span></div>';
+  order.forEach(function (st) {
+    if (!counts[st]) return;
+    html += '<div class="count-chip st-' + st + '"><span class="n">' + counts[st]
+          + '</span><span class="s">' + escapeHtml(st) + "</span></div>";
+  });
+  document.getElementById("apps-counts").innerHTML = html;
+}
+
+function renderAppRows(apps) {
+  var list = document.getElementById("apps-list");
+  if (!apps.length) {
+    list.innerHTML = '<div class="readiness-msg">No applications match that filter.</div>';
+    return;
+  }
+  list.innerHTML = apps.map(function (a) {
+    return '<details class="app-row">'
+      + "<summary>"
+      +   '<span class="app-when">' + escapeHtml(fmtDate(a.submitted_at)) + "</span>"
+      +   '<span class="app-rsi">' + escapeHtml(a.rsi_username || "") + "</span>"
+      +   "<span>" + escapeHtml(a.discord_username || "") + "</span>"
+      +   "<span>" + escapeHtml(a.division_interest || "") + "</span>"
+      +   '<span class="app-badge st-' + escapeHtml(a.status) + '">'
+      +     escapeHtml(a.status) + "</span>"
+      + "</summary>"
+      + '<div class="app-detail"><dl>'
+      +   "<dt>Email</dt><dd>" + escapeHtml(a.email || "") + "</dd>"
+      +   "<dt>Time zone</dt><dd>" + escapeHtml(a.time_zone || "") + "</dd>"
+      +   "<dt>Play window</dt><dd>" + escapeHtml(a.play_window || "—") + "</dd>"
+      +   "<dt>Heard about us</dt><dd>" + escapeHtml(a.heard_about || "") + "</dd>"
+      +   "<dt>Referred by</dt><dd>" + escapeHtml(a.referred_by || "—") + "</dd>"
+      +   "<dt>What draws them</dt><dd>" + escapeHtml(a.motivation || "") + "</dd>"
+      +   "<dt>18+ confirmed</dt><dd>" + (a.age_confirmed ? "Yes" : "Not recorded") + "</dd>"
+      +   '<dt>Source</dt><dd class="app-src">' + escapeHtml(a.source || "web")
+      +     "  ·  " + escapeHtml(a.submitted_at || "") + "</dd>"
+      + "</dl></div>"
+      + "</details>";
+  }).join("");
+}
+
 function toggleAdminPanel() {
   const body = document.getElementById("admin-body");
   const btn = document.getElementById("admin-toggle");
@@ -1797,7 +1979,10 @@ function toggleAdminPanel() {
           .addEventListener("click", saveReadiness);
   document.getElementById("admin-toggle")
           .addEventListener("click", toggleAdminPanel);
+  document.getElementById("apps-status")
+          .addEventListener("change", loadApplications);
   loadReadiness();
+  loadApplications();
   activateTab((location.hash || "").replace(/^#/, ""));
 })();
 {% endblock %}
