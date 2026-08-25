@@ -577,20 +577,25 @@ a.deck-card:hover h2 { color: var(--accent); }
 .path-step p { font-size: var(--text-sm); color: var(--fg3); }
 
 /* ── Form ── */
-.join-form { margin-top: var(--space-5); }
+/* Spacing here is deliberately loose: every row carries a label, a field and
+   often a hint, and at tighter values the form read as one dense block. */
+.join-form { margin-top: var(--space-6); }
 
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-4) var(--space-5);
+  gap: var(--space-6) var(--space-5);
+  /* Its cells zero their own margin, so without this the last paired row butts
+     straight up against the next full-width field. */
+  margin-bottom: var(--space-6);
 }
 
-.form-row { margin-bottom: var(--space-5); }
+.form-row { margin-bottom: var(--space-6); }
 .form-grid .form-row { margin-bottom: 0; }
 
 .form-row label {
   display: block;
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
   font-family: var(--font-cond);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -613,7 +618,7 @@ a.deck-card:hover h2 { color: var(--accent); }
 .join-form select,
 .join-form textarea {
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 13px;
   background: var(--bg-inset);
   color: var(--fg1);
   border: 1px solid var(--line);
@@ -630,7 +635,7 @@ a.deck-card:hover h2 { color: var(--accent); }
   box-shadow: 0 0 0 1px var(--accent);
 }
 
-.check-row { padding: var(--space-4); background: var(--bg-inset);
+.check-row { padding: var(--space-5); background: var(--bg-inset);
              border: 1px solid var(--line); border-radius: var(--radius-sm); }
 .check-line { display: flex; align-items: flex-start; gap: var(--space-3);
               margin: 0; font-weight: 400; letter-spacing: 0; }
@@ -639,7 +644,7 @@ a.deck-card:hover h2 { color: var(--accent); }
 .check-line span { font-family: var(--font-body); font-size: var(--text-sm);
                    color: var(--fg2); }
 
-.field-hint { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--fg-muted); }
+.field-hint { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--fg-muted); }
 .field-error { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--danger); }
 .field-error:empty { display: none; }
 .has-error input, .has-error select, .has-error textarea { border-color: var(--danger); }
