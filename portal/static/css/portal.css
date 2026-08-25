@@ -459,3 +459,235 @@ a.deck-card:hover h2 { color: var(--accent); }
   .header-right { flex-wrap: wrap; gap: var(--space-3); }
   .portal-body { padding: var(--space-6) var(--space-4); }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   PUBLIC JOIN PAGE
+   ══════════════════════════════════════════════════════════════════════
+   Same tokens as the member portal — a prospect's first impression should
+   look like the place they're applying to. Wider measure than .portal-body
+   because the form reads better with room. */
+.join-body {
+  flex: 1;
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.join-hero { text-align: center; padding: var(--space-6) 0 var(--space-7); }
+
+.join-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.join-hero .lede { max-width: 62ch; margin: 0 auto var(--space-6); font-style: normal; }
+
+.btn-primary {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--line-brand);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+.join-section { padding: var(--space-6) 0; }
+
+/* ── Pillars ── */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+.pillar {
+  padding: var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+.pillar-glyph { font-size: var(--text-lg); color: var(--accent); line-height: 1; }
+.pillar h3 {
+  margin: var(--space-3) 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+.pillar p { font-size: var(--text-sm); color: var(--fg2); }
+
+/* ── Accession path ── */
+.path-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  counter-reset: step;
+}
+.path-step {
+  padding: var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tan);
+  border-radius: var(--radius-md);
+}
+.step-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--ink-450);
+  line-height: 1;
+}
+.step-tag {
+  margin-top: var(--space-3);
+  font-family: var(--font-cond);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.path-step h3 {
+  margin: var(--space-2) 0;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+.path-step p { font-size: var(--text-sm); color: var(--fg3); }
+
+/* ── Form ── */
+.join-form { margin-top: var(--space-5); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4) var(--space-5);
+}
+
+.form-row { margin-bottom: var(--space-5); }
+.form-grid .form-row { margin-bottom: 0; }
+
+.form-row label {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--fg1);
+}
+.req, .opt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  margin-left: var(--space-2);
+}
+.req { color: var(--accent); }
+.opt { color: var(--fg-muted); }
+
+.join-form input[type=text],
+.join-form input[type=email],
+.join-form select,
+.join-form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-inset);
+  color: var(--fg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+.join-form textarea { resize: vertical; line-height: var(--leading-body); }
+.join-form input:focus,
+.join-form select:focus,
+.join-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.check-row { padding: var(--space-4); background: var(--bg-inset);
+             border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.check-line { display: flex; align-items: flex-start; gap: var(--space-3);
+              margin: 0; font-weight: 400; letter-spacing: 0; }
+.check-line input { margin-top: 3px; flex: none; width: 16px; height: 16px;
+                    accent-color: var(--brand); }
+.check-line span { font-family: var(--font-body); font-size: var(--text-sm);
+                   color: var(--fg2); }
+
+.field-hint { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--fg-muted); }
+.field-error { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--danger); }
+.field-error:empty { display: none; }
+.has-error input, .has-error select, .has-error textarea { border-color: var(--danger); }
+
+/* Honeypot: off-screen rather than display:none — some bots skip hidden
+   inputs but happily fill offset ones. Never visible, never focusable. */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px; height: 1px;
+  overflow: hidden;
+}
+
+.form-actions { display: flex; align-items: center; gap: var(--space-4);
+                margin-top: var(--space-6); flex-wrap: wrap; }
+.form-msg { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg3); }
+.form-msg.err { color: var(--danger); }
+
+.join-success {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--positive);
+  border-radius: var(--radius-md);
+}
+.join-success h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-xl);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .join-body { padding: var(--space-6) var(--space-4); }
+  .join-hero h1 { font-size: var(--text-2xl); }
+}
+
+/* The header is sticky at 112px, so an anchored jump would land the target
+   underneath it. scroll-margin-top offsets the landing point; without this the
+   "Become a Provisioner" CTA scrolls the form heading out of sight. */
+html { scroll-behavior: smooth; }
+#apply, #readiness { scroll-margin-top: 128px; }
+
+@media (max-width: 640px) {
+  /* Header collapses to auto height on mobile, so the offset shrinks with it. */
+  #apply, #readiness { scroll-margin-top: 24px; }
+}

@@ -23,6 +23,7 @@ config, which would invalidate every live tools session on deploy.
 import os
 import sqlite3
 import sys
+import time
 from datetime import timedelta
 from functools import wraps
 from pathlib import Path
@@ -37,7 +38,7 @@ BRAND_DIR = REPO_ROOT / 'shared' / 'brand'
 # repo root on sys.path rather than relying on an installed package.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from shared import org_status  # noqa: E402
+from shared import applications, org_status  # noqa: E402
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -79,6 +80,14 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 # make each environment invalidate the other's cookie on every hop.
 app.config['SESSION_COOKIE_NAME'] = 'sp_portal_session' + ('' if ENV == 'prod' else f'_{ENV}')
 
+# Sibling tools site, linked from the portal header. Points at the matching
+# environment so portal-dev doesn't send testers into production tools.
+TOOLS_URL = os.environ.get(
+    'TOOLS_URL',
+    'https://tools.solprovision.com' if ENV == 'prod'
+    else 'https://tools-dev.solprovision.com',
+).rstrip('/')
+
 # ══════════════════════════════════════════════════════════════════════
 # FIREBASE
 # ══════════════════════════════════════════════════════════════════════
@@ -101,14 +110,6 @@ app.config['SESSION_COOKIE_NAME'] = 'sp_portal_session' + ('' if ENV == 'prod' e
 # The web API key is not a secret: it identifies the project to Firebase's
 # public endpoints, and access is governed by Firebase rules plus the
 # authorized-domains list.
-# Sibling tools site, linked from the portal header. Points at the matching
-# environment so portal-dev doesn't send testers into production tools.
-TOOLS_URL = os.environ.get(
-    'TOOLS_URL',
-    'https://tools.solprovision.com' if ENV == 'prod'
-    else 'https://tools-dev.solprovision.com',
-).rstrip('/')
-
 FIREBASE_PROJECT_ID = os.environ.get('FIREBASE_PROJECT_ID', 'sp-ledger')
 FIREBASE_API_KEY = os.environ.get(
     'FIREBASE_API_KEY', 'AIzaSyDsVV5hNkPyk8QMW0zWxM7TwN3XkeFs82E')
@@ -439,6 +440,97 @@ def index():
         readiness=read_readiness(),
         statuses=[dict(s) for s in org_status.STATUSES],
     )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# PUBLIC JOIN PAGE
+# ══════════════════════════════════════════════════════════════════════
+# The ONLY route on the solprovision domain that is deliberately NOT Discord
+# gated. It cannot be: applicants have no Discord membership yet, so gating the
+# recruiting page would make joining impossible. Everything it writes goes to
+# applications.db, which this app owns exclusively.
+
+# Crude per-IP throttle. In-memory, so it is per gunicorn worker rather than
+# global — that is fine for the job (blunting a bot loop), and a shared store
+# would be a lot of machinery for a form that sees a few submissions a week.
+JOIN_THROTTLE_SECONDS = 30
+_join_last_post: dict = {}
+
+
+def get_applications_db():
+    """Connect to applications.db, creating and migrating it on first use."""
+    conn = applications.connect()
+    applications.migrate(conn)
+    return conn
+
+
+def _client_ip():
+    """Real client IP behind nginx. X-Forwarded-For is a comma-separated chain;
+    the left-most entry is the original client."""
+    fwd = request.headers.get('X-Forwarded-For', '')
+    if fwd:
+        return fwd.split(',')[0].strip()[:45]
+    return (request.remote_addr or '')[:45]
+
+
+@app.route('/join')
+def join():
+    """Public recruiting page. No auth, no session requirement."""
+    return render_template(
+        'join.html',
+        public_page=True,          # suppresses the member nav + user block
+        time_zones=applications.TIME_ZONES,
+        play_windows=applications.PLAY_WINDOWS,
+        divisions=applications.DIVISIONS,
+        age_confirmation=applications.AGE_CONFIRMATION,
+    )
+
+
+@app.route('/api/join', methods=['POST'])
+def submit_join():
+    """Accept a membership application from the public form."""
+    payload = request.get_json(silent=True) or request.form.to_dict()
+
+    # Honeypot: a field hidden from humans by CSS. Anything that fills it is a
+    # bot. Answer 200 with the normal success shape so it cannot tell the
+    # difference and retry with the field cleared.
+    if (payload.get('website') or '').strip():
+        app.logger.info('join: honeypot tripped from %s', _client_ip())
+        return jsonify({'ok': True, 'id': None})
+
+    ip = _client_ip()
+    now = time.monotonic()
+    last = _join_last_post.get(ip)
+    if last is not None and (now - last) < JOIN_THROTTLE_SECONDS:
+        return jsonify({
+            'ok': False,
+            'error': 'Please wait a moment before submitting again.',
+        }), 429
+
+    try:
+        fields = applications.validate(payload)
+    except applications.ValidationError as exc:
+        return jsonify({'ok': False, 'errors': exc.errors}), 400
+
+    conn = get_applications_db()
+    try:
+        if applications.recent_duplicate(conn, fields['discord_username']):
+            # Almost always a double-click or a refresh-resubmit. Report success
+            # rather than an error — the application on file is already theirs.
+            app.logger.info('join: duplicate within 24h for %s',
+                            fields['discord_username'])
+            return jsonify({'ok': True, 'id': None, 'duplicate': True})
+
+        new_id = applications.create(
+            conn, fields, source_ip=ip,
+            user_agent=request.headers.get('User-Agent'))
+    finally:
+        conn.close()
+
+    _join_last_post[ip] = now
+    app.logger.info('join: application %s stored (%s / %s)', new_id,
+                    fields['rsi_username'], fields['division_interest'])
+    return jsonify({'ok': True, 'id': new_id})
 
 
 if __name__ == '__main__':

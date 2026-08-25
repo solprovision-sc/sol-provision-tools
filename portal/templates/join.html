@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+
+{% block title %}Join Sol Provision — Membership Application{% endblock %}
+
+{% block body %}
+
+<main class="join-body">
+
+  <!-- ── Hero ──────────────────────────────────────────────────────────── -->
+  <section class="join-hero">
+    <div class="eyebrow">Accession</div>
+    <h1>Begin Your Expedition</h1>
+    <p class="lede">
+      Sol Provision is a disciplined expeditionary community for those seeking
+      purposeful trade, exploration, industry, and coordinated operations
+      across the stars.
+    </p>
+    <a href="#apply" class="btn-primary">Become a Provisioner</a>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ── What defines us ───────────────────────────────────────────────── -->
+  <section class="join-section">
+    <header class="section-head">
+      <h2>What Defines Sol Provision</h2>
+    </header>
+    <div class="pillar-grid">
+      <article class="pillar">
+        <div class="pillar-glyph" aria-hidden="true">&#10022;</div>
+        <h3>Expedition</h3>
+        <p>Built for those seeking more than casual association. Discovery-driven
+           gameplay across the frontier, from trade lanes to uncharted space.</p>
+      </article>
+      <article class="pillar">
+        <div class="pillar-glyph" aria-hidden="true">&#11042;</div>
+        <h3>Operations</h3>
+        <p>Coordinated multi-role gameplay spanning logistics, security,
+           industry, and support.</p>
+      </article>
+      <article class="pillar">
+        <div class="pillar-glyph" aria-hidden="true">&#9960;</div>
+        <h3>Fellowship</h3>
+        <p>A mature community built on standards, trust, and shared purpose.</p>
+      </article>
+    </div>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ── Accession path ────────────────────────────────────────────────── -->
+  <section class="join-section">
+    <header class="section-head">
+      <h2>The Accession Path</h2>
+      <p class="section-sub">A clear path from first contact to operational readiness.</p>
+    </header>
+    <ol class="path-grid">
+      <li class="path-step">
+        <div class="step-num">01</div>
+        <div class="step-tag">Initiate</div>
+        <h3>Candidate Intake</h3>
+        <p>Share your interests, playstyle, and aspirations.</p>
+      </li>
+      <li class="path-step">
+        <div class="step-num">02</div>
+        <div class="step-tag">Affiliate</div>
+        <h3>RSI Affiliation</h3>
+        <p>Establish your official organizational connection.</p>
+      </li>
+      <li class="path-step">
+        <div class="step-num">03</div>
+        <div class="step-tag">Equip</div>
+        <h3>Portal Access</h3>
+        <p>Access doctrine, tools, and operational resources.</p>
+      </li>
+      <li class="path-step">
+        <div class="step-num">04</div>
+        <div class="step-tag">Integrate</div>
+        <h3>Discord Integration</h3>
+        <p>Integrate into operations and choose your path.</p>
+      </li>
+    </ol>
+  </section>
+
+  <hr class="section-divider">
+
+  <!-- ── Application form ──────────────────────────────────────────────── -->
+  <section class="join-section" id="apply">
+    <header class="section-head">
+      <h2>Begin Your Provisioner Application</h2>
+      <p class="section-sub">
+        Complete your candidate profile to begin accession into Sol Provision.
+      </p>
+    </header>
+
+    <form id="join-form" class="join-form" novalidate>
+
+      <!-- Honeypot. Positioned off-screen rather than display:none, since some
+           bots skip hidden inputs but not offset ones. Never shown to humans. -->
+      <div class="hp-field" aria-hidden="true">
+        <label>Website
+          <input type="text" name="website" tabindex="-1" autocomplete="off">
+        </label>
+      </div>
+
+      <div class="form-row check-row">
+        <label class="check-line">
+          <input type="checkbox" id="age_confirmed" name="age_confirmed">
+          <span>{{ age_confirmation }}</span>
+        </label>
+        <p class="field-error" data-for="age_confirmed"></p>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="rsi_username">RSI Username <span class="req">required</span></label>
+          <input type="text" id="rsi_username" name="rsi_username" maxlength="64"
+                 autocomplete="off" required>
+          <p class="field-hint">Your handle on robertsspaceindustries.com.</p>
+          <p class="field-error" data-for="rsi_username"></p>
+        </div>
+
+        <div class="form-row">
+          <label for="discord_username">Discord Username <span class="req">required</span></label>
+          <input type="text" id="discord_username" name="discord_username" maxlength="64"
+                 autocomplete="off" required>
+          <p class="field-hint">So we can find you once you join the server.</p>
+          <p class="field-error" data-for="discord_username"></p>
+        </div>
+
+        <div class="form-row">
+          <label for="email">Email <span class="req">required</span></label>
+          <input type="email" id="email" name="email" maxlength="254"
+                 autocomplete="email" required>
+          <p class="field-error" data-for="email"></p>
+        </div>
+
+        <div class="form-row">
+          <label for="time_zone">Primary Operating Time Zone <span class="req">required</span></label>
+          <select id="time_zone" name="time_zone" required>
+            <option value="">Select an option</option>
+            {% for tz in time_zones %}<option value="{{ tz }}">{{ tz }}</option>{% endfor %}
+          </select>
+          <p class="field-error" data-for="time_zone"></p>
+        </div>
+
+        <div class="form-row">
+          <label for="play_window">Typical Play Window</label>
+          <select id="play_window" name="play_window">
+            <option value="">Select an option</option>
+            {% for w in play_windows %}<option value="{{ w }}">{{ w }}</option>{% endfor %}
+          </select>
+          <p class="field-error" data-for="play_window"></p>
+        </div>
+
+        <div class="form-row">
+          <label for="division_interest">Preferred Division Interest <span class="req">required</span></label>
+          <select id="division_interest" name="division_interest" required>
+            <option value="">Select an option</option>
+            {% for d in divisions %}<option value="{{ d }}">{{ d }}</option>{% endfor %}
+          </select>
+          <p class="field-error" data-for="division_interest"></p>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label for="heard_about">How did you hear about Sol Provision? <span class="req">required</span></label>
+        <input type="text" id="heard_about" name="heard_about" maxlength="500" required>
+        <p class="field-error" data-for="heard_about"></p>
+      </div>
+
+      <div class="form-row">
+        <label for="motivation">What draws you to Sol Provision? <span class="req">required</span></label>
+        <textarea id="motivation" name="motivation" rows="6" maxlength="8000" required></textarea>
+        <p class="field-hint">Tell us what you're looking for. There's no word count we're grading against.</p>
+        <p class="field-error" data-for="motivation"></p>
+      </div>
+
+      <div class="form-row">
+        <label for="referred_by">Referred By <span class="opt">optional</span></label>
+        <input type="text" id="referred_by" name="referred_by" maxlength="120">
+        <p class="field-hint">If a Provisioner pointed you here, name them.</p>
+        <p class="field-error" data-for="referred_by"></p>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary" id="join-submit">Submit Application</button>
+        <p class="form-msg" id="join-msg" role="status" aria-live="polite"></p>
+      </div>
+    </form>
+
+    <!-- Replaces the form on success. -->
+    <div class="join-success" id="join-success" hidden>
+      <div class="eyebrow">Transmission Received</div>
+      <h2>Application Submitted</h2>
+      <p class="lede">
+        Your candidate profile is with the accession officers. Expect contact on
+        Discord — make sure the username you gave us is reachable.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+{% endblock %}
+
+{% block page_script %}
+<script>
+(function () {
+  'use strict';
+
+  var form    = document.getElementById('join-form');
+  var msg     = document.getElementById('join-msg');
+  var btn     = document.getElementById('join-submit');
+  var success = document.getElementById('join-success');
+
+  function clearErrors() {
+    form.querySelectorAll('.field-error').forEach(function (el) { el.textContent = ''; });
+    form.querySelectorAll('.has-error').forEach(function (el) { el.classList.remove('has-error'); });
+  }
+
+  function showErrors(errors) {
+    var first = null;
+    Object.keys(errors).forEach(function (field) {
+      var el = form.querySelector('.field-error[data-for="' + field + '"]');
+      if (el) {
+        el.textContent = errors[field];
+        var row = el.closest('.form-row');
+        if (row) row.classList.add('has-error');
+        if (!first) first = row || el;
+      }
+    });
+    if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    clearErrors();
+
+    var data = {};
+    new FormData(form).forEach(function (v, k) { data[k] = v; });
+    // FormData omits unchecked boxes entirely; be explicit so the server sees
+    // a definite false rather than a missing key.
+    data.age_confirmed = document.getElementById('age_confirmed').checked;
+
+    btn.disabled = true;
+    msg.className = 'form-msg';
+    msg.textContent = 'Transmitting…';
+
+    try {
+      var r = await fetch('/api/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      var body = await r.json();
+
+      if (r.status === 400 && body.errors) {
+        msg.className = 'form-msg err';
+        msg.textContent = 'Please correct the highlighted fields.';
+        showErrors(body.errors);
+        return;
+      }
+      if (!r.ok) { throw new Error(body.error || ('HTTP ' + r.status)); }
+
+      form.hidden = true;
+      success.hidden = false;
+      success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      msg.className = 'form-msg err';
+      msg.textContent = 'Could not submit: ' + err.message
+        + '. If this keeps happening, reach us on Discord.';
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}
