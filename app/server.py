@@ -18,7 +18,7 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from shared import org_status
+from shared import applications, org_status
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -242,6 +242,18 @@ def get_org_status_db(read_only=False):
     if not read_only:
         org_status.migrate(conn)
     return conn
+
+
+def get_applications_db(read_only=True):
+    """Connect to applications.db — the public /join form's landing table.
+
+    READ-ONLY by default and by design: the PORTAL owns writes to this file
+    (it is the thing taking submissions), the same way this app owns writes to
+    org_status.db and the portal only reads that. Officer review that needs to
+    change a row's status would make this a second writer, which is a
+    deliberate decision, not something to switch on quietly.
+    """
+    return applications.connect(read_only=read_only)
 
 
 # ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
@@ -5059,6 +5071,39 @@ def api_officers_readiness_save():
             "saved": len(changed),
             "changed": changed,
             "divisions": org_status.get_readiness(conn),
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/applications')
+@require_officer
+def api_officers_applications():
+    """Membership applications for the HQ review panel.
+
+    Returns the full rows rather than a summary: there are a few dozen of them,
+    so paging or a per-row detail fetch would be machinery for nothing.
+    """
+    limit = request.args.get('limit', default=50, type=int)
+    limit = max(1, min(limit, 200))
+    status = request.args.get('status') or None
+
+    try:
+        conn = get_applications_db()
+    except sqlite3.OperationalError as exc:
+        # The portal creates this file on its first submission. Before that it
+        # legitimately does not exist — an empty panel, not an error.
+        app.logger.info('applications.db unavailable (%s)', exc)
+        return jsonify({'available': False, 'counts': {}, 'applications': []})
+
+    try:
+        if status and status not in applications.STATUSES:
+            return jsonify({'error': f'unknown status: {status}'}), 400
+        return jsonify({
+            'available': True,
+            'counts': applications.counts_by_status(conn),
+            'statuses': list(applications.STATUSES),
+            'applications': applications.list_applications(conn, status, limit),
         })
     finally:
         conn.close()

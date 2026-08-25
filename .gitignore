@@ -43,3 +43,6 @@ tools/run_local.py
 # Local backups
 *.bak
 *.db.pre*
+
+# Membership intake export — contains applicant emails. Kept out of git.
+*.xlsx

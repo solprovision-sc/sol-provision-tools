@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = REPO_ROOT / "applications.db"
 
 MIN_SQLITE = (3, 35, 0)
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # ── Form vocabulary ──────────────────────────────────────────────────────────
 # Allowlists. Anything not in these is rejected rather than stored, so a crafted
@@ -113,6 +113,21 @@ _MIGRATIONS = [
     CREATE INDEX idx_applications_status    ON applications (status, submitted_at DESC);
     CREATE INDEX idx_applications_submitted ON applications (submitted_at DESC);
     CREATE INDEX idx_applications_discord   ON applications (discord_username);
+    """,
+    # 2 ─────────────────────────────────────────────────────────────────────
+    # Support importing the historical Squarespace responses.
+    #
+    # legacy_key is the natural key of an imported row ("xlsx:<submitted>:<discord>")
+    # and is NULL for anything submitted through the site. The unique index is
+    # PARTIAL so those NULLs don't collide, which lets the importer use
+    # ON CONFLICT DO NOTHING and be genuinely re-runnable rather than
+    # SELECT-then-INSERT.
+    """
+    ALTER TABLE applications ADD COLUMN source TEXT NOT NULL DEFAULT 'web';
+    ALTER TABLE applications ADD COLUMN legacy_key TEXT;
+
+    CREATE UNIQUE INDEX idx_applications_legacy_key
+        ON applications (legacy_key) WHERE legacy_key IS NOT NULL;
     """,
 ]
 
@@ -278,8 +293,8 @@ def create(conn: sqlite3.Connection, fields: dict, *,
         """INSERT INTO applications
                (submitted_at, age_confirmed, rsi_username, discord_username, email,
                 time_zone, play_window, division_interest, heard_about, motivation,
-                referred_by, status, source_ip, user_agent)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                referred_by, status, source, source_ip, user_agent)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'web', ?, ?)""",
         (now, fields["age_confirmed"], fields["rsi_username"],
          fields["discord_username"], fields["email"], fields["time_zone"],
          fields["play_window"], fields["division_interest"], fields["heard_about"],
@@ -288,6 +303,34 @@ def create(conn: sqlite3.Connection, fields: dict, *,
     )
     conn.commit()
     return cur.lastrowid
+
+
+def import_legacy(conn: sqlite3.Connection, *, legacy_key: str,
+                  submitted_at: str, fields: dict,
+                  status: str = DEFAULT_STATUS) -> bool:
+    """Insert one historical Squarespace response. True if inserted, False if
+    it was already imported.
+
+    Idempotent by construction: ON CONFLICT against the partial unique index on
+    legacy_key, rather than SELECT-then-INSERT. Re-running the importer is a
+    no-op instead of creating duplicates.
+    """
+    if status not in STATUSES:
+        raise ValueError(f"unknown status: {status!r}")
+    cur = conn.execute(
+        """INSERT INTO applications
+               (submitted_at, age_confirmed, rsi_username, discord_username, email,
+                time_zone, play_window, division_interest, heard_about, motivation,
+                referred_by, status, source, legacy_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'squarespace', ?)
+           ON CONFLICT(legacy_key) WHERE legacy_key IS NOT NULL DO NOTHING""",
+        (submitted_at, fields.get("age_confirmed", 0), fields["rsi_username"],
+         fields["discord_username"], fields["email"], fields["time_zone"],
+         fields.get("play_window"), fields["division_interest"],
+         fields["heard_about"], fields["motivation"], fields.get("referred_by"),
+         status, legacy_key),
+    )
+    return cur.rowcount > 0
 
 
 def list_applications(conn: sqlite3.Connection, status: str | None = None,
