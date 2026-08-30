@@ -60,6 +60,21 @@ CURRENT_FOR = timedelta(hours=48)
 DEFAULT_MUSTER_TZ = "America/Chicago"
 DEFAULT_MUSTER_TIME = "20:30"
 
+# Short labels for display. Splitting the IANA name yields "Chicago", which is
+# not what anyone calls the timezone.
+TZ_LABELS = {
+    "America/Chicago": "CT",
+    "America/New_York": "ET",
+    "America/Denver": "MT",
+    "America/Los_Angeles": "PT",
+    "UTC": "UTC",
+}
+
+
+def tz_label(name: str) -> str:
+    """Short label for display, falling back to the city for anything unmapped."""
+    return TZ_LABELS.get(name or "", (name or "").split("/")[-1].replace("_", " "))
+
 SIGNAL_NOTE = ("NOTE: Clean communications is essential to ensuring a successful "
                "mission. Monitor comms at all times and maintain comm discipline.")
 
@@ -263,11 +278,10 @@ def normalize_body(raw) -> dict:
         signal_type = DEFAULT_SIGNAL
 
     return {
-        "task_organization": {
-            "units": units,
-            "area_of_operation": _text(org.get("area_of_operation"),
-                                       MAX_LEN["area_of_operation"]),
-        },
+        # Area of operation lives in the `area_of_operation` COLUMN, not here:
+        # it's listed and sorted on, the editor writes it as a header field, and
+        # a second copy in the body only invited the two to disagree.
+        "task_organization": {"units": units},
         "situation": {
             "enemy_forces": _text(sit.get("enemy_forces")),
             "friendly_forces": _text(sit.get("friendly_forces")),
