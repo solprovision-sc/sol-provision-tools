@@ -712,6 +712,46 @@
   color: var(--text3);
 }
 
+#card-missionboard { margin-top: 18px; }
+.opord-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.opord-toolbar .btn-save { text-decoration: none; display: inline-block; }
+
+.opord-table { width: 100%; border-collapse: collapse; }
+.opord-table th {
+  text-align: left; padding: 7px 10px 9px;
+  font-family: var(--font-ui); font-size: .66rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text3);
+  border-bottom: 1px solid var(--border2);
+}
+.opord-table td {
+  padding: 10px; border-top: 1px solid var(--border);
+  font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
+  vertical-align: middle;
+}
+.opord-title-cell { color: var(--text); font-weight: 600; }
+.opord-when { font-family: var(--font-mono); font-size: .72rem; color: var(--text3); }
+.opord-actions-cell { text-align: right; white-space: nowrap; }
+.opord-actions-cell a, .opord-actions-cell button {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text3); cursor: pointer; padding: 4px 10px; margin-left: 6px;
+  text-decoration: none; font-family: var(--font-ui); font-size: .66rem;
+  letter-spacing: .1em; text-transform: uppercase; display: inline-block;
+}
+.opord-actions-cell a:hover, .opord-actions-cell button:hover {
+  color: var(--accent); border-color: var(--accent);
+}
+.st-badge {
+  font-family: var(--font-ui); font-size: .62rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.st-badge.s-posted   { border-color: var(--green);  color: var(--green); }
+.st-badge.s-draft    { border-color: var(--border2); color: var(--text3); }
+.st-badge.s-archived { border-color: var(--border2); color: var(--text3); }
+/* The one actually on the portal right now — posted AND inside the 48h window. */
+.st-badge.on-board   { border-color: var(--accent); color: var(--accent); }
+
 @media (max-width: 720px) {
   .readiness-row { grid-template-columns: 1fr; gap: 6px; }
   .app-row > summary { grid-template-columns: 1fr; gap: 3px; }
@@ -916,6 +956,22 @@
       </section>
 
     </div>
+
+    <!-- Full width, below the two-up grid: the OpOrd table needs the room and
+         pairs with nothing. -->
+    <section class="admin-card" id="card-missionboard">
+      <div class="admin-section-head">
+        <h3>Mission Board · Operation Orders</h3>
+        <span class="admin-section-sub">The posted OpOrd shows on the portal until 48h past muster.</span>
+      </div>
+
+      <div class="opord-toolbar">
+        <a class="btn-save" href="/officers/opord/new">+ New OpOrd</a>
+        <span class="admin-msg" id="opord-list-msg"></span>
+      </div>
+
+      <div id="opord-list"><div class="readiness-msg">Loading…</div></div>
+    </section>
   </div><!-- /#view-admin -->
 </div>
 {% endblock %}
@@ -1979,6 +2035,78 @@ function renderAppRows(apps) {
   }).join("");
 }
 
+// ── Portal Administration: Mission Board / OpOrds ──────────────────────
+// List only. Creating and editing happen on /officers/opord/<id>, which is its
+// own officer-gated page.
+
+async function loadOpords() {
+  const host = document.getElementById("opord-list");
+  try {
+    const r = await fetch("/api/officers/opords");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    renderOpords(await r.json());
+  } catch (err) {
+    host.innerHTML = '<div class="readiness-msg">Could not load OpOrds: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderOpords(data) {
+  const host = document.getElementById("opord-list");
+  const rows = data.opords || [];
+  if (!rows.length) {
+    host.innerHTML = '<div class="readiness-msg">No OpOrds yet — '
+                   + 'use “+ New OpOrd” to write the first one.</div>';
+    return;
+  }
+  host.innerHTML =
+    '<table class="opord-table"><thead><tr>'
+    + "<th>Title</th><th>Mission Date</th><th>Commander</th>"
+    + "<th>Status</th><th>Last Updated</th><th></th>"
+    + "</tr></thead><tbody>"
+    + rows.map(o => {
+        // is_current is computed server-side from status + the 48h muster
+        // window, so this badge reflects what the portal would actually show.
+        const badge = o.is_current
+          ? '<span class="st-badge on-board">On Board</span>'
+          : '<span class="st-badge s-' + escapeHtml(o.status) + '">'
+            + escapeHtml(o.status) + "</span>";
+        return "<tr>"
+          + '<td class="opord-title-cell">' + escapeHtml(o.title) + "</td>"
+          + '<td class="opord-when">' + escapeHtml(o.mission_date || "—")
+          +   (o.muster_time ? " · " + escapeHtml(o.muster_time) : "") + "</td>"
+          + "<td>" + escapeHtml(o.commander || "—") + "</td>"
+          + "<td>" + badge + "</td>"
+          + '<td class="opord-when">' + escapeHtml((o.updated_at || "").slice(0, 10)) + "</td>"
+          + '<td class="opord-actions-cell">'
+          +   '<a href="/officers/opord/' + o.id + '">Edit</a>'
+          +   '<button type="button" data-act="dup-opord" data-id="' + o.id + '">Duplicate</button>'
+          + "</td></tr>";
+      }).join("")
+    + "</tbody></table>";
+}
+
+async function duplicateOpord(id) {
+  const msg = document.getElementById("opord-list-msg");
+  msg.className = "admin-msg";
+  msg.textContent = "Duplicating…";
+  try {
+    const r = await fetch("/api/officers/opord/" + id + "/duplicate", { method: "POST" });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || ("HTTP " + r.status));
+    // Straight into the copy — duplicating is always a prelude to editing it.
+    window.location.href = "/officers/opord/" + data.id;
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Duplicate failed: " + err.message;
+  }
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest('[data-act="dup-opord"]');
+  if (btn) duplicateOpord(btn.dataset.id);
+});
+
 // ── Top-level view switch ──────────────────────────────────────────────
 const VIEW_NAMES = ["data", "admin"];
 let adminLoaded = false;
@@ -2002,6 +2130,7 @@ function activateView(name) {
     adminLoaded = true;
     loadReadiness();
     loadApplications();
+    loadOpords();
   }
   return name;
 }

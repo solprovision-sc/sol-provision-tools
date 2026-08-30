@@ -18,7 +18,7 @@ import sys
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from shared import applications, org_status
+from shared import applications, opord, org_status
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -254,6 +254,60 @@ def get_applications_db(read_only=True):
     deliberate decision, not something to switch on quietly.
     """
     return applications.connect(read_only=read_only)
+
+
+def get_opord_db(read_only=False):
+    """Connect to opord.db, creating and migrating it on first use.
+
+    This app is the WRITER (the officer-only editor); the portal will read it
+    read-only for the Mission Board, same direction as org_status.db.
+    """
+    conn = opord.connect(read_only=read_only)
+    if not read_only:
+        opord.migrate(conn)
+    return conn
+
+
+# Mission Commander picker order, set by Dusty: these four by name, then any
+# other rank-5, then rank-4 (Wing Commanders) alphabetically. Names not on the
+# roster are simply skipped, so this list can outlive a rank change.
+COMMANDER_PRIORITY = ["Sulyce", "Marauder", "Jenner Darr", "Entriri"]
+
+
+def commander_options():
+    """Rank 4+ members for the Mission Commander dropdown."""
+    conn = get_user_db()
+    try:
+        rows = conn.execute(
+            """SELECT display_name, username, rank FROM discord_members
+               WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM discord_members)
+                 AND CAST(rank AS INTEGER) >= 4""").fetchall()
+    finally:
+        conn.close()
+
+    people = []
+    seen = set()
+    for r in rows:
+        name = (r["display_name"] or r["username"] or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        people.append({"name": name, "rank": rank_int(r["rank"])})
+
+    by_name = {p["name"].lower(): p for p in people}
+    ordered = []
+    for pinned in COMMANDER_PRIORITY:
+        p = by_name.pop(pinned.lower(), None)
+        if p:
+            ordered.append(p)
+    # Sort on letters only: a display name like '"Steel Team Six" WickerBeast'
+    # would otherwise lead the list on its opening quote rather than its name.
+    def sort_key(person):
+        stripped = re.sub(r"^[^0-9A-Za-z]+", "", person["name"])
+        return (-person["rank"], (stripped or person["name"]).lower())
+
+    rest = sorted(by_name.values(), key=sort_key)
+    return ordered + rest
 
 
 # ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
@@ -5072,6 +5126,118 @@ def api_officers_readiness_save():
             "changed": changed,
             "divisions": org_status.get_readiness(conn),
         })
+    finally:
+        conn.close()
+
+
+# ── OpOrds ────────────────────────────────────────────────────────────
+# The editor is its own officer-only page; HQ Admin lists them.
+
+@app.route('/officers/opord/new')
+@app.route('/officers/opord/<int:opord_id>')
+def opord_editor(opord_id=None):
+    """OpOrd editor. Rank 5+ only, matching /officers itself."""
+    if rank_int(session.get('rank')) < 5:
+        return redirect('/')
+    return render_template("opord_edit.html",
+                           active_page="/officers",
+                           opord_id=opord_id,
+                           commanders=commander_options(),
+                           signal_types=list(opord.SIGNAL_TYPES),
+                           statuses=list(opord.STATUSES),
+                           signal_note=opord.SIGNAL_NOTE,
+                           default_muster_time=opord.DEFAULT_MUSTER_TIME,
+                           default_muster_tz=opord.DEFAULT_MUSTER_TZ)
+
+
+@app.route('/api/officers/opords')
+@require_officer
+def api_opords_list():
+    conn = get_opord_db()
+    try:
+        return jsonify({"opords": opord.list_opords(conn),
+                        "current": (opord.current_opord(conn) or {}).get("id")})
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>')
+@require_officer
+def api_opord_get(opord_id):
+    conn = get_opord_db()
+    try:
+        row = opord.get(conn, opord_id)
+        return (jsonify(row) if row else (jsonify({"error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord', methods=['POST'])
+@require_officer
+def api_opord_create():
+    payload = request.get_json(silent=True) or {}
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        new_id = opord.create(conn, payload.get("header") or {},
+                              payload.get("body"), actor=actor)
+        return jsonify({"ok": True, "id": new_id})
+    except opord.ValidationError as exc:
+        return jsonify({"ok": False, "errors": exc.errors}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>', methods=['PUT'])
+@require_officer
+def api_opord_update(opord_id):
+    payload = request.get_json(silent=True) or {}
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        ok = opord.update(conn, opord_id, payload.get("header") or {},
+                          payload.get("body"), actor=actor)
+        return (jsonify({"ok": True, "id": opord_id}) if ok
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    except opord.ValidationError as exc:
+        return jsonify({"ok": False, "errors": exc.errors}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>/duplicate', methods=['POST'])
+@require_officer
+def api_opord_duplicate(opord_id):
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        new_id = opord.duplicate(conn, opord_id, actor=actor)
+        return (jsonify({"ok": True, "id": new_id}) if new_id
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>/post', methods=['POST'])
+@require_officer
+def api_opord_post(opord_id):
+    """Make this the Mission Board OpOrd; whatever was posted is archived."""
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        ok = opord.post(conn, opord_id, actor=actor)
+        return (jsonify({"ok": True}) if ok
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>', methods=['DELETE'])
+@require_officer
+def api_opord_delete(opord_id):
+    conn = get_opord_db()
+    try:
+        return jsonify({"ok": opord.delete(conn, opord_id)})
     finally:
         conn.close()
 
