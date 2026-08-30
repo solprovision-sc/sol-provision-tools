@@ -38,7 +38,7 @@ BRAND_DIR = REPO_ROOT / 'shared' / 'brand'
 # repo root on sys.path rather than relying on an installed package.
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from shared import applications, org_status  # noqa: E402
+from shared import applications, opord, org_status  # noqa: E402
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 
@@ -257,6 +257,12 @@ def require_page_login(f):
     the login overlay. On dev, members below DEV_MIN_RANK are refused."""
     @wraps(f)
     def wrapper(*args, **kwargs):
+        # Local development has no server session — the bypass on the landing
+        # page is client-side — so without this, no server-gated page could be
+        # opened on a dev machine at all. ENV is only 'local' on Windows or when
+        # PORTAL_ENV says so explicitly; the VPS is always dev or prod.
+        if IS_LOCAL:
+            return f(*args, **kwargs)
         if not session.get('discord_id'):
             return redirect('/')
         if IS_DEV and rank_int(session.get('rank')) < DEV_MIN_RANK:
@@ -429,6 +435,46 @@ def read_readiness():
         return org_status.get_readiness(conn)
     finally:
         conn.close()
+
+
+def read_current_opord():
+    """The OpOrd the Mission Board should show, or None for the placeholder.
+
+    Read-only: the tools app owns writes to opord.db. "Current" is computed
+    from status + the 48h muster window inside shared/opord.py, so nothing has
+    to run on a schedule to retire a finished order — it simply stops matching.
+    """
+    try:
+        conn = opord.connect(read_only=True)
+    except sqlite3.OperationalError as exc:
+        # No officer has saved one yet, so the file doesn't exist. That's the
+        # placeholder case, not an error.
+        app.logger.info('opord.db unavailable (%s)', exc)
+        return None
+    try:
+        return opord.current_opord(conn)
+    finally:
+        conn.close()
+
+
+@app.route('/mission-board')
+@require_page_login
+def mission_board():
+    """Current Operation Order.
+
+    Server-gated, unlike the landing page — the landing page relies on the
+    client-side overlay, but an OpOrd carries muster times, unit compositions
+    and tasking, and that shouldn't be sitting in HTML served to anyone who
+    requests the URL.
+    """
+    current = read_current_opord()
+    return render_template(
+        'mission_board.html',
+        opord=current,
+        letters=opord.section_letters(current['body']) if current else {},
+        signal_note=opord.SIGNAL_NOTE,
+        tz_label=opord.tz_label,
+    )
 
 
 @app.route('/')
