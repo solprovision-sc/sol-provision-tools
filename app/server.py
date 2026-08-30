@@ -5130,6 +5130,67 @@ def api_officers_readiness_save():
         conn.close()
 
 
+@app.route('/api/officers/tasking', methods=['GET'])
+@require_officer
+def api_officers_tasking():
+    """The four Upcoming Tasking slots."""
+    conn = get_org_status_db()
+    try:
+        return jsonify({"slots": org_status.get_tasking(conn),
+                        "slot_count": org_status.TASKING_SLOTS})
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/tasking', methods=['PUT'])
+@require_officer
+def api_officers_tasking_save():
+    """Save tasking. Accepts all slots; writes only what changed.
+
+    Same reasoning as readiness: saving every slot on each submit would stamp
+    all four with this officer's name whether or not they touched them.
+    """
+    payload = request.get_json(silent=True) or {}
+    submitted = payload.get("slots")
+    if not isinstance(submitted, list):
+        return jsonify({"error": "expected a 'slots' list"}), 400
+
+    actor_id = session.get('discord_id')
+    actor_name = session.get('callsign') or session.get('username')
+
+    conn = get_org_status_db()
+    try:
+        current = {row["slot"]: row for row in org_status.get_tasking(conn)}
+        changed = []
+        for item in submitted:
+            if not isinstance(item, dict):
+                return jsonify({"error": "malformed slot entry"}), 400
+            try:
+                slot = int(item.get("slot"))
+            except (TypeError, ValueError):
+                return jsonify({"error": f"bad slot: {item.get('slot')!r}"}), 400
+
+            title = (item.get("title") or "").strip()
+            date = (item.get("tasking_date") or "").strip() or None
+
+            existing = current.get(slot)
+            if existing is None:
+                return jsonify({"error": f"unknown slot: {slot}"}), 400
+            if existing["title"] == title and existing["tasking_date"] == date:
+                continue
+
+            try:
+                changed.append(org_status.set_tasking(
+                    conn, slot, title, date, actor_id, actor_name))
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
+        return jsonify({"saved": len(changed), "changed": changed,
+                        "slots": org_status.get_tasking(conn)})
+    finally:
+        conn.close()
+
+
 # ── OpOrds ────────────────────────────────────────────────────────────
 # The editor is its own officer-only page; HQ Admin lists them.
 

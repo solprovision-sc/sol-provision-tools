@@ -26,7 +26,7 @@ DEFAULT_DB_PATH = REPO_ROOT / "org_status.db"
 # ON CONFLICT ... DO UPDATE, used by set_readiness.
 MIN_SQLITE = (3, 35, 0)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # ── Domain constants ─────────────────────────────────────────────────────────
 # Four fixed divisions. `name` matches the `division` values in the SPARQy
@@ -57,6 +57,11 @@ STATUSES = (
 STATUS_CODES = tuple(s["code"] for s in STATUSES)
 
 DEFAULT_STATUS = "reconstitution"
+
+# Upcoming Tasking: a fixed four slots, the way the portal's board shows them.
+# Fixed rather than a free list so the board always renders a stable shape and
+# an officer clearing one leaves a gap rather than reshuffling the rest.
+TASKING_SLOTS = 4
 
 # Current values as displayed on the Squarespace portal when this was built
 # (captured 2026-08-14). Seeded once by migration 1 so the new portal renders
@@ -93,6 +98,20 @@ _MIGRATIONS = [
 
     CREATE INDEX idx_readiness_log_division
         ON division_readiness_log (division_code, updated_at DESC);
+    """,
+    # 2 ─────────────────────────────────────────────────────────────────────
+    # Upcoming Tasking — four fixed slots keyed by position, mirroring
+    # division_readiness. Rows are seeded empty so a read never has to invent
+    # them and the board's shape doesn't depend on what's been filled in.
+    """
+    CREATE TABLE upcoming_tasking (
+        slot            INTEGER PRIMARY KEY,
+        title           TEXT NOT NULL DEFAULT '',
+        tasking_date    TEXT,
+        updated_by      TEXT,
+        updated_by_name TEXT,
+        updated_at      TEXT NOT NULL
+    );
     """,
 ]
 
@@ -168,6 +187,8 @@ def migrate(conn: sqlite3.Connection | None = None) -> int:
             conn.commit()
             if version == 1:
                 _seed_initial(conn)
+            if version == 2:
+                _seed_tasking(conn)
         return SCHEMA_VERSION
     finally:
         if own:
@@ -190,6 +211,75 @@ def _seed_initial(conn: sqlite3.Connection) -> None:
     )
     conn.commit()
     log.info("seeded %d divisions", len(rows))
+
+
+def _seed_tasking(conn: sqlite3.Connection) -> None:
+    """Create the four empty tasking slots."""
+    now = utc_now()
+    conn.executemany(
+        """INSERT INTO upcoming_tasking (slot, title, tasking_date, updated_at)
+           VALUES (?, '', NULL, ?)""",
+        [(n, now) for n in range(1, TASKING_SLOTS + 1)],
+    )
+    conn.commit()
+    log.info("seeded %d tasking slots", TASKING_SLOTS)
+
+
+def get_tasking(conn: sqlite3.Connection) -> list[dict]:
+    """All four slots in order, empty ones included.
+
+    The board renders a fixed four, so a missing row would be a hole in the UI
+    rather than an absence of news.
+    """
+    stored = {r["slot"]: r for r in conn.execute("SELECT * FROM upcoming_tasking")}
+    out = []
+    for slot in range(1, TASKING_SLOTS + 1):
+        row = stored.get(slot)
+        out.append({
+            "slot": slot,
+            "title": (row["title"] if row else "") or "",
+            "tasking_date": row["tasking_date"] if row else None,
+            "updated_by_name": row["updated_by_name"] if row else None,
+            "updated_at": row["updated_at"] if row else None,
+        })
+    return out
+
+
+def set_tasking(conn: sqlite3.Connection, slot: int, title: str,
+                tasking_date: str | None, actor_id: str | None,
+                actor_name: str | None) -> dict:
+    """Write one tasking slot.
+
+    Bare values rather than COALESCE: an officer clearing the title means the
+    slot is empty, not that the old text should persist.
+    """
+    slot = int(slot)
+    if not 1 <= slot <= TASKING_SLOTS:
+        raise ValueError(f"slot out of range: {slot}")
+
+    title = (title or "").strip()[:120]
+    tasking_date = (tasking_date or "").strip() or None
+    if tasking_date:
+        try:
+            datetime.strptime(tasking_date, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError(f"tasking date must be YYYY-MM-DD: {tasking_date!r}")
+
+    now = utc_now()
+    conn.execute(
+        """INSERT INTO upcoming_tasking
+               (slot, title, tasking_date, updated_by, updated_by_name, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(slot) DO UPDATE SET
+               title           = excluded.title,
+               tasking_date    = excluded.tasking_date,
+               updated_by      = excluded.updated_by,
+               updated_by_name = excluded.updated_by_name,
+               updated_at      = excluded.updated_at""",
+        (slot, title, tasking_date, actor_id, actor_name, now))
+    conn.commit()
+    return {"slot": slot, "title": title, "tasking_date": tasking_date,
+            "updated_by_name": actor_name, "updated_at": now}
 
 
 def get_readiness(conn: sqlite3.Connection) -> list[dict]:
