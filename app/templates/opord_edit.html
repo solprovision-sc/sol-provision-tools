@@ -118,6 +118,10 @@
   font-family: var(--font-ui); font-size: .74rem; color: var(--text2);
 }
 
+.opord-dirty {
+  font-family: var(--font-mono); font-size: .72rem; letter-spacing: .06em;
+  color: var(--accent);
+}
 .opord-msg { font-family: var(--font-mono); font-size: .74rem; color: var(--text3); }
 .opord-msg.ok  { color: var(--green); }
 .opord-msg.err { color: var(--danger); }
@@ -137,6 +141,7 @@
       <h1 class="opord-title" id="opord-heading">New Operation Order</h1>
     </div>
     <div class="opord-actions">
+      <span class="opord-dirty" id="opord-dirty" hidden>● Unsaved changes</span>
       <span class="opord-msg" id="opord-msg" role="status" aria-live="polite"></span>
       <a class="btn-ghost" href="/officers#admin">Back to HQ</a>
       <button type="button" class="btn-ghost" id="opord-post">Set as Board OpOrd</button>
@@ -314,6 +319,33 @@ const OPORD_ID = {{ opord_id | tojson }};
 const SIGNAL_NOTE = {{ signal_note | tojson }};
 
 let state = { header: {}, body: null };
+
+// ── Unsaved-changes guard ──────────────────────────────────────────────
+// An OpOrd is a long form; losing one to a stray back-navigation is the kind
+// of thing you only forgive once.
+let dirty = false;
+
+function setDirty(on) {
+  dirty = on;
+  document.getElementById("opord-dirty").hidden = !on;
+}
+
+// Any edit anywhere in the form marks it dirty — including the header inputs,
+// which aren't data-path bound and are only read at save time.
+document.addEventListener("input", e => {
+  if (e.target.closest(".opord-page")) setDirty(true);
+});
+document.addEventListener("change", e => {
+  if (e.target.closest(".opord-page")) setDirty(true);
+});
+
+window.addEventListener("beforeunload", e => {
+  if (!dirty) return;
+  // Browsers ignore custom text now and show their own wording; assigning
+  // returnValue is still what triggers the prompt at all.
+  e.preventDefault();
+  e.returnValue = "";
+});
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({
@@ -540,6 +572,7 @@ document.addEventListener("change", e => {
 document.addEventListener("click", e => {
   const btn = e.target.closest("[data-act]");
   if (!btn) return;
+  setDirty(true);          // add/remove don't fire input or change
   const act = btn.dataset.act;
   const i = Number(btn.dataset.idx);
   const b = state.body;
@@ -559,23 +592,28 @@ document.addEventListener("click", e => {
 });
 
 document.getElementById("add-unit").addEventListener("click", () => {
+  setDirty(true);
   state.body.task_organization.units.push(
     { id: sid(), name: "", crew_size: "", ships: "", led_by: "" });
   renderUnits(); renderSteps();
 });
 document.getElementById("add-step").addEventListener("click", () => {
+  setDirty(true);
   state.body.execution.steps.push({ id: sid(), type: "unit_tasks", unit_id: "", tasks: [""] });
   renderSteps();
 });
 document.getElementById("add-sched").addEventListener("click", () => {
+  setDirty(true);
   state.body.execution.time_schedule.push({ time: "", text: "" });
   renderSchedule();
 });
 document.getElementById("add-support").addEventListener("click", () => {
+  setDirty(true);
   state.body.service_support.items.push({ id: sid(), title: "", detail: "" });
   renderSupport();
 });
 document.getElementById("add-note").addEventListener("click", () => {
+  setDirty(true);
   state.body.command_signal.notes.push({ id: sid(), title: "", detail: "" });
   renderNotes();
 });
@@ -619,6 +657,7 @@ async function save() {
       history.replaceState(null, "", "/officers/opord/" + data.id);
       document.getElementById("opord-heading").textContent = "Edit Operation Order";
     }
+    setDirty(false);
     msg("Saved.", "ok");
   } catch (err) {
     msg("Save failed: " + err.message, "err");
@@ -648,6 +687,7 @@ document.getElementById("opord-post").addEventListener("click", postToBoard);
     state.body = blankBody();
     fillHeader({});
     renderAll();
+    setDirty(false);       // defaults aren't edits
     return;
   }
   try {
@@ -665,6 +705,7 @@ document.getElementById("opord-post").addEventListener("click", postToBoard);
       const v = getPath(state.body, el.dataset.path);
       if (typeof v === "string") el.value = v;
     });
+    setDirty(false);       // populating the form is not an edit
   } catch (err) {
     msg("Could not load OpOrd: " + err.message, "err");
   }
