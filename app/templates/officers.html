@@ -712,23 +712,51 @@
   color: var(--text3);
 }
 
-#card-missionboard { margin-top: 18px; }
+#card-missionboard { min-width: 0; }
+
+.tasking-row {
+  display: grid;
+  grid-template-columns: 26px 142px minmax(0, 1fr);
+  gap: 10px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.tasking-row:first-child { border-top: 0; }
+.tasking-slot {
+  font-family: var(--font-mono); font-size: .72rem; color: var(--text3);
+}
+.tasking-row input[type=text], .tasking-row input[type=date] {
+  width: 100%; background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 9px; font-family: var(--font-ui); font-size: .8rem;
+}
+.tasking-row input:focus { outline: none; border-color: var(--accent); }
+/* A slot with a date but no title would render as a blank line on the board. */
+.tasking-row.incomplete input[type=text] { border-color: var(--warning); }
+.tasking-note {
+  margin-top: 10px; font-family: var(--font-ui); font-size: .7rem; color: var(--text3);
+}
 .opord-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .opord-toolbar .btn-save { text-decoration: none; display: inline-block; }
 
 .opord-table { width: 100%; border-collapse: collapse; }
+.opord-table { table-layout: fixed; }
 .opord-table th {
-  text-align: left; padding: 7px 10px 9px;
+  text-align: left; padding: 7px 8px 9px;
   font-family: var(--font-ui); font-size: .66rem; font-weight: 600;
   letter-spacing: .12em; text-transform: uppercase; color: var(--text3);
   border-bottom: 1px solid var(--border2);
 }
 .opord-table td {
-  padding: 10px; border-top: 1px solid var(--border);
+  padding: 9px 8px; border-top: 1px solid var(--border);
   font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
   vertical-align: middle;
 }
 .opord-title-cell { color: var(--text); font-weight: 600; }
+.opord-sub {
+  display: block; font-family: var(--font-mono); font-size: .66rem;
+  color: var(--text3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .opord-when { font-family: var(--font-mono); font-size: .72rem; color: var(--text3); }
 .opord-actions-cell { text-align: right; white-space: nowrap; }
 .opord-actions-cell a, .opord-actions-cell button {
@@ -957,8 +985,7 @@
 
     </div>
 
-    <!-- Full width, below the two-up grid: the OpOrd table needs the room and
-         pairs with nothing. -->
+    <div class="admin-grid">
     <section class="admin-card" id="card-missionboard">
       <div class="admin-section-head">
         <h3>Mission Board · Operation Orders</h3>
@@ -972,6 +999,23 @@
 
       <div id="opord-list"><div class="readiness-msg">Loading…</div></div>
     </section>
+
+    <section class="admin-card" id="card-tasking">
+      <div class="admin-section-head">
+        <h3>Upcoming Tasking</h3>
+        <span class="admin-section-sub">The next four operations, as shown on the portal.</span>
+      </div>
+
+      <div class="tasking-rows" id="tasking-rows">
+        <div class="readiness-msg">Loading…</div>
+      </div>
+
+      <div class="admin-actions">
+        <button type="button" class="btn-save" id="tasking-save">Save Tasking</button>
+        <span class="admin-msg" id="tasking-msg"></span>
+      </div>
+    </section>
+    </div>
   </div><!-- /#view-admin -->
 </div>
 {% endblock %}
@@ -2035,6 +2079,80 @@ function renderAppRows(apps) {
   }).join("");
 }
 
+// ── Portal Administration: Upcoming Tasking ────────────────────────────
+// Four fixed slots, same change-only save as Division Readiness.
+
+async function loadTasking() {
+  const host = document.getElementById("tasking-rows");
+  try {
+    const r = await fetch("/api/officers/tasking");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    renderTaskingRows(data.slots || []);
+  } catch (err) {
+    host.innerHTML = '<div class="readiness-msg">Could not load tasking: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderTaskingRows(slots) {
+  const host = document.getElementById("tasking-rows");
+  host.innerHTML = slots.map(s => `
+    <div class="tasking-row" data-slot="${s.slot}">
+      <span class="tasking-slot">${s.slot}</span>
+      <input type="date" class="tk-date" value="${escapeHtml(s.tasking_date || "")}">
+      <input type="text" class="tk-title" maxlength="120" placeholder="Operation name"
+             value="${escapeHtml(s.title || "")}">
+    </div>`).join("")
+    + '<div class="tasking-note">Leave a slot blank to hide it from the board.</div>';
+  host.querySelectorAll(".tasking-row").forEach(markTaskingRow);
+  host.addEventListener("input", e => {
+    const row = e.target.closest(".tasking-row");
+    if (row) markTaskingRow(row);
+  });
+}
+
+// A date with no title renders as a blank line on the board, so flag it before
+// it gets saved rather than after someone spots it on the portal.
+function markTaskingRow(row) {
+  const hasDate = !!row.querySelector(".tk-date").value;
+  const hasTitle = !!row.querySelector(".tk-title").value.trim();
+  row.classList.toggle("incomplete", hasDate && !hasTitle);
+}
+
+async function saveTasking() {
+  const btn = document.getElementById("tasking-save");
+  const msg = document.getElementById("tasking-msg");
+  const slots = Array.from(document.querySelectorAll(".tasking-row")).map(row => ({
+    slot: Number(row.dataset.slot),
+    tasking_date: row.querySelector(".tk-date").value,
+    title: row.querySelector(".tk-title").value
+  }));
+
+  btn.disabled = true;
+  msg.className = "admin-msg";
+  msg.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/officers/tasking", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slots })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    msg.className = "admin-msg ok";
+    msg.textContent = data.saved === 0
+      ? "No changes to save."
+      : data.saved + (data.saved === 1 ? " slot updated." : " slots updated.");
+    renderTaskingRows(data.slots || []);
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Save failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // ── Portal Administration: Mission Board / OpOrds ──────────────────────
 // List only. Creating and editing happen on /officers/opord/<id>, which is its
 // own officer-gated page.
@@ -2061,8 +2179,7 @@ function renderOpords(data) {
   }
   host.innerHTML =
     '<table class="opord-table"><thead><tr>'
-    + "<th>Title</th><th>Mission Date</th><th>Commander</th>"
-    + "<th>Status</th><th>Last Updated</th><th></th>"
+    + "<th>Title</th><th>Mission Date</th><th>Status</th><th></th>"
     + "</tr></thead><tbody>"
     + rows.map(o => {
         // is_current is computed server-side from status + the 48h muster
@@ -2071,13 +2188,16 @@ function renderOpords(data) {
           ? '<span class="st-badge on-board">On Board</span>'
           : '<span class="st-badge s-' + escapeHtml(o.status) + '">'
             + escapeHtml(o.status) + "</span>";
+        // Commander moves under the title and Last Updated is dropped: this
+        // table now shares a row with Upcoming Tasking rather than spanning
+        // the full width.
         return "<tr>"
-          + '<td class="opord-title-cell">' + escapeHtml(o.title) + "</td>"
+          + '<td class="opord-title-cell">' + escapeHtml(o.title)
+          +   '<span class="opord-sub">' + escapeHtml(o.commander || "no commander set")
+          +   "</span></td>"
           + '<td class="opord-when">' + escapeHtml(o.mission_date || "—")
-          +   (o.muster_time ? " · " + escapeHtml(o.muster_time) : "") + "</td>"
-          + "<td>" + escapeHtml(o.commander || "—") + "</td>"
+          +   (o.muster_time ? "<br>" + escapeHtml(o.muster_time) : "") + "</td>"
           + "<td>" + badge + "</td>"
-          + '<td class="opord-when">' + escapeHtml((o.updated_at || "").slice(0, 10)) + "</td>"
           + '<td class="opord-actions-cell">'
           +   '<a href="/officers/opord/' + o.id + '">Edit</a>'
           +   '<button type="button" data-act="dup-opord" data-id="' + o.id + '">Duplicate</button>'
@@ -2131,6 +2251,7 @@ function activateView(name) {
     loadReadiness();
     loadApplications();
     loadOpords();
+    loadTasking();
   }
   return name;
 }
@@ -2148,6 +2269,8 @@ function setView(btn) {
           .addEventListener("click", saveReadiness);
   document.getElementById("apps-status")
           .addEventListener("change", loadApplications);
+  document.getElementById("tasking-save")
+          .addEventListener("click", saveTasking);
 
   // The hash is either a view ("admin") or a Data View tab ("ore"), the latter
   // implying the data view. Set the tab first so the data view is ready
