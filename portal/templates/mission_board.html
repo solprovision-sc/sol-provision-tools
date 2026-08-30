@@ -160,6 +160,26 @@
   </article>
 {% endif %}
 
+{% if tasking %}
+  <!-- Upcoming Tasking. Blank slots are filtered out server-side, so an empty
+       list means nothing is scheduled and the whole section stays hidden. -->
+  <section class="tasking-board">
+    <header class="section-head">
+      <h2>Upcoming Tasking</h2>
+      <p class="section-sub">Operations on the calendar.</p>
+    </header>
+    <ol class="tasking-list">
+      {% for t in tasking %}
+      <li class="tasking-item{% if t.is_past %} past{% endif %}">
+        <span class="tasking-when">{{ t.when or '—' }}</span>
+        <span class="tasking-title">{{ t.title }}</span>
+        {% if t.is_past %}<span class="tasking-flag">past</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endif %}
+
   <p class="brief-back"><a href="/">&larr; Back to the Portal</a></p>
 
 </main>
