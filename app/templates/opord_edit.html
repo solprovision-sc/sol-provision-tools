@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+
+{% block title %}OpOrd Editor — Sol Provision{% endblock %}
+
+{% block extra_css %}
+<style>
+.opord-page { max-width: 1080px; margin: 0 auto; padding: 22px 24px 60px; }
+
+.opord-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 20px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.opord-title {
+  font-family: var(--font-title); font-size: 1.35rem; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--text); margin: 0;
+}
+.opord-crumb {
+  font-family: var(--font-mono); font-size: .7rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3); margin-bottom: 6px;
+}
+.opord-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.btn-ghost {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text3); cursor: pointer; padding: 8px 14px; text-decoration: none;
+  font-family: var(--font-ui); font-size: .72rem; letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.btn-ghost:hover { color: var(--accent); border-color: var(--accent); }
+.btn-ghost.danger:hover { color: var(--danger); border-color: var(--danger); }
+
+/* .btn-save is defined in officers.html's own <style> block, which this page
+   does not share — it needs its own definition rather than inheriting one. */
+.btn-save {
+  background: var(--brand); color: var(--on-brand);
+  border: 1px solid var(--line-brand); border-radius: var(--radius-sm);
+  padding: 8px 18px; cursor: pointer;
+  font-family: var(--font-ui); font-size: .74rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.btn-save:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-save:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── Sections ── */
+.opord-block {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 18px 20px; margin-bottom: 16px;
+}
+.opord-block > h2 {
+  font-family: var(--font-title); font-size: .95rem; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--text);
+  margin: 0 0 4px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
+}
+.block-hint {
+  font-family: var(--font-ui); font-size: .72rem; color: var(--text3);
+  margin: 10px 0 14px;
+}
+
+.fld { margin-bottom: 14px; }
+.fld > label {
+  display: block; margin-bottom: 6px;
+  font-family: var(--font-ui); font-size: .72rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--text2);
+}
+.fld input[type=text], .fld input[type=date], .fld input[type=time],
+.fld select, .fld textarea {
+  width: 100%; background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 11px; font-family: var(--font-ui); font-size: .82rem;
+}
+.fld textarea { resize: vertical; min-height: 74px; line-height: 1.55; }
+.fld input:focus, .fld select:focus, .fld textarea:focus {
+  outline: none; border-color: var(--accent);
+}
+.fld-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px,1fr)); gap: 14px; }
+.fld-err { margin-top: 5px; font-size: .72rem; color: var(--danger); }
+.fld-err:empty { display: none; }
+.has-error input, .has-error select { border-color: var(--danger); }
+
+/* ── Repeatable rows ── */
+.rep {
+  border: 1px solid var(--border); border-left: 2px solid var(--tan);
+  border-radius: var(--radius-sm); background: var(--bg3);
+  padding: 12px 14px; margin-bottom: 10px;
+}
+.rep-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 10px;
+}
+.rep-label {
+  font-family: var(--font-mono); font-size: .7rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--accent);
+}
+.btn-add {
+  background: none; border: 1px dashed var(--border2); border-radius: var(--radius-sm);
+  color: var(--text3); cursor: pointer; padding: 7px 13px;
+  font-family: var(--font-ui); font-size: .72rem; letter-spacing: .1em;
+  text-transform: uppercase;
+}
+.btn-add:hover { color: var(--accent); border-color: var(--accent); }
+.btn-x {
+  background: none; border: none; cursor: pointer; color: var(--text3);
+  font-family: var(--font-mono); font-size: .78rem; padding: 2px 6px;
+}
+.btn-x:hover { color: var(--danger); }
+
+.bullets { margin-top: 8px; }
+.bullet { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bullet::before { content: "—"; color: var(--text3); font-family: var(--font-mono); }
+.bullet input { flex: 1; }
+
+.sched-row { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px;
+             align-items: center; margin-bottom: 8px; }
+
+.signal-note {
+  margin-top: 12px; padding: 10px 12px; background: var(--bg-inset);
+  border-left: 2px solid var(--accent); border-radius: var(--radius-xs);
+  font-family: var(--font-ui); font-size: .74rem; color: var(--text2);
+}
+
+.opord-msg { font-family: var(--font-mono); font-size: .74rem; color: var(--text3); }
+.opord-msg.ok  { color: var(--green); }
+.opord-msg.err { color: var(--danger); }
+
+@media (max-width: 720px) {
+  .sched-row { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="opord-page">
+
+  <div class="opord-head">
+    <div>
+      <div class="opord-crumb">Portal Administration · Mission Board</div>
+      <h1 class="opord-title" id="opord-heading">New Operation Order</h1>
+    </div>
+    <div class="opord-actions">
+      <span class="opord-msg" id="opord-msg" role="status" aria-live="polite"></span>
+      <a class="btn-ghost" href="/officers#admin">Back to HQ</a>
+      <button type="button" class="btn-ghost" id="opord-post">Set as Board OpOrd</button>
+      <button type="button" class="btn-save" id="opord-save">Save</button>
+    </div>
+  </div>
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>Operation</h2>
+    <div class="block-hint">Title, schedule and command. Muster drives how long
+      this stays on the Mission Board — 48 hours past muster it rolls off.</div>
+
+    <div class="fld">
+      <label for="f-title">Title</label>
+      <input type="text" id="f-title" maxlength="120" placeholder="Sol Reaper">
+      <div class="fld-err" data-for="title"></div>
+    </div>
+
+    <div class="fld-row">
+      <div class="fld">
+        <label for="f-date">Mission Date</label>
+        <input type="date" id="f-date">
+        <div class="fld-err" data-for="mission_date"></div>
+      </div>
+      <div class="fld">
+        <label for="f-muster">Muster Time</label>
+        <input type="time" id="f-muster" value="{{ default_muster_time }}">
+        <div class="fld-err" data-for="muster_time"></div>
+      </div>
+      <div class="fld">
+        <label for="f-tz">Timezone</label>
+        <select id="f-tz">
+          <option value="America/Chicago">US Central (CT)</option>
+          <option value="America/New_York">US Eastern (ET)</option>
+          <option value="America/Denver">US Mountain (MT)</option>
+          <option value="America/Los_Angeles">US Pacific (PT)</option>
+          <option value="UTC">UTC</option>
+        </select>
+        <div class="fld-err" data-for="muster_tz"></div>
+      </div>
+    </div>
+
+    <div class="fld-row">
+      <div class="fld">
+        <label for="f-commander">Mission Commander</label>
+        <select id="f-commander">
+          <option value="">Select an officer</option>
+          {% for c in commanders %}
+          <option value="{{ c.name }}">{{ c.name }}{% if c.rank == 4 %} · WC{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fld">
+        <label for="f-status">Status</label>
+        <select id="f-status">
+          {% for st in statuses %}<option value="{{ st }}">{{ st|capitalize }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 1 · Task Organization ──────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>1 · Task Organization</h2>
+    <div class="block-hint">Units taking part, and where. Units named here become
+      selectable targets for Execution steps.</div>
+
+    <div id="units"></div>
+    <button type="button" class="btn-add" id="add-unit">+ Add Unit</button>
+
+    <div class="fld" style="margin-top:16px">
+      <label for="f-ao">Area of Operation</label>
+      <input type="text" id="f-ao" maxlength="400" placeholder="TBD, Crusader, Stanton">
+    </div>
+  </section>
+
+  <!-- ── 2 · Situation ──────────────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>2 · Situation</h2>
+    <div class="fld">
+      <label>A. Enemy Forces</label>
+      <textarea data-path="situation.enemy_forces"></textarea>
+    </div>
+    <div class="fld">
+      <label>B. Friendly Forces</label>
+      <textarea data-path="situation.friendly_forces"></textarea>
+    </div>
+    <div class="fld">
+      <label>C. Obstacles / Challenges</label>
+      <textarea data-path="situation.obstacles"></textarea>
+    </div>
+  </section>
+
+  <!-- ── 3 · Mission ────────────────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>3 · Mission</h2>
+    <div class="fld">
+      <textarea data-path="mission" placeholder="What the org is trying to achieve."></textarea>
+    </div>
+  </section>
+
+  <!-- ── 4 · Execution ──────────────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>4 · Execution</h2>
+    <div class="block-hint">Letters are assigned automatically — Intent is always
+      A and the Time Schedule is always last.</div>
+
+    <div class="fld">
+      <label>A. Intent</label>
+      <textarea data-path="execution.intent"></textarea>
+    </div>
+
+    <div id="steps"></div>
+    <button type="button" class="btn-add" id="add-step">+ Add Execution Step</button>
+
+    <div class="fld" style="margin-top:18px">
+      <label id="sched-label">Time Schedule</label>
+      <div id="schedule"></div>
+      <button type="button" class="btn-add" id="add-sched">+ Add Time Entry</button>
+    </div>
+  </section>
+
+  <!-- ── 5 · Service Support ────────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>5 · Service Support</h2>
+    <div class="fld">
+      <label>A. Medical</label>
+      <textarea data-path="service_support.medical"></textarea>
+    </div>
+    <div class="fld">
+      <label>B. Personnel</label>
+      <textarea data-path="service_support.personnel"
+                placeholder="Armor and loadout expectations for each crew member."></textarea>
+    </div>
+    <div id="support-items"></div>
+    <button type="button" class="btn-add" id="add-support">+ Add Support Item</button>
+  </section>
+
+  <!-- ── 6 · Command & Signal ───────────────────────────────────────────── -->
+  <section class="opord-block">
+    <h2>6 · Command &amp; Signal</h2>
+    <div class="fld">
+      <label>A. Command</label>
+      <input type="text" data-path="command_signal.command" maxlength="300"
+             placeholder="The operation will be led by …">
+    </div>
+    <div class="fld-row">
+      <div class="fld">
+        <label>B. Signal</label>
+        <select id="f-signal">
+          {% for st in signal_types %}<option value="{{ st }}">{{ st }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="fld" id="signal-detail-wrap" hidden>
+        <label>Signal Detail</label>
+        <input type="text" data-path="command_signal.signal_detail" maxlength="300">
+      </div>
+    </div>
+    <div class="signal-note">{{ signal_note }}</div>
+    <div id="signal-notes" style="margin-top:14px"></div>
+    <button type="button" class="btn-add" id="add-note">+ Add Note</button>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block page_script %}
+// ── OpOrd editor ────────────────────────────────────────────────────────
+// One `state` object is the source of truth. Scalar inputs carry a data-path
+// and write straight into it; repeatable lists re-render only when their shape
+// changes (add/remove), so typing never costs focus.
+
+const OPORD_ID = {{ opord_id | tojson }};
+const SIGNAL_NOTE = {{ signal_note | tojson }};
+
+let state = { header: {}, body: null };
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function sid() { return Math.random().toString(16).slice(2, 10); }
+
+function getPath(obj, path) {
+  return path.split(".").reduce((o, k) => (o == null ? o : o[k]), obj);
+}
+function setPath(obj, path, value) {
+  const keys = path.split(".");
+  const last = keys.pop();
+  const target = keys.reduce((o, k) => (o[k] = o[k] ?? {}), obj);
+  target[last] = value;
+}
+
+function blankBody() {
+  return {
+    task_organization: { units: [], area_of_operation: "" },
+    situation: { enemy_forces: "", friendly_forces: "", obstacles: "" },
+    mission: "",
+    execution: {
+      intent: "",
+      steps: [],
+      time_schedule: [
+        { time: "8:30PM CST", text: "Be in lobby to party-up and conduct pre-briefing" },
+        { time: "8:45PM CST", text: "Mission Commander to pull party into server" }
+      ]
+    },
+    service_support: { medical: "", personnel: "", items: [] },
+    command_signal: { command: "", signal_type: "Discord", signal_detail: "", notes: [] }
+  };
+}
+
+// Mirror of shared/opord.py section_letters(): A is Intent, the schedule is
+// always last, so a step inserted in the middle renumbers everything after it.
+function letterFor(index) { return String.fromCharCode(65 + index); }
+
+// ── Renderers ──────────────────────────────────────────────────────────
+function renderUnits() {
+  const host = document.getElementById("units");
+  const units = state.body.task_organization.units;
+  host.innerHTML = units.map((u, i) => `
+    <div class="rep" data-idx="${i}">
+      <div class="rep-head">
+        <span class="rep-label">Unit ${i + 1}</span>
+        <button type="button" class="btn-x" data-act="del-unit" data-idx="${i}">✕ remove</button>
+      </div>
+      <div class="fld-row">
+        <div class="fld"><label>Unit Name</label>
+          <input type="text" data-path="task_organization.units.${i}.name" value="${esc(u.name)}"></div>
+        <div class="fld"><label>Total Crew Size</label>
+          <input type="text" data-path="task_organization.units.${i}.crew_size" value="${esc(u.crew_size)}"></div>
+      </div>
+      <div class="fld-row">
+        <div class="fld"><label>Ships</label>
+          <input type="text" data-path="task_organization.units.${i}.ships" value="${esc(u.ships)}"></div>
+        <div class="fld"><label>Led By</label>
+          <input type="text" data-path="task_organization.units.${i}.led_by" value="${esc(u.led_by)}"></div>
+      </div>
+    </div>`).join("") ||
+    `<div class="block-hint">No units yet — add the first one below.</div>`;
+}
+
+function unitOptions(selected) {
+  const units = state.body.task_organization.units;
+  let html = `<option value="">Select a unit</option>`;
+  units.forEach(u => {
+    html += `<option value="${esc(u.id)}"${u.id === selected ? " selected" : ""}>` +
+            `${esc(u.name || "(unnamed unit)")}</option>`;
+  });
+  return html;
+}
+
+function renderSteps() {
+  const host = document.getElementById("steps");
+  const steps = state.body.execution.steps;
+  host.innerHTML = steps.map((st, i) => {
+    const letter = letterFor(i + 1);          // A is Intent
+    let inner;
+    if (st.type === "unit_tasks") {
+      const bullets = (st.tasks || []).map((t, ti) => `
+        <div class="bullet">
+          <input type="text" data-path="execution.steps.${i}.tasks.${ti}" value="${esc(t)}">
+          <button type="button" class="btn-x" data-act="del-task" data-idx="${i}" data-sub="${ti}">✕</button>
+        </div>`).join("");
+      inner = `
+        <div class="fld"><label>Unit</label>
+          <select data-act="step-unit" data-idx="${i}">${unitOptions(st.unit_id)}</select></div>
+        <div class="bullets">${bullets}</div>
+        <button type="button" class="btn-add" data-act="add-task" data-idx="${i}">+ Add Task</button>`;
+    } else {
+      inner = `
+        <div class="fld"><label>Label</label>
+          <input type="text" data-path="execution.steps.${i}.title" value="${esc(st.title || "")}"
+                 placeholder="e.g. Emergency Protocols"></div>
+        <div class="fld"><label>Detail</label>
+          <textarea data-path="execution.steps.${i}.body">${esc(st.body || "")}</textarea></div>`;
+    }
+    return `
+      <div class="rep" data-idx="${i}">
+        <div class="rep-head">
+          <span class="rep-label">${letter}. ${st.type === "unit_tasks" ? "Tasks to Unit" : "Custom"}</span>
+          <button type="button" class="btn-x" data-act="del-step" data-idx="${i}">✕ remove</button>
+        </div>
+        <div class="fld"><label>Step Type</label>
+          <select data-act="step-type" data-idx="${i}">
+            <option value="unit_tasks"${st.type === "unit_tasks" ? " selected" : ""}>Tasks to [Unit]</option>
+            <option value="custom"${st.type === "custom" ? " selected" : ""}>Custom</option>
+          </select></div>
+        ${inner}
+      </div>`;
+  }).join("");
+  document.getElementById("sched-label").textContent =
+    letterFor(steps.length + 1) + ". Time Schedule";
+}
+
+function renderSchedule() {
+  const host = document.getElementById("schedule");
+  host.innerHTML = state.body.execution.time_schedule.map((row, i) => `
+    <div class="sched-row">
+      <input type="text" data-path="execution.time_schedule.${i}.time" value="${esc(row.time)}" placeholder="8:30PM CST">
+      <input type="text" data-path="execution.time_schedule.${i}.text" value="${esc(row.text)}">
+      <button type="button" class="btn-x" data-act="del-sched" data-idx="${i}">✕</button>
+    </div>`).join("");
+}
+
+function renderSupport() {
+  const host = document.getElementById("support-items");
+  host.innerHTML = state.body.service_support.items.map((it, i) => `
+    <div class="rep">
+      <div class="rep-head">
+        <span class="rep-label">${letterFor(i + 2)}. Support Item</span>
+        <button type="button" class="btn-x" data-act="del-support" data-idx="${i}">✕ remove</button>
+      </div>
+      <div class="fld"><label>Title</label>
+        <input type="text" data-path="service_support.items.${i}.title" value="${esc(it.title)}"></div>
+      <div class="fld"><label>Detail</label>
+        <textarea data-path="service_support.items.${i}.detail">${esc(it.detail)}</textarea></div>
+    </div>`).join("");
+}
+
+function renderNotes() {
+  const host = document.getElementById("signal-notes");
+  host.innerHTML = state.body.command_signal.notes.map((n, i) => `
+    <div class="rep">
+      <div class="rep-head">
+        <span class="rep-label">${letterFor(i + 2)}. Note</span>
+        <button type="button" class="btn-x" data-act="del-note" data-idx="${i}">✕ remove</button>
+      </div>
+      <div class="fld"><label>Title</label>
+        <input type="text" data-path="command_signal.notes.${i}.title" value="${esc(n.title)}"></div>
+      <div class="fld"><label>Detail</label>
+        <textarea data-path="command_signal.notes.${i}.detail">${esc(n.detail)}</textarea></div>
+    </div>`).join("");
+}
+
+function renderAll() {
+  renderUnits(); renderSteps(); renderSchedule(); renderSupport(); renderNotes();
+}
+
+// ── Header <-> DOM ─────────────────────────────────────────────────────
+function fillHeader(h) {
+  document.getElementById("f-title").value = h.title || "";
+  document.getElementById("f-date").value = h.mission_date || "";
+  document.getElementById("f-muster").value = h.muster_time || "{{ default_muster_time }}";
+  document.getElementById("f-tz").value = h.muster_tz || "{{ default_muster_tz }}";
+  document.getElementById("f-commander").value = h.commander || "";
+  document.getElementById("f-status").value = h.status || "draft";
+  document.getElementById("f-ao").value = h.area_of_operation || "";
+  document.getElementById("f-signal").value = state.body.command_signal.signal_type || "Discord";
+  toggleSignalDetail();
+}
+
+function readHeader() {
+  return {
+    title: document.getElementById("f-title").value,
+    mission_date: document.getElementById("f-date").value,
+    muster_time: document.getElementById("f-muster").value,
+    muster_tz: document.getElementById("f-tz").value,
+    commander: document.getElementById("f-commander").value,
+    status: document.getElementById("f-status").value,
+    area_of_operation: document.getElementById("f-ao").value
+  };
+}
+
+function toggleSignalDetail() {
+  const other = document.getElementById("f-signal").value === "Other";
+  document.getElementById("signal-detail-wrap").hidden = !other;
+}
+
+// ── Wiring ─────────────────────────────────────────────────────────────
+document.addEventListener("input", e => {
+  const path = e.target.dataset.path;
+  if (path) setPath(state.body, path, e.target.value);
+});
+
+document.addEventListener("change", e => {
+  const act = e.target.dataset.act;
+  const i = Number(e.target.dataset.idx);
+  if (act === "step-type") {
+    const st = state.body.execution.steps[i];
+    st.type = e.target.value;
+    if (st.type === "unit_tasks") { st.unit_id = st.unit_id || ""; st.tasks = st.tasks || [""]; }
+    else { st.title = st.title || ""; st.body = st.body || ""; }
+    renderSteps();
+  } else if (act === "step-unit") {
+    state.body.execution.steps[i].unit_id = e.target.value;
+    renderSteps();
+  } else if (e.target.id === "f-signal") {
+    state.body.command_signal.signal_type = e.target.value;
+    toggleSignalDetail();
+  } else if (e.target.id === "f-commander") {
+    // Auto-fill Command the first time an officer is picked; still editable.
+    const cmd = document.querySelector('[data-path="command_signal.command"]');
+    if (cmd && !cmd.value.trim() && e.target.value) {
+      cmd.value = "The operation will be led by " + e.target.value + ".";
+      state.body.command_signal.command = cmd.value;
+    }
+  }
+});
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn) return;
+  const act = btn.dataset.act;
+  const i = Number(btn.dataset.idx);
+  const b = state.body;
+  if (act === "del-unit") {
+    const removed = b.task_organization.units[i];
+    b.task_organization.units.splice(i, 1);
+    // Steps pointing at the deleted unit fall back to unassigned rather than
+    // silently rendering a blank heading.
+    b.execution.steps.forEach(s => { if (s.unit_id === removed.id) s.unit_id = ""; });
+    renderUnits(); renderSteps();
+  } else if (act === "del-step")    { b.execution.steps.splice(i, 1); renderSteps(); }
+  else if (act === "add-task")      { b.execution.steps[i].tasks.push(""); renderSteps(); }
+  else if (act === "del-task")      { b.execution.steps[i].tasks.splice(Number(btn.dataset.sub), 1); renderSteps(); }
+  else if (act === "del-sched")     { b.execution.time_schedule.splice(i, 1); renderSchedule(); }
+  else if (act === "del-support")   { b.service_support.items.splice(i, 1); renderSupport(); }
+  else if (act === "del-note")      { b.command_signal.notes.splice(i, 1); renderNotes(); }
+});
+
+document.getElementById("add-unit").addEventListener("click", () => {
+  state.body.task_organization.units.push(
+    { id: sid(), name: "", crew_size: "", ships: "", led_by: "" });
+  renderUnits(); renderSteps();
+});
+document.getElementById("add-step").addEventListener("click", () => {
+  state.body.execution.steps.push({ id: sid(), type: "unit_tasks", unit_id: "", tasks: [""] });
+  renderSteps();
+});
+document.getElementById("add-sched").addEventListener("click", () => {
+  state.body.execution.time_schedule.push({ time: "", text: "" });
+  renderSchedule();
+});
+document.getElementById("add-support").addEventListener("click", () => {
+  state.body.service_support.items.push({ id: sid(), title: "", detail: "" });
+  renderSupport();
+});
+document.getElementById("add-note").addEventListener("click", () => {
+  state.body.command_signal.notes.push({ id: sid(), title: "", detail: "" });
+  renderNotes();
+});
+
+// ── Save / post ────────────────────────────────────────────────────────
+function msg(text, cls) {
+  const el = document.getElementById("opord-msg");
+  el.className = "opord-msg " + (cls || "");
+  el.textContent = text;
+}
+function clearErrors() {
+  document.querySelectorAll(".fld-err").forEach(e => e.textContent = "");
+  document.querySelectorAll(".has-error").forEach(e => e.classList.remove("has-error"));
+}
+function showErrors(errors) {
+  Object.keys(errors).forEach(f => {
+    const el = document.querySelector(`.fld-err[data-for="${f}"]`);
+    if (el) { el.textContent = errors[f]; el.closest(".fld")?.classList.add("has-error"); }
+  });
+}
+
+async function save() {
+  clearErrors();
+  const btn = document.getElementById("opord-save");
+  btn.disabled = true;
+  msg("Saving…");
+  const payload = { header: readHeader(), body: state.body };
+  const isNew = state.id == null;
+  try {
+    const r = await fetch(isNew ? "/api/officers/opord" : "/api/officers/opord/" + state.id, {
+      method: isNew ? "POST" : "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await r.json();
+    if (r.status === 400 && data.errors) { msg("Check the highlighted fields.", "err"); showErrors(data.errors); return; }
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    if (isNew) {
+      state.id = data.id;
+      // Swap the URL to the saved record so a refresh doesn't create a second.
+      history.replaceState(null, "", "/officers/opord/" + data.id);
+      document.getElementById("opord-heading").textContent = "Edit Operation Order";
+    }
+    msg("Saved.", "ok");
+  } catch (err) {
+    msg("Save failed: " + err.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function postToBoard() {
+  if (state.id == null) { msg("Save it first.", "err"); return; }
+  msg("Posting…");
+  try {
+    const r = await fetch("/api/officers/opord/" + state.id + "/post", { method: "POST" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    document.getElementById("f-status").value = "posted";
+    msg("Now the Mission Board OpOrd.", "ok");
+  } catch (err) { msg("Could not post: " + err.message, "err"); }
+}
+
+document.getElementById("opord-save").addEventListener("click", save);
+document.getElementById("opord-post").addEventListener("click", postToBoard);
+
+// ── Boot ───────────────────────────────────────────────────────────────
+(async function init() {
+  if (OPORD_ID == null) {
+    state.id = null;
+    state.body = blankBody();
+    fillHeader({});
+    renderAll();
+    return;
+  }
+  try {
+    const r = await fetch("/api/officers/opord/" + OPORD_ID);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const row = await r.json();
+    state.id = row.id;
+    state.body = row.body;
+    document.getElementById("opord-heading").textContent = "Edit Operation Order";
+    fillHeader(row);
+    renderAll();
+    // Scalar textareas/inputs bound by data-path are filled from state here,
+    // after render, so both sections and repeatables come from one source.
+    document.querySelectorAll("[data-path]").forEach(el => {
+      const v = getPath(state.body, el.dataset.path);
+      if (typeof v === "string") el.value = v;
+    });
+  } catch (err) {
+    msg("Could not load OpOrd: " + err.message, "err");
+  }
+})();
+{% endblock %}
