@@ -255,11 +255,16 @@ nav.section-nav { display: flex; gap: 0; }
   margin: var(--space-8) 0;
 }
 
+/* Flex rather than grid so three cards centre as a group instead of stretching
+   to fill four columns' worth of space. The 240px basis is the width they had
+   as a 4-up grid, so dropping a card doesn't resize the survivors. */
 .deck-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-4);
 }
+.deck-card { flex: 0 1 240px; }
 
 .deck-card {
   padding: var(--space-5);
