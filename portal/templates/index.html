@@ -44,11 +44,16 @@
     {% if readiness %}
     <div class="readiness-grid">
       {% for d in readiness %}
-      <article class="div-card status-{{ d.status }}">
+      {% set st = statuses | selectattr('code', 'equalto', d.status) | first %}
+      {# data-tip drives the CSS tooltip; aria-label carries the same text for
+         screen readers, which can't hover. #}
+      <article class="div-card status-{{ d.status }}"
+               data-tip="{{ st.description }}"
+               aria-label="{{ d.name }} — {{ st.label }}. {{ st.description }}">
         <div class="div-name">{{ d.name }}</div>
         <div class="div-status">
           <span class="dot" aria-hidden="true"></span>
-          {{ statuses | selectattr('code', 'equalto', d.status) | map(attribute='label') | first }}
+          {{ st.label }}
         </div>
         {% if d.posture %}<p class="div-posture">{{ d.posture }}</p>{% endif %}
         {% if d.updated_at %}
@@ -58,6 +63,10 @@
       {% endfor %}
     </div>
 
+    {# Legend hidden 2026-08-30 — the definitions now appear as a tooltip on
+       hover over each division card. Kept here (and its CSS kept in
+       portal.css) in case we want the always-visible version back. #}
+    {#
     <dl class="readiness-legend">
       {% for s in statuses %}
       <div class="legend-item status-{{ s.code }}">
@@ -66,6 +75,7 @@
       </div>
       {% endfor %}
     </dl>
+    #}
     {% else %}
     <p class="scaffold-note">
       Readiness has not been published yet. An officer sets it from the HQ
