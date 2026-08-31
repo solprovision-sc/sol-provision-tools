@@ -297,9 +297,11 @@ def _dataforge_db_path():
     path = os.environ.get('DATAFORGE_DB')
     if path:
         return path
-    # Mirrors app/server.py's default so a local checkout resolves the same file
-    # for both apps without either needing the env var set.
-    return str(REPO_ROOT.parent / 'shared' / 'data' / 'dataforge.db')
+    # The checkout root, where both deployments actually keep it — alongside
+    # org_status.db, opord.db, and applications.db. Deliberately NOT app/
+    # server.py's '../../shared/data/dataforge.db': that one is relative to the
+    # working directory, and both VPS units override it anyway.
+    return str(REPO_ROOT / 'dataforge.db')
 
 
 # Cached: this runs on every page render, and the underlying value changes only

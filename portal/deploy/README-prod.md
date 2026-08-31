@@ -68,26 +68,30 @@ sudo -u solprovision test -r /var/www/sol-provision-tools/app/firebase-service-a
 ### 5. Confirm the dataforge.db path
 
 The header shows which game patch the org's data reflects, read from `dataforge.db`'s
-`patch_history` — the same source the tools app uses. The unit ships with a **guessed** path derived
-from the tools app's relative default. Check it against what the tools service actually uses, and
-correct the unit if they differ:
+`patch_history` — the same source the tools app uses. The portal opens it **read-only**; the
+extractor owns it.
+
+The unit ships with `/var/www/sol-provision-tools/dataforge.db`, confirmed against the live tools
+service. Re-confirm it still matches before copying the unit:
 
 ```bash
 systemctl show solprovision -p Environment | tr ' ' '\n' | grep -i dataforge
 ```
 
-If that prints nothing, the tools app is falling back to its relative default — resolve it from the
-service's working directory:
+Expected:
 
-```bash
-systemctl show solprovision -p WorkingDirectory
+```
+Environment=DATAFORGE_DB=/var/www/sol-provision-tools/dataforge.db
 ```
 
-Then fix `Environment="DATAFORGE_DB=..."` in `portal/deploy/solprovision-portal.service` before
-copying it in the next step. Getting this wrong is not fatal — the portal logs
-`patch version unavailable` and omits the line — but the header will quietly lack the patch version.
+If it differs, edit `Environment="DATAFORGE_DB=..."` in
+`portal/deploy/solprovision-portal.service` to match before the next step. If it prints nothing, the
+tools app is on its relative default — resolve that from `systemctl show solprovision -p
+WorkingDirectory`.
 
-The portal opens this file **read-only**; the extractor owns it.
+Note this is the **checkout root**, not the app's `../../shared/data/` relative default. Getting it
+wrong isn't fatal: the portal logs `patch version unavailable` and omits the line — but the header
+quietly loses the patch version, which is easy to miss.
 
 ### 6. systemd unit
 
