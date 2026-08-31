@@ -19,6 +19,11 @@ Environment="PORTAL_ENV=prod"
 Environment="MEE6_DB=/var/www/sparqy/data/mee6_snapshots.db"
 Environment="FIREBASE_SERVICE_ACCOUNT=/var/www/sol-provision-tools/app/firebase-service-account.json"
 
+# Read-only, for the patch version shown in the header. Must match the path the
+# TOOLS unit uses (`systemctl show solprovision -p Environment`) — the extractor
+# owns this file and the portal only ever reads one row from patch_history.
+Environment="DATAFORGE_DB=/var/www/shared/data/dataforge.db"
+
 # The three databases the portal touches, stated outright rather than left to
 # shared/*.py's REPO_ROOT default. The default would resolve correctly today,
 # but it resolves relative to the checkout — so a future move of the checkout

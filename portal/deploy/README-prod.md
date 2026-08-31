@@ -65,7 +65,31 @@ sudo -u solprovision test -r /var/www/sol-provision-tools/app/firebase-service-a
   && echo "service account OK" || echo "MISSING — copy it from the dev checkout"
 ```
 
-### 5. systemd unit
+### 5. Confirm the dataforge.db path
+
+The header shows which game patch the org's data reflects, read from `dataforge.db`'s
+`patch_history` — the same source the tools app uses. The unit ships with a **guessed** path derived
+from the tools app's relative default. Check it against what the tools service actually uses, and
+correct the unit if they differ:
+
+```bash
+systemctl show solprovision -p Environment | tr ' ' '\n' | grep -i dataforge
+```
+
+If that prints nothing, the tools app is falling back to its relative default — resolve it from the
+service's working directory:
+
+```bash
+systemctl show solprovision -p WorkingDirectory
+```
+
+Then fix `Environment="DATAFORGE_DB=..."` in `portal/deploy/solprovision-portal.service` before
+copying it in the next step. Getting this wrong is not fatal — the portal logs
+`patch version unavailable` and omits the line — but the header will quietly lack the patch version.
+
+The portal opens this file **read-only**; the extractor owns it.
+
+### 6. systemd unit
 
 ```bash
 sudo cp /var/www/sol-provision-tools/portal/deploy/solprovision-portal.service \
@@ -76,7 +100,7 @@ sudo systemctl enable solprovision-portal      # enable, but do NOT start yet
 
 If the repo file isn't on the box yet, paste the unit from `portal/deploy/solprovision-portal.service`.
 
-### 6. Let the deploy user restart it
+### 7. Let the deploy user restart it
 
 ```bash
 sudo visudo -f /etc/sudoers.d/solprovision-deploy
@@ -99,7 +123,7 @@ Verify:
 sudo -l -U solprovision | grep portal
 ```
 
-### 7. nginx
+### 8. nginx
 
 ```bash
 sudo cp /var/www/sol-provision-tools/portal/deploy/nginx-portal.conf \
@@ -113,7 +137,7 @@ sudo systemctl reload nginx
 `nginx -t` before every reload — a bad config plus a reload takes tools prod down too, since they
 share one nginx.
 
-### 8. TLS
+### 9. TLS
 
 DNS for `portal.solprovision.com` must already resolve to this box, or certbot's HTTP-01 challenge
 fails.
@@ -125,7 +149,7 @@ sudo certbot --nginx -d portal.solprovision.com
 
 Certbot rewrites the server block in place, adding `listen 443 ssl` and the http→https redirect.
 
-### 9. Firebase authorized domain
+### 10. Firebase authorized domain
 
 In the Firebase console for **`sp-ledger`** → Authentication → Settings → Authorized domains, add
 `portal.solprovision.com`. Without it the Discord popup opens and immediately closes with

@@ -72,6 +72,18 @@ body {
   text-transform: uppercase;
   margin-top: 5px;
 }
+/* Game patch the org's data reflects. Mirrors the tools header's .logo-patch.
+   The label uses --sun-600 directly: the tools app reaches it through a
+   --terra alias defined in theme.css, which the portal doesn't load. */
+.logo-patch {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.logo-patch .patch-label { color: var(--sun-600); }
 
 .header-right { display: flex; align-items: center; gap: 20px; }
 
