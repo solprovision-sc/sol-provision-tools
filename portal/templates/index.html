@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block extra_css %}
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+{% endblock %}
+
+{% block body %}
+
+<!-- ── Login overlay ─────────────────────────────────────────────────────── -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-card">
+    <div class="eyebrow">COMMAND DECK</div>
+    <h1>The Provisioner Portal</h1>
+    <p class="lede">Operational access for accepted Provisioners.</p>
+
+    <button type="button" class="btn-discord" id="discordLoginBtn">
+      LOGIN WITH DISCORD
+    </button>
+
+    <p class="auth-status" id="authStatus">AWAITING AUTHORIZATION…</p>
+
+    {% if not auth_enabled %}
+    <p class="auth-warn">
+      Authentication is not configured on this server. Set
+      <code>FIREBASE_SERVICE_ACCOUNT</code> to enable sign-in.
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Gated content ─────────────────────────────────────────────────────── -->
+<main class="portal-body blurred" id="portalBody">
+
+  <!-- ── Division Readiness Matrix ──────────────────────────────────────────
+       Deliberately first: this is the status board members open the portal to
+       check. The divider below separates it from the navigational deck. -->
+  <section class="readiness" id="readiness">
+    <header class="section-head">
+      <h2>Division Readiness Matrix</h2>
+      <p class="section-sub">Live posture across Sol Provision commands.</p>
+    </header>
+
+    {% if readiness %}
+    <div class="readiness-grid">
+      {% for d in readiness %}
+      {% set st = statuses | selectattr('code', 'equalto', d.status) | first %}
+      {# data-tip drives the CSS tooltip; aria-label carries the same text for
+         screen readers, which can't hover. #}
+      <article class="div-card status-{{ d.status }}"
+               data-tip="{{ st.description }}"
+               aria-label="{{ d.name }} — {{ st.label }}. {{ st.description }}">
+        <div class="div-name">{{ d.name }}</div>
+        <div class="div-status">
+          <span class="dot" aria-hidden="true"></span>
+          {{ st.label }}
+        </div>
+        {% if d.posture %}<p class="div-posture">{{ d.posture }}</p>{% endif %}
+        {% if d.updated_at %}
+        <time class="div-updated" datetime="{{ d.updated_at }}">{{ d.updated_at[:10] }}</time>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+
+    {# Legend hidden 2026-08-30 — the definitions now appear as a tooltip on
+       hover over each division card. Kept here (and its CSS kept in
+       portal.css) in case we want the always-visible version back. #}
+    {#
+    <dl class="readiness-legend">
+      {% for s in statuses %}
+      <div class="legend-item status-{{ s.code }}">
+        <dt><span class="dot" aria-hidden="true"></span>{{ s.label }}</dt>
+        <dd>{{ s.description }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    #}
+    {% else %}
+    <p class="scaffold-note">
+      Readiness has not been published yet. An officer sets it from the HQ
+      dashboard's Portal Administration panel.
+    </p>
+    {% endif %}
+  </section>
+
+  <hr class="section-divider">
+
+  <section class="command-deck">
+    <div class="eyebrow">COMMAND DECK</div>
+    <h1>Welcome to the Provisioner Portal</h1>
+    <p class="lede">Operational access for accepted Provisioners.</p>
+  </section>
+
+  <section class="deck-grid">
+    <a class="deck-card" href="/mission-board">
+      <h2>Mission Board</h2>
+      <p>Upcoming missions, schedules, and operation briefs.</p>
+      <span class="card-tag">VIEW BRIEF</span>
+    </a>
+    <article class="deck-card">
+      <h2>Doctrine Library</h2>
+      <p>Standards, SOPs, orientation, and organizational doctrine.</p>
+      <span class="card-tag">REVIEW</span>
+    </article>
+    <a class="deck-card" href="https://tools.solprovision.com/">
+      <h2>Org Tools</h2>
+      <p>Ship database, loadouts, trade and cargo planning, mining tools.</p>
+      <span class="card-tag">OPEN TOOLS &#8599;</span>
+    </a>
+  </section>
+
+</main>
+
+{% endblock %}
+
+{% block page_script %}
+<script>
+(function () {
+  'use strict';
+
+  // Config comes from the server so the JS SDK and the Admin SDK can never
+  // end up pointed at different Firebase projects.
+  var firebaseConfig = {{ firebase_config | tojson }};
+  var ENV = {{ env | tojson }};
+  var AUTH_ENABLED = {{ auth_enabled | tojson }};
+  var SIGNED_IN = {{ signed_in | tojson }};
+
+  var overlay    = document.getElementById('authOverlay');
+  var body       = document.getElementById('portalBody');
+  var statusText = document.getElementById('authStatus');
+  var loginBtn   = document.getElementById('discordLoginBtn');
+  var headerMeta = document.getElementById('header-meta');
+
+  var auth = null;
+
+  function showApp(user) {
+    // If the page was served anonymously, the member sections aren't in this
+    // HTML at all. /api/auth/verify has just set the session cookie, so one
+    // reload brings the real page back. It can't loop: the reloaded render
+    // sees the session and sets SIGNED_IN.
+    if (!SIGNED_IN) { window.location.reload(); return; }
+    overlay.classList.add('hidden');
+    body.classList.remove('blurred');
+    window.currentUser = user;
+    window.renderPortalHeader(user);   // fills callsign/rank, adds HQ for 5+
+  }
+
+  function showLogin(message) {
+    overlay.classList.remove('hidden');
+    body.classList.add('blurred');
+    window.renderPortalHeader(null);   // clears the user block and HQ link
+    statusText.textContent = message || 'AWAITING AUTHORIZATION…';
+  }
+
+  // Local development bypass. Driven by the SERVER's environment, not by
+  // sniffing window.location.hostname — a hostname check would also fire for
+  // anyone reaching a deployed instance through a localhost tunnel.
+  if (ENV === 'local' && !AUTH_ENABLED) {
+    console.info('[portal] local env without Firebase — auth bypassed');
+    showApp({ discord_id: '123456789', username: 'TestUser', callsign: 'Test User', rank: 9 });
+    loginBtn.disabled = true;
+    return;
+  }
+
+  if (!AUTH_ENABLED) {
+    showLogin('AUTH UNAVAILABLE');
+    loginBtn.disabled = true;
+    return;
+  }
+
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+
+  auth.onAuthStateChanged(async function (user) {
+    if (!user) {
+      showLogin();
+      return;
+    }
+    try {
+      var idToken = await user.getIdToken();
+      var res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || 'Verification failed');
+      showApp(data);
+    } catch (err) {
+      console.error('[portal] auth error:', err);
+      statusText.textContent = (err.message || 'VERIFICATION ERROR').toUpperCase();
+      // Drop the Firebase session too, otherwise onAuthStateChanged keeps
+      // reporting a signed-in user that this server has already rejected.
+      await auth.signOut();
+    }
+  });
+
+  loginBtn.addEventListener('click', async function () {
+    statusText.textContent = 'CONNECTING TO DISCORD…';
+    var provider = new firebase.auth.OAuthProvider('oidc.discord');
+    provider.addScope('identify');
+    try {
+      await auth.signInWithPopup(provider);
+      statusText.textContent = 'VERIFYING MEMBERSHIP…';
+    } catch (err) {
+      console.error('[portal] login error:', err);
+      statusText.textContent = 'AUTH ERROR: ' + (err.message || err.code || 'unknown');
+    }
+  });
+
+  // Delegated: the sign-out button is created by renderPortalHeader(), so it
+  // doesn't exist at wiring time.
+  headerMeta.addEventListener('click', async function (e) {
+    if (!e.target || e.target.id !== 'logoutBtn') return;
+    await fetch('/api/auth/logout', { method: 'POST' });
+    if (auth) await auth.signOut();
+    showLogin('SIGNED OUT');
+  });
+})();
+</script>
+{% endblock %}

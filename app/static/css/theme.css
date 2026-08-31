@@ -129,9 +129,8 @@ header::before {
   margin-top: 5px;
 }
 
-/* main's header renders the patch version inside the logo (.logo-patch); the dev
-   header lays it out elsewhere, so 2956 didn't carry these. Ported verbatim so the
-   patch line stays styled instead of inheriting the logo link's default color. */
+/* Patch version, rendered inside the logo block under .logo-sub. Kept byte-for-byte
+   identical to main's copy so promoting this file is a no-op on these rules. */
 .logo-patch {
   font-family: var(--font-mono);
   font-size: 12px;

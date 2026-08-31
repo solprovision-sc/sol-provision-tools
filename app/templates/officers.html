@@ -540,6 +540,258 @@
   font-family: var(--font-mono); font-size: 0.76rem; color: var(--text3);
   padding: 26px 4px; text-align: center;
 }
+
+/* ── Top-level view switch (Data View | Admin) ─────────────────────────────
+   Reporting and anything that writes to the public portal are different jobs;
+   they no longer share a screen. */
+.view-tabs { margin-bottom: 18px; }
+.view-panel { display: none; }
+.view-panel.active { display: block; }
+
+.admin-note {
+  margin-bottom: 14px; padding: 9px 14px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-left: 2px solid var(--accent); border-radius: var(--radius-sm);
+  font-family: var(--font-ui); font-size: .74rem; letter-spacing: .03em;
+  color: var(--accent);
+}
+
+/* Side-by-side, but auto-fit so a narrow window stacks them rather than
+   squeezing. align-items:start keeps each card at its own height instead of
+   stretching the shorter one to match. */
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+  /* Row gap deliberately larger than the column gap: cards side by side read
+     as a pair, cards stacked read as separate groups, and they need different
+     amounts of air to do that. */
+  gap: 28px 18px;
+  align-items: start;
+}
+/* The admin view is two sibling grids with nothing between them, so the two
+   rows of cards ran together as one block. */
+.admin-grid + .admin-grid { margin-top: 28px; }
+
+.admin-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 16px 20px 18px;
+  min-width: 0;                 /* lets the grid actually shrink the card */
+}
+
+.admin-section-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+.admin-section-head h3 {
+  font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--text2); margin: 0;
+}
+.admin-section-sub { font-family: var(--font-ui); font-size: .72rem; color: var(--text3); }
+
+.readiness-row {
+  display: grid;
+  /* Division | status | posture. Narrower than the old full-width panel, so
+     the posture field takes what's left rather than a fixed share. */
+  grid-template-columns: 118px 150px minmax(0, 1fr);
+  gap: 10px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.readiness-row:first-child { border-top: 0; }
+.rr-div { display: flex; flex-direction: column; gap: 2px; }
+.rr-name {
+  font-family: var(--font-ui); font-size: .84rem; font-weight: 600;
+  letter-spacing: .04em; color: var(--text);
+}
+.rr-meta {
+  font-family: var(--font-mono); font-size: .66rem; color: var(--text3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.readiness-row select,
+.readiness-row input[type=text] {
+  background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 9px; font-family: var(--font-ui); font-size: .8rem; width: 100%;
+}
+.readiness-row select:focus,
+.readiness-row input[type=text]:focus { outline: none; border-color: var(--accent); }
+/* Status colour rides on the select itself so the row reads at a glance. */
+.readiness-row select.s-operational    { border-left: 3px solid var(--green); }
+.readiness-row select.s-heightened     { border-left: 3px solid var(--accent); }
+.readiness-row select.s-critical       { border-left: 3px solid var(--danger); }
+.readiness-row select.s-reconstitution { border-left: 3px solid var(--text3); }
+
+.admin-actions { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.btn-save {
+  background: var(--brand); color: var(--on-brand);
+  border: 1px solid var(--line-brand); border-radius: var(--radius-sm);
+  padding: 8px 18px; cursor: pointer;
+  font-family: var(--font-ui); font-size: .76rem; font-weight: 700;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+.btn-save:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-save:disabled { opacity: .5; cursor: not-allowed; }
+.admin-msg { font-family: var(--font-mono); font-size: .72rem; color: var(--text3); }
+.admin-msg.ok { color: var(--green); }
+.admin-msg.err { color: var(--danger); }
+.readiness-msg { font-family: var(--font-mono); font-size: .74rem; color: var(--text3); padding: 8px 0; }
+
+.admin-history { margin-top: 16px; }
+.admin-history summary {
+  cursor: pointer; font-family: var(--font-ui); font-size: .72rem;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text3);
+}
+.admin-history summary:hover { color: var(--accent); }
+.history-list { list-style: none; margin: 10px 0 0; padding: 0; }
+.history-list li {
+  font-family: var(--font-mono); font-size: .7rem; color: var(--text3);
+  padding: 3px 0; border-top: 1px solid var(--border);
+}
+
+.apps-counts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.count-chip {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 5px 11px; border: 1px solid var(--border); border-radius: var(--radius-pill);
+  background: var(--bg3);
+}
+.count-chip .n {
+  font-family: var(--font-mono); font-size: .82rem; font-weight: 700; color: var(--text);
+}
+.count-chip .s {
+  font-family: var(--font-ui); font-size: .64rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text3);
+}
+/* Colour only the states that want attention; accepted/declined stay neutral. */
+.count-chip.st-new       { border-color: var(--accent); }
+.count-chip.st-new .n    { color: var(--accent); }
+.count-chip.st-reviewing { border-color: var(--gold); }
+
+.apps-list { max-height: 460px; overflow-y: auto; }
+.apps-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.apps-filter label {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--text3);
+}
+.apps-filter select {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 5px 8px;
+  font-family: var(--font-ui); font-size: .76rem;
+}
+
+.app-row { border-top: 1px solid var(--border); }
+.app-row:first-child { border-top: 0; }
+.app-row > summary {
+  display: grid; grid-template-columns: 76px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center; padding: 9px 0; cursor: pointer;
+  font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
+}
+.app-main { min-width: 0; }
+.app-meta {
+  display: block; font-family: var(--font-mono); font-size: .66rem;
+  color: var(--text3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-row > summary::-webkit-details-marker { display: none; }
+.app-row > summary:hover { color: var(--text); }
+.app-when { font-family: var(--font-mono); font-size: .7rem; color: var(--text3); }
+.app-rsi { color: var(--text); font-weight: 600; }
+.app-badge {
+  justify-self: start;
+  font-family: var(--font-ui); font-size: .62rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.app-badge.st-new       { border-color: var(--accent); color: var(--accent); }
+.app-badge.st-reviewing { border-color: var(--gold);   color: var(--gold); }
+.app-badge.st-accepted  { border-color: var(--green);  color: var(--green); }
+.app-badge.st-declined  { border-color: var(--danger); color: var(--danger); }
+
+.app-detail { padding: 4px 0 16px 76px; }
+.app-detail dl { display: grid; grid-template-columns: 118px minmax(0,1fr); gap: 6px 12px; margin: 0; }
+.app-detail dt {
+  font-family: var(--font-ui); font-size: .66rem; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+}
+.app-detail dd { margin: 0; font-size: .8rem; color: var(--text2); white-space: pre-wrap; }
+.app-src {
+  font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em;
+  color: var(--text3);
+}
+
+#card-missionboard { min-width: 0; }
+
+.tasking-row {
+  display: grid;
+  grid-template-columns: 26px 142px minmax(0, 1fr);
+  gap: 10px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.tasking-row:first-child { border-top: 0; }
+.tasking-slot {
+  font-family: var(--font-mono); font-size: .72rem; color: var(--text3);
+}
+.tasking-row input[type=text], .tasking-row input[type=date] {
+  width: 100%; background: var(--bg3); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 9px; font-family: var(--font-ui); font-size: .8rem;
+}
+.tasking-row input:focus { outline: none; border-color: var(--accent); }
+/* A slot with a date but no title would render as a blank line on the board. */
+.tasking-row.incomplete input[type=text] { border-color: var(--warning); }
+.tasking-note {
+  margin-top: 10px; font-family: var(--font-ui); font-size: .7rem; color: var(--text3);
+}
+.opord-toolbar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.opord-toolbar .btn-save { text-decoration: none; display: inline-block; }
+
+.opord-table { width: 100%; border-collapse: collapse; }
+.opord-table { table-layout: fixed; }
+.opord-table th {
+  text-align: left; padding: 7px 8px 9px;
+  font-family: var(--font-ui); font-size: .66rem; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--text3);
+  border-bottom: 1px solid var(--border2);
+}
+.opord-table td {
+  padding: 9px 8px; border-top: 1px solid var(--border);
+  font-family: var(--font-ui); font-size: .8rem; color: var(--text2);
+  vertical-align: middle;
+}
+.opord-title-cell { color: var(--text); font-weight: 600; }
+.opord-sub {
+  display: block; font-family: var(--font-mono); font-size: .66rem;
+  color: var(--text3); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.opord-when { font-family: var(--font-mono); font-size: .72rem; color: var(--text3); }
+.opord-actions-cell { text-align: right; white-space: nowrap; }
+.opord-actions-cell a, .opord-actions-cell button {
+  background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  color: var(--text3); cursor: pointer; padding: 4px 10px; margin-left: 6px;
+  text-decoration: none; font-family: var(--font-ui); font-size: .66rem;
+  letter-spacing: .1em; text-transform: uppercase; display: inline-block;
+}
+.opord-actions-cell a:hover, .opord-actions-cell button:hover {
+  color: var(--accent); border-color: var(--accent);
+}
+.st-badge {
+  font-family: var(--font-ui); font-size: .62rem; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.st-badge.s-posted   { border-color: var(--green);  color: var(--green); }
+.st-badge.s-draft    { border-color: var(--border2); color: var(--text3); }
+.st-badge.s-archived { border-color: var(--border2); color: var(--text3); }
+/* The one actually on the portal right now — posted AND inside the 48h window. */
+.st-badge.on-board   { border-color: var(--accent); color: var(--accent); }
+
+@media (max-width: 720px) {
+  .readiness-row { grid-template-columns: 1fr; gap: 6px; }
+  .app-row > summary { grid-template-columns: 1fr; gap: 3px; }
+  .app-detail { padding-left: 0; }
+  .app-detail dl { grid-template-columns: 1fr; }
+}
 </style>
 {% endblock %}
 
@@ -547,6 +799,15 @@
 <div class="officers-page">
   <h1 class="officers-page-title">Officer Dashboard</h1>
   <div class="officers-page-sub">Org-wide acquisition &amp; ownership intelligence — prod data</div>
+
+  <!-- Top-level split: reporting on one side, anything that writes to the
+       public portal on the other. The Data View tabs are nested inside it. -->
+  <div class="tabs view-tabs" id="view-tabs" role="tablist">
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="view-data"  data-view="data"  onclick="setView(this)">Data View</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="view-admin" data-view="admin" onclick="setView(this)">Admin</button>
+  </div>
+
+  <div class="view-panel active" id="view-data">
 
   <div class="tabs" id="dash-tabs" role="tablist">
     <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-blueprints" data-tab="blueprints" onclick="setTab(this)">Blueprints</button>
@@ -679,6 +940,89 @@
       </div>
     </div>
   </section>
+  </div><!-- /#view-data -->
+
+  <div class="view-panel" id="view-admin">
+    <div class="admin-note">
+      Everything here changes what the whole org sees on the Provisioner Portal.
+    </div>
+    <div class="admin-grid">
+
+      <section class="admin-card" id="card-readiness">
+        <div class="admin-section-head">
+          <h3>Division Readiness</h3>
+          <span class="admin-section-sub">Any officer may update any division.</span>
+        </div>
+
+        <div class="readiness-rows" id="readiness-rows">
+          <div class="readiness-msg">Loading…</div>
+        </div>
+
+        <div class="admin-actions">
+          <button type="button" class="btn-save" id="readiness-save">Save Readiness</button>
+          <span class="admin-msg" id="readiness-msg"></span>
+        </div>
+
+        <details class="admin-history">
+          <summary>Recent changes</summary>
+          <ul id="readiness-history" class="history-list"></ul>
+        </details>
+      </section>
+
+      <section class="admin-card" id="card-applications">
+        <div class="admin-section-head">
+          <h3>Membership Applications</h3>
+          <span class="admin-section-sub">From the public join page.</span>
+        </div>
+
+        <div class="apps-counts" id="apps-counts"></div>
+
+        <div class="apps-filter">
+          <label for="apps-status">Show</label>
+          <select id="apps-status">
+            <option value="">All</option>
+          </select>
+        </div>
+
+        <div class="apps-list" id="apps-list">
+          <div class="readiness-msg">Loading…</div>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="admin-grid">
+    <section class="admin-card" id="card-missionboard">
+      <div class="admin-section-head">
+        <h3>Mission Board · Operation Orders</h3>
+        <span class="admin-section-sub">The posted OpOrd shows on the portal until 48h past muster.</span>
+      </div>
+
+      <div class="opord-toolbar">
+        <a class="btn-save" href="/officers/opord/new">+ New OpOrd</a>
+        <span class="admin-msg" id="opord-list-msg"></span>
+      </div>
+
+      <div id="opord-list"><div class="readiness-msg">Loading…</div></div>
+    </section>
+
+    <section class="admin-card" id="card-tasking">
+      <div class="admin-section-head">
+        <h3>Upcoming Tasking</h3>
+        <span class="admin-section-sub">The next four operations, as shown on the portal.</span>
+      </div>
+
+      <div class="tasking-rows" id="tasking-rows">
+        <div class="readiness-msg">Loading…</div>
+      </div>
+
+      <div class="admin-actions">
+        <button type="button" class="btn-save" id="tasking-save">Save Tasking</button>
+        <span class="admin-msg" id="tasking-msg"></span>
+      </div>
+    </section>
+    </div>
+  </div><!-- /#view-admin -->
 </div>
 {% endblock %}
 
@@ -1550,10 +1894,396 @@ function setTab(btn) {
   history.replaceState(null, "", "#" + name);
 }
 
+// ── Portal Administration: Division Readiness ──────────────────────────
+// Writes to org_status.db through /api/officers/readiness; the portal reads
+// that same file read-only. Save submits every division and the server writes
+// only the ones that actually changed — otherwise whoever hits Save would be
+// recorded as the author of all four.
+
+let READINESS_STATUSES = [];
+
+async function loadReadiness() {
+  const rows = document.getElementById("readiness-rows");
+  try {
+    const r = await fetch("/api/officers/readiness");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    READINESS_STATUSES = data.statuses || [];
+    renderReadinessRows(data.divisions || []);
+    renderReadinessHistory(data.recent || []);
+  } catch (err) {
+    rows.innerHTML = '<div class="readiness-msg">Could not load readiness: '
+                   + escapeHtml(err.message) + '</div>';
+  }
+}
+
+function renderReadinessRows(divisions) {
+  const rows = document.getElementById("readiness-rows");
+  rows.innerHTML = divisions.map(d => {
+    const opts = READINESS_STATUSES.map(s =>
+      '<option value="' + s.code + '"' + (s.code === d.status ? " selected" : "") + ">"
+      + escapeHtml(s.label) + "</option>").join("");
+    // Code + date only; the editor's name moves to the tooltip. At half width
+    // "updated 2026-08-16 by seed (imported from Squarespace portal)" wrapped
+    // to four lines and made every row tall.
+    const when = (d.updated_at || "").slice(0, 10);
+    const who = d.updated_by_name ? escapeHtml(when) : "never set";
+    const whoTitle = d.updated_by_name
+      ? "Updated " + when + " by " + d.updated_by_name
+      : "Never set";
+    return '<div class="readiness-row" data-code="' + escapeHtml(d.code) + '">'
+      + '<div class="rr-div">'
+      +   '<span class="rr-name">' + escapeHtml(d.name) + '</span>'
+      +   '<span class="rr-meta" title="' + escapeHtml(whoTitle) + '">'
+      +     escapeHtml(d.code) + " · " + who + '</span>'
+      + '</div>'
+      + '<select class="rr-status s-' + escapeHtml(d.status) + '">' + opts + '</select>'
+      + '<input type="text" class="rr-posture" maxlength="120"'
+      +   ' placeholder="Brief posture description"'
+      +   ' value="' + escapeHtml(d.posture || "") + '">'
+      + '</div>';
+  }).join("");
+
+  // Keep the colour bar in step with the selection before it's even saved.
+  rows.querySelectorAll(".rr-status").forEach(sel => {
+    sel.addEventListener("change", () => { sel.className = "rr-status s-" + sel.value; });
+  });
+}
+
+function renderReadinessHistory(recent) {
+  const ul = document.getElementById("readiness-history");
+  if (!recent.length) { ul.innerHTML = "<li>No changes recorded yet.</li>"; return; }
+  ul.innerHTML = recent.map(r =>
+    "<li>" + escapeHtml((r.updated_at || "").slice(0, 10)) + " · "
+    + escapeHtml(r.division_code) + " → " + escapeHtml(r.status)
+    + (r.updated_by_name ? " · " + escapeHtml(r.updated_by_name) : "")
+    + "</li>").join("");
+}
+
+async function saveReadiness() {
+  const btn = document.getElementById("readiness-save");
+  const msg = document.getElementById("readiness-msg");
+  const divisions = Array.from(document.querySelectorAll(".readiness-row")).map(row => ({
+    code: row.dataset.code,
+    status: row.querySelector(".rr-status").value,
+    posture: row.querySelector(".rr-posture").value,
+  }));
+
+  btn.disabled = true;
+  msg.className = "admin-msg";
+  msg.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/officers/readiness", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ divisions }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    msg.className = "admin-msg ok";
+    msg.textContent = data.saved === 0
+      ? "No changes to save."
+      : data.saved + (data.saved === 1 ? " division updated." : " divisions updated.");
+    await loadReadiness();   // repaint rows + history from the server's view
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Save failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Portal Administration: Membership Applications ─────────────────────
+// Read-only. The portal owns writes to applications.db; this panel is a review
+// surface, not an editor.
+
+var APPS_CACHE = [];
+
+function fmtDate(iso) {
+  return (iso || '').slice(0, 10);
+}
+
+async function loadApplications() {
+  var list = document.getElementById("apps-list");
+  var status = document.getElementById("apps-status").value;
+  try {
+    var url = "/api/officers/applications" + (status ? "?status=" + encodeURIComponent(status) : "");
+    var r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    var data = await r.json();
+
+    if (!data.available) {
+      document.getElementById("apps-counts").innerHTML = "";
+      list.innerHTML = '<div class="readiness-msg">No applications database yet — '
+                     + 'it is created by the first submission on the join page.</div>';
+      return;
+    }
+    APPS_CACHE = data.applications || [];
+    renderAppStatusOptions(data.statuses || []);
+    renderAppCounts(data.counts || {});
+    renderAppRows(APPS_CACHE);
+  } catch (err) {
+    list.innerHTML = '<div class="readiness-msg">Could not load applications: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderAppStatusOptions(statuses) {
+  var sel = document.getElementById("apps-status");
+  if (sel.options.length > 1) return;            // populate once
+  statuses.forEach(function (st) {
+    var o = document.createElement("option");
+    o.value = st;
+    o.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+    sel.appendChild(o);
+  });
+}
+
+function renderAppCounts(counts) {
+  var order = ["new", "reviewing", "accepted", "declined", "withdrawn"];
+  var total = order.reduce(function (a, k) { return a + (counts[k] || 0); }, 0);
+  var html = '<div class="count-chip"><span class="n">' + total
+           + '</span><span class="s">Total</span></div>';
+  order.forEach(function (st) {
+    if (!counts[st]) return;
+    html += '<div class="count-chip st-' + st + '"><span class="n">' + counts[st]
+          + '</span><span class="s">' + escapeHtml(st) + "</span></div>";
+  });
+  document.getElementById("apps-counts").innerHTML = html;
+}
+
+function renderAppRows(apps) {
+  var list = document.getElementById("apps-list");
+  if (!apps.length) {
+    list.innerHTML = '<div class="readiness-msg">No applications match that filter.</div>';
+    return;
+  }
+  list.innerHTML = apps.map(function (a) {
+    return '<details class="app-row">'
+      + "<summary>"
+      +   '<span class="app-when">' + escapeHtml(fmtDate(a.submitted_at)) + "</span>"
+      +   '<span class="app-main">'
+      +     '<span class="app-rsi">' + escapeHtml(a.rsi_username || "") + "</span>"
+      +     '<span class="app-meta">' + escapeHtml(a.discord_username || "")
+      +       "  ·  " + escapeHtml(a.division_interest || "") + "</span>"
+      +   "</span>"
+      +   '<span class="app-badge st-' + escapeHtml(a.status) + '">'
+      +     escapeHtml(a.status) + "</span>"
+      + "</summary>"
+      + '<div class="app-detail"><dl>'
+      +   "<dt>Email</dt><dd>" + escapeHtml(a.email || "") + "</dd>"
+      +   "<dt>Time zone</dt><dd>" + escapeHtml(a.time_zone || "") + "</dd>"
+      +   "<dt>Play window</dt><dd>" + escapeHtml(a.play_window || "—") + "</dd>"
+      +   "<dt>Heard about us</dt><dd>" + escapeHtml(a.heard_about || "") + "</dd>"
+      +   "<dt>Referred by</dt><dd>" + escapeHtml(a.referred_by || "—") + "</dd>"
+      +   "<dt>What draws them</dt><dd>" + escapeHtml(a.motivation || "") + "</dd>"
+      +   "<dt>18+ confirmed</dt><dd>" + (a.age_confirmed ? "Yes" : "Not recorded") + "</dd>"
+      +   '<dt>Source</dt><dd class="app-src">' + escapeHtml(a.source || "web")
+      +     "  ·  " + escapeHtml(a.submitted_at || "") + "</dd>"
+      + "</dl></div>"
+      + "</details>";
+  }).join("");
+}
+
+// ── Portal Administration: Upcoming Tasking ────────────────────────────
+// Four fixed slots, same change-only save as Division Readiness.
+
+async function loadTasking() {
+  const host = document.getElementById("tasking-rows");
+  try {
+    const r = await fetch("/api/officers/tasking");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    renderTaskingRows(data.slots || []);
+  } catch (err) {
+    host.innerHTML = '<div class="readiness-msg">Could not load tasking: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderTaskingRows(slots) {
+  const host = document.getElementById("tasking-rows");
+  host.innerHTML = slots.map(s => `
+    <div class="tasking-row" data-slot="${s.slot}">
+      <span class="tasking-slot">${s.slot}</span>
+      <input type="date" class="tk-date" value="${escapeHtml(s.tasking_date || "")}">
+      <input type="text" class="tk-title" maxlength="120" placeholder="Operation name"
+             value="${escapeHtml(s.title || "")}">
+    </div>`).join("")
+    + '<div class="tasking-note">Leave a slot blank to hide it from the board.</div>';
+  host.querySelectorAll(".tasking-row").forEach(markTaskingRow);
+  host.addEventListener("input", e => {
+    const row = e.target.closest(".tasking-row");
+    if (row) markTaskingRow(row);
+  });
+}
+
+// A date with no title renders as a blank line on the board, so flag it before
+// it gets saved rather than after someone spots it on the portal.
+function markTaskingRow(row) {
+  const hasDate = !!row.querySelector(".tk-date").value;
+  const hasTitle = !!row.querySelector(".tk-title").value.trim();
+  row.classList.toggle("incomplete", hasDate && !hasTitle);
+}
+
+async function saveTasking() {
+  const btn = document.getElementById("tasking-save");
+  const msg = document.getElementById("tasking-msg");
+  const slots = Array.from(document.querySelectorAll(".tasking-row")).map(row => ({
+    slot: Number(row.dataset.slot),
+    tasking_date: row.querySelector(".tk-date").value,
+    title: row.querySelector(".tk-title").value
+  }));
+
+  btn.disabled = true;
+  msg.className = "admin-msg";
+  msg.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/officers/tasking", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slots })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    msg.className = "admin-msg ok";
+    msg.textContent = data.saved === 0
+      ? "No changes to save."
+      : data.saved + (data.saved === 1 ? " slot updated." : " slots updated.");
+    renderTaskingRows(data.slots || []);
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Save failed: " + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Portal Administration: Mission Board / OpOrds ──────────────────────
+// List only. Creating and editing happen on /officers/opord/<id>, which is its
+// own officer-gated page.
+
+async function loadOpords() {
+  const host = document.getElementById("opord-list");
+  try {
+    const r = await fetch("/api/officers/opords");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    renderOpords(await r.json());
+  } catch (err) {
+    host.innerHTML = '<div class="readiness-msg">Could not load OpOrds: '
+                   + escapeHtml(err.message) + "</div>";
+  }
+}
+
+function renderOpords(data) {
+  const host = document.getElementById("opord-list");
+  const rows = data.opords || [];
+  if (!rows.length) {
+    host.innerHTML = '<div class="readiness-msg">No OpOrds yet — '
+                   + 'use “+ New OpOrd” to write the first one.</div>';
+    return;
+  }
+  host.innerHTML =
+    '<table class="opord-table"><thead><tr>'
+    + "<th>Title</th><th>Mission Date</th><th>Status</th><th></th>"
+    + "</tr></thead><tbody>"
+    + rows.map(o => {
+        // is_current is computed server-side from status + the 48h muster
+        // window, so this badge reflects what the portal would actually show.
+        const badge = o.is_current
+          ? '<span class="st-badge on-board">On Board</span>'
+          : '<span class="st-badge s-' + escapeHtml(o.status) + '">'
+            + escapeHtml(o.status) + "</span>";
+        // Commander moves under the title and Last Updated is dropped: this
+        // table now shares a row with Upcoming Tasking rather than spanning
+        // the full width.
+        return "<tr>"
+          + '<td class="opord-title-cell">' + escapeHtml(o.title)
+          +   '<span class="opord-sub">' + escapeHtml(o.commander || "no commander set")
+          +   "</span></td>"
+          + '<td class="opord-when">' + escapeHtml(o.mission_date || "—")
+          +   (o.muster_time ? "<br>" + escapeHtml(o.muster_time) : "") + "</td>"
+          + "<td>" + badge + "</td>"
+          + '<td class="opord-actions-cell">'
+          +   '<a href="/officers/opord/' + o.id + '">Edit</a>'
+          +   '<button type="button" data-act="dup-opord" data-id="' + o.id + '">Duplicate</button>'
+          + "</td></tr>";
+      }).join("")
+    + "</tbody></table>";
+}
+
+async function duplicateOpord(id) {
+  const msg = document.getElementById("opord-list-msg");
+  msg.className = "admin-msg";
+  msg.textContent = "Duplicating…";
+  try {
+    const r = await fetch("/api/officers/opord/" + id + "/duplicate", { method: "POST" });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.error || ("HTTP " + r.status));
+    // Straight into the copy — duplicating is always a prelude to editing it.
+    window.location.href = "/officers/opord/" + data.id;
+  } catch (err) {
+    msg.className = "admin-msg err";
+    msg.textContent = "Duplicate failed: " + err.message;
+  }
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest('[data-act="dup-opord"]');
+  if (btn) duplicateOpord(btn.dataset.id);
+});
+
+// ── Top-level view switch ──────────────────────────────────────────────
+const VIEW_NAMES = ["data", "admin"];
+let adminLoaded = false;
+
+function activateView(name) {
+  if (!VIEW_NAMES.includes(name)) name = "data";
+
+  document.querySelectorAll("#view-tabs .tab-btn").forEach(b => {
+    const on = b.dataset.view === name;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll(".view-panel").forEach(v => {
+    v.classList.toggle("active", v.id === "view-" + name);
+  });
+
+  // Admin data is fetched on first reveal rather than on every HQ load. The
+  // applications list carries applicant emails; there's no reason to pull it
+  // for an officer who came in to look at ore.
+  if (name === "admin" && !adminLoaded) {
+    adminLoaded = true;
+    loadReadiness();
+    loadApplications();
+    loadOpords();
+    loadTasking();
+  }
+  return name;
+}
+
+function setView(btn) {
+  const name = activateView(btn.dataset.view);
+  history.replaceState(null, "", "#" + name);
+}
+
 // ── Init ───────────────────────────────────────────────────────────────
 (function init() {
   document.getElementById("shopping-calc-btn")
           .addEventListener("click", calculateShoppingList);
-  activateTab((location.hash || "").replace(/^#/, ""));
+  document.getElementById("readiness-save")
+          .addEventListener("click", saveReadiness);
+  document.getElementById("apps-status")
+          .addEventListener("change", loadApplications);
+  document.getElementById("tasking-save")
+          .addEventListener("click", saveTasking);
+
+  // The hash is either a view ("admin") or a Data View tab ("ore"), the latter
+  // implying the data view. Set the tab first so the data view is ready
+  // underneath whichever view ends up showing.
+  const hash = (location.hash || "").replace(/^#/, "");
+  const isView = VIEW_NAMES.includes(hash);
+  activateTab(isView ? "" : hash);
+  activateView(isView ? hash : "data");
 })();
 {% endblock %}

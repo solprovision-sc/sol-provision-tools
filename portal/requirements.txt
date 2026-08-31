@@ -1,0 +1,8 @@
+# Provisioner Portal — deliberately its own dependency set.
+#
+# The portal runs from its own venv, separate from the tools app, so that adding
+# a dependency here can never bump Flask/Werkzeug under the tools app on its next
+# restart. Keep this list minimal.
+Flask>=3.0
+firebase-admin>=6.5
+gunicorn>=21.2

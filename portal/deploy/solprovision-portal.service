@@ -1,0 +1,55 @@
+# Provisioner Portal — PROD
+#
+# Install to /etc/systemd/system/solprovision-portal.service
+# See portal/deploy/README-prod.md for the full install sequence.
+#
+# Identical in shape to solprovision-portal-dev.service. Every path and the
+# bind port differ; nothing else does.
+
+[Unit]
+Description=Sol Provision Provisioner Portal — Gunicorn Flask App
+After=network.target
+
+[Service]
+User=solprovision
+Group=solprovision
+WorkingDirectory=/var/www/sol-provision-tools/portal
+
+Environment="PORTAL_ENV=prod"
+Environment="MEE6_DB=/var/www/sparqy/data/mee6_snapshots.db"
+Environment="FIREBASE_SERVICE_ACCOUNT=/var/www/sol-provision-tools/app/firebase-service-account.json"
+
+# Read-only, for the patch version shown in the header. Must match the path the
+# TOOLS unit uses (`systemctl show solprovision -p Environment`) — the extractor
+# owns this file and the portal only ever reads one row from patch_history.
+Environment="DATAFORGE_DB=/var/www/shared/data/dataforge.db"
+
+# The three databases the portal touches, stated outright rather than left to
+# shared/*.py's REPO_ROOT default. The default would resolve correctly today,
+# but it resolves relative to the checkout — so a future move of the checkout
+# would silently create empty databases instead of failing loudly.
+#
+# org_status.db and opord.db are opened READ-ONLY here; the tools app owns
+# writes to both. applications.db is the reverse: the portal is its only
+# writer.
+Environment="ORG_STATUS_DB=/var/www/sol-provision-tools/org_status.db"
+Environment="OPORD_DB=/var/www/sol-provision-tools/opord.db"
+Environment="APPLICATIONS_DB=/var/www/sol-provision-tools/applications.db"
+
+# PORTAL_SECRET_KEY lives here, not in this unit file — unit files are
+# world-readable, and a leaked session key lets anyone forge a portal session.
+EnvironmentFile=/etc/sol-provision/portal.env
+
+ExecStart=/var/www/sol-provision-tools/portal/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:5003 \
+    --timeout 120 \
+    --access-logfile /var/log/solprovision-portal/access.log \
+    --error-logfile /var/log/solprovision-portal/error.log \
+    server:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

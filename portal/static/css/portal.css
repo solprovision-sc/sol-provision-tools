@@ -1,0 +1,951 @@
+/* ──   Provisioner Portal — App CSS   ──────────────────────────────────── */
+/* ============================================================
+   Component + layout CSS for the PORTAL app only.
+
+   Every colour, font, size, and spacing value below comes from
+   shared/brand/css/brand.css, which base.html loads first. Do not
+   define brand tokens here — change them in brand.css so the tools
+   app moves with us.
+   ============================================================ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-base);
+  color: var(--fg1);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────
+   Mirrors the tools app header so the two sites read as one product. The
+   values are lifted from theme.css; only the token NAMES differ, because the
+   tools stylesheet still refers to its legacy compat-bridge aliases
+   (--bg2 / --text3 / --border2 / --font-title) while the portal consumes the
+   brand tokens those alias to. Change either side and update both. */
+.portal-header {
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--bg-inset) 100%);
+  border-bottom: 1px solid var(--line-strong);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 112px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+/* Left accent stripe. Anchors to the header because `sticky` is a positioned
+   ancestor. */
+.portal-header::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--accent);
+}
+
+.logo { display: flex; align-items: center; gap: 16px; text-decoration: none; }
+.logo-mark { width: 72px; height: 72px; flex-shrink: 0; }
+.logo-mark img { width: 100%; height: 100%; object-fit: contain; }
+
+.logo-text {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg1);
+  line-height: 1;
+}
+.logo-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+/* Game patch the org's data reflects. Mirrors the tools header's .logo-patch.
+   The label uses --sun-600 directly: the tools app reaches it through a
+   --terra alias defined in theme.css, which the portal doesn't load. */
+.logo-patch {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.logo-patch .patch-label { color: var(--sun-600); }
+
+.header-right { display: flex; align-items: center; gap: 20px; }
+
+.header-meta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--fg3);
+  text-align: right;
+  line-height: 1.6;
+}
+
+nav.section-nav { display: flex; gap: 0; }
+.nav-link {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 10px 14px;
+  color: var(--fg3);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.nav-link:hover { color: var(--fg2); border-bottom-color: var(--line-strong); }
+.nav-link.active { color: var(--gold); border-bottom-color: var(--accent); }
+
+.user-info { text-align: right; }
+.user-callsign {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.user-rank {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.env-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-900);
+  background: var(--accent);
+  padding: 3px 9px;
+  border-radius: var(--radius-xs);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.link-btn:hover { color: var(--accent); }
+
+/* ── Login overlay ─────────────────────────────────────────────────────── */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-5);
+  background:
+    radial-gradient(120% 70% at 82% -8%, rgba(232,133,92,0.10), transparent 52%),
+    radial-gradient(90% 60% at 6% 102%, rgba(126,38,25,0.16), transparent 60%),
+    var(--ink-900);
+}
+.auth-overlay.hidden { display: none; }
+
+.auth-card {
+  width: min(520px, 100%);
+  padding: var(--space-7) var(--space-6);
+  text-align: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--brand);
+  border-radius: var(--radius-md);
+  box-shadow: var(--lift-tan);
+}
+
+.eyebrow {
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.auth-card h1,
+.command-deck h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.lede {
+  font-style: italic;
+  color: var(--fg2);
+  max-width: 46ch;
+  margin: 0 auto;
+}
+
+.btn-discord {
+  margin-top: var(--space-6);
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--line-brand);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.btn-discord:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-discord:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.auth-status {
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--fg-muted);
+}
+
+.auth-warn {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--warning);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--warning);
+  border-radius: var(--radius-xs);
+  text-align: left;
+}
+.auth-warn code { font-family: var(--font-mono); color: var(--sand); }
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+.portal-body {
+  flex: 1;
+  padding: var(--space-8) var(--space-6);
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+  transition: filter 180ms ease;
+}
+.portal-body.blurred { filter: blur(7px); pointer-events: none; user-select: none; }
+
+.command-deck { text-align: center; margin-bottom: var(--space-8); }
+
+/* Separates the readiness status board from the navigational deck below it. */
+.section-divider {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--space-8) 0;
+}
+
+/* Flex rather than grid so three cards centre as a group instead of stretching
+   to fill four columns' worth of space. The 240px basis is the width they had
+   as a 4-up grid, so dropping a card doesn't resize the survivors. */
+.deck-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4);
+}
+.deck-card { flex: 0 1 240px; }
+
+.deck-card {
+  padding: var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+
+/* Cards that are real destinations. The other three are still placeholders, so
+   only the linked ones get hover affordance — a card that lights up but goes
+   nowhere is worse than one that plainly doesn't. */
+a.deck-card {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+a.deck-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--lift-sun);
+}
+a.deck-card:hover h2 { color: var(--accent); }
+
+.deck-card h2 {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin-bottom: var(--space-2);
+}
+
+.deck-card p { font-size: var(--text-sm); color: var(--fg2); }
+
+.card-tag {
+  display: inline-block;
+  margin-top: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ── Division Readiness Matrix ─────────────────────────────────────────── */
+/* First section on the page — .portal-body already supplies the top padding,
+   so no margin-top here. */
+.section-head { text-align: center; margin-bottom: var(--space-5); }
+
+.section-head h2 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-xl);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+
+.section-sub {
+  font-style: italic;
+  color: var(--fg3);
+  font-size: var(--text-sm);
+  margin-top: var(--space-2);
+}
+
+.readiness-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.div-card {
+  /* Deliberately squat. This row is a glance-and-move-on status strip sitting
+     above the Command Deck, not a content card — vertical padding is trimmed
+     to almost nothing and the internal gaps with it. */
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--status-color);
+  border-radius: var(--radius-md);
+  position: relative;          /* anchors the tooltip */
+  cursor: default;
+  /* The body's 1.55 is set for reading paragraphs; across four short lines it
+     added ~20px of card height on its own. */
+  line-height: 1.25;
+}
+
+/* ── Status tooltip ──────────────────────────────────────────────────────
+   Replaces the always-visible legend: the definition for whatever state this
+   division is in, on hover. Pure CSS so there's no JS to keep in step, and
+   the same text is on aria-label for anyone who can't hover. */
+.div-card::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  /* Below the card, not above: this row sits at the top of the page, so an
+     upward tooltip covers the section heading every time. */
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: var(--space-3);
+  background: var(--ink-900);
+  color: var(--fg2);
+  border: 1px solid var(--status-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+  z-index: 20;
+  pointer-events: none;        /* never swallows the pointer */
+}
+.div-card:hover::after,
+.div-card:focus-within::after { opacity: 1; visibility: visible; }
+
+/* One custom property per state drives the border, dot, and status text, so a
+   new state needs one rule rather than three. */
+.status-operational    { --status-color: var(--positive); }
+.status-heightened     { --status-color: var(--warning); }
+.status-critical       { --status-color: var(--danger); }
+.status-reconstitution { --status-color: var(--ink-400); }
+
+.div-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 3px;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--status-color);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-pill);
+  background: var(--status-color);
+  flex: none;
+}
+
+/* Division name now heads the card, in place of the three-letter code. */
+.div-name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+
+.div-posture {
+  margin-top: 4px;
+  font-size: var(--text-sm);
+  color: var(--fg2);
+}
+
+.div-updated {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+}
+
+.readiness-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+
+.legend-item dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-cond);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--status-color);
+}
+
+.legend-item dd {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  color: var(--fg3);
+}
+
+.scaffold-note {
+  margin-top: var(--space-7);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-inset);
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--tan);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+  color: var(--fg3);
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+.portal-footer {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-cond);
+  font-size: var(--text-xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.portal-footer .sep { color: var(--accent); }
+
+@media (max-width: 640px) {
+  /* Height must go to auto here — the fixed 112px would clip a stacked header. */
+  .portal-header {
+    flex-direction: column; align-items: flex-start;
+    height: auto; gap: var(--space-3); padding: var(--space-4);
+  }
+  .logo-mark { width: 52px; height: 52px; }
+  .logo-text { font-size: 20px; }
+  .header-right { flex-wrap: wrap; gap: var(--space-3); }
+  .portal-body { padding: var(--space-6) var(--space-4); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   PUBLIC JOIN PAGE
+   ══════════════════════════════════════════════════════════════════════
+   Same tokens as the member portal — a prospect's first impression should
+   look like the place they're applying to. Wider measure than .portal-body
+   because the form reads better with room. */
+.join-body {
+  flex: 1;
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: var(--space-8) var(--space-6);
+}
+
+.join-hero { text-align: center; padding: var(--space-6) 0 var(--space-7); }
+
+.join-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+.join-hero .lede { max-width: 62ch; margin: 0 auto var(--space-6); font-style: normal; }
+
+.btn-primary {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  cursor: pointer;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--on-brand);
+  background: var(--brand);
+  border: 1px solid var(--line-brand);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease;
+}
+.btn-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+
+.join-section { padding: var(--space-6) 0; }
+
+/* ── Pillars ── */
+.pillar-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-5);
+}
+.pillar {
+  padding: var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+.pillar-glyph { font-size: var(--text-lg); color: var(--accent); line-height: 1; }
+.pillar h3 {
+  margin: var(--space-3) 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+.pillar p { font-size: var(--text-sm); color: var(--fg2); }
+
+/* ── Accession path ── */
+.path-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  padding: 0;
+  counter-reset: step;
+}
+.path-step {
+  padding: var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tan);
+  border-radius: var(--radius-md);
+}
+.step-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--ink-450);
+  line-height: 1;
+}
+.step-tag {
+  margin-top: var(--space-3);
+  font-family: var(--font-cond);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.path-step h3 {
+  margin: var(--space-2) 0;
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg1);
+}
+.path-step p { font-size: var(--text-sm); color: var(--fg3); }
+
+/* ── Form ── */
+/* Spacing here is deliberately loose: every row carries a label, a field and
+   often a hint, and at tighter values the form read as one dense block. */
+.join-form { margin-top: var(--space-6); }
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-6) var(--space-5);
+  /* Its cells zero their own margin, so without this the last paired row butts
+     straight up against the next full-width field. */
+  margin-bottom: var(--space-6);
+}
+
+.form-row { margin-bottom: var(--space-6); }
+.form-grid .form-row { margin-bottom: 0; }
+
+.form-row label {
+  display: block;
+  margin-bottom: var(--space-3);
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--fg1);
+}
+.req, .opt {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 400;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  margin-left: var(--space-2);
+}
+.req { color: var(--accent); }
+.opt { color: var(--fg-muted); }
+
+.join-form input[type=text],
+.join-form input[type=email],
+.join-form select,
+.join-form textarea {
+  width: 100%;
+  padding: 12px 13px;
+  background: var(--bg-inset);
+  color: var(--fg1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+}
+.join-form textarea { resize: vertical; line-height: var(--leading-body); }
+.join-form input:focus,
+.join-form select:focus,
+.join-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.check-row { padding: var(--space-5); background: var(--bg-inset);
+             border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.check-line { display: flex; align-items: flex-start; gap: var(--space-3);
+              margin: 0; font-weight: 400; letter-spacing: 0; }
+.check-line input { margin-top: 3px; flex: none; width: 16px; height: 16px;
+                    accent-color: var(--brand); }
+.check-line span { font-family: var(--font-body); font-size: var(--text-sm);
+                   color: var(--fg2); }
+
+.field-hint { margin-top: var(--space-3); font-size: var(--text-xs); color: var(--fg-muted); }
+.field-error { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--danger); }
+.field-error:empty { display: none; }
+.has-error input, .has-error select, .has-error textarea { border-color: var(--danger); }
+
+/* Honeypot: off-screen rather than display:none — some bots skip hidden
+   inputs but happily fill offset ones. Never visible, never focusable. */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px; height: 1px;
+  overflow: hidden;
+}
+
+.form-actions { display: flex; align-items: center; gap: var(--space-4);
+                margin-top: var(--space-6); flex-wrap: wrap; }
+.form-msg { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--fg3); }
+.form-msg.err { color: var(--danger); }
+
+.join-success {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--positive);
+  border-radius: var(--radius-md);
+}
+.join-success h2 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-xl);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0 var(--space-3);
+}
+
+@media (max-width: 640px) {
+  .join-body { padding: var(--space-6) var(--space-4); }
+  .join-hero h1 { font-size: var(--text-2xl); }
+}
+
+/* The header is sticky at 112px, so an anchored jump would land the target
+   underneath it. scroll-margin-top offsets the landing point; without this the
+   "Become a Provisioner" CTA scrolls the form heading out of sight. */
+html { scroll-behavior: smooth; }
+#apply, #readiness { scroll-margin-top: 128px; }
+
+@media (max-width: 640px) {
+  /* Header collapses to auto height on mobile, so the offset shrinks with it. */
+  #apply, #readiness { scroll-margin-top: 24px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   MISSION BOARD — Operation Order brief
+   ══════════════════════════════════════════════════════════════════════ */
+.opord-placeholder {
+  text-align: center;
+  padding: var(--space-8) var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--tan);
+  border-radius: var(--radius-md);
+}
+.opord-placeholder h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-xl);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-3) 0;
+}
+
+.opord-brief {
+  background: var(--bg-surface);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-6) var(--space-7);
+}
+
+.brief-head { padding-bottom: var(--space-5); border-bottom: 1px solid var(--line); }
+.brief-head h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: var(--text-2xl);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--track-display);
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.brief-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+.brief-meta dt {
+  font-family: var(--font-cond);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.brief-meta dd {
+  margin: 3px 0 0;
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  color: var(--fg1);
+}
+
+.brief-section { padding-top: var(--space-6); }
+.brief-section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin-bottom: var(--space-4);
+}
+.sec-num {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent);
+}
+
+/* Label and value share a line where the value is short, and wrap cleanly
+   where it isn't — an OpOrd mixes one-word answers with paragraphs. */
+.brief-line { margin-bottom: var(--space-4); color: var(--fg2); font-size: var(--text-sm); }
+.brief-key {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--font-cond);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.brief-key strong { color: var(--fg1); }
+.brief-body { color: var(--fg2); font-size: var(--text-sm); white-space: pre-wrap; }
+.brief-empty { color: var(--fg-muted); font-size: var(--text-sm); font-style: italic; }
+
+.unit-list { list-style: none; display: grid;
+             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+             gap: var(--space-4); margin-bottom: var(--space-5); }
+.unit {
+  padding: var(--space-4);
+  background: var(--bg-elevated);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--tan);
+  border-radius: var(--radius-sm);
+}
+.unit-name {
+  font-family: var(--font-display);
+  font-size: var(--text-base);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg1);
+  margin-bottom: var(--space-2);
+}
+.unit-facts { list-style: none; margin: 0; padding: 0; }
+.unit-facts li {
+  font-size: var(--text-sm); color: var(--fg2);
+  padding-left: var(--space-3); position: relative;
+}
+.unit-facts li::before { content: "—"; position: absolute; left: 0; color: var(--fg-muted); }
+
+.brief-step { margin-bottom: var(--space-4); }
+.task-list, .sched-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.task-list li, .sched-list li {
+  font-size: var(--text-sm); color: var(--fg2);
+  padding-left: var(--space-4); margin-bottom: var(--space-2); position: relative;
+}
+.task-list li::before { content: "—"; position: absolute; left: 0; color: var(--fg-muted); }
+.sched-when {
+  display: inline-block; min-width: 118px;
+  font-family: var(--font-mono); font-size: var(--text-xs);
+  letter-spacing: 0.04em; color: var(--accent);
+}
+
+.brief-note {
+  margin: var(--space-4) 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-inset);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-xs);
+  color: var(--fg2);
+}
+
+.brief-back { margin-top: var(--space-6); }
+.brief-back a {
+  font-family: var(--font-cond); font-size: var(--text-xs);
+  letter-spacing: var(--track-label); text-transform: uppercase;
+  color: var(--fg3); text-decoration: none;
+}
+.brief-back a:hover { color: var(--accent); }
+
+/* ── Upcoming Tasking (Mission Board) ─────────────────────────────────── */
+.tasking-board { margin-top: var(--space-7); }
+
+.tasking-list { list-style: none; margin: 0; padding: 0; }
+.tasking-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  margin-bottom: var(--space-2);
+}
+.tasking-when {
+  flex: none;
+  min-width: 74px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+  color: var(--accent);
+}
+.tasking-title {
+  font-family: var(--font-cond);
+  font-size: var(--text-base);
+  letter-spacing: 0.03em;
+  color: var(--fg1);
+}
+/* Dated in the past: kept visible rather than hidden, so an officer can see
+   the board has gone stale instead of wondering where an entry went. */
+.tasking-item.past { border-left-color: var(--ink-400); opacity: .55; }
+.tasking-item.past .tasking-when { color: var(--fg-muted); }
+.tasking-flag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}

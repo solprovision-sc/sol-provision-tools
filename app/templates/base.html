@@ -4,12 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}Sol Provision — Data Intelligence{% endblock %}</title>
+<!-- Google faces are still load-bearing here: ledger.html, item_collection.html,
+     ships.html and ship_detail.html set 'Share Tech Mono' / 'Exo 2' directly.
+     brand.css self-hosts Orbitron and Bai Jamjuree, which is what the tokens
+     use — these two font links cover the pages that bypass the tokens. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Exo+2:wght@200;300;400;600&display=swap" rel="stylesheet">
 <!-- Shared brand tokens MUST load before theme.css — theme.css consumes them. -->
 <link rel="stylesheet" href="/brand/css/brand.css?v={{ asset_v('brand/css/brand.css') }}">
 <link rel="stylesheet" href="/static/css/theme.css?v={{ asset_v('css/theme.css') }}">
+<link rel="stylesheet" href="https://use.typekit.net/kwn2pkf.css">
 {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -28,6 +33,9 @@
 
 <script src="/static/js/common.js?v={{ asset_v('js/common.js') }}"></script>
 <script>
+// Where the header's "Portal" link goes. Set before renderHeader so navHTML
+// can read it; env-aware so tools-dev links to portal-dev.
+window.PORTAL_URL = {{ portal_url | tojson }};
 const PAGE = '{{ active_page }}';
 renderHeader(PAGE);
 {% block page_script %}{% endblock %}

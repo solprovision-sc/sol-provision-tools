@@ -1,15 +1,25 @@
 name: Deploy to VPS
+
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
+
+# Serialised against deploy-portal.yml: both run `git reset --hard` in the SAME
+# checkout (/var/www/sol-provision-tools), so a push touching app/ and portal/
+# together would otherwise race on .git/index.lock.
+concurrency:
+  group: vps-deploy-prod
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Deploy to VPS via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
