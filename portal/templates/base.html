@@ -24,6 +24,12 @@
     <div>
       <div class="logo-text">Sol Provision</div>
       <div class="logo-sub">{{ 'Membership Accession' if public_page else 'Provisioner Portal' }}</div>
+      {# Matches the tools header's .logo-patch. Member pages only: on /join it
+         would be jargon to a prospect who hasn't joined yet. Hidden entirely
+         when dataforge.db can't be read, rather than showing a blank label. #}
+      {% if patch_version and not public_page %}
+      <div class="logo-patch"><span class="patch-label">Patch:</span> {{ patch_version }}</div>
+      {% endif %}
     </div>
   </a>
 

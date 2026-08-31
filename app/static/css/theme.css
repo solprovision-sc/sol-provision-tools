@@ -129,6 +129,25 @@ header::before {
   margin-top: 5px;
 }
 
+/* Patch version, rendered inside the logo block under .logo-sub. Kept byte-for-byte
+   identical to main's copy so promoting this file is a no-op on these rules. */
+.logo-patch {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+.logo-patch .patch-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--terra);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
 .header-right { display: flex; align-items: center; gap: 20px; }
 
 .header-meta {

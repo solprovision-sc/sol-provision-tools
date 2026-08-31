@@ -124,6 +124,7 @@
   var firebaseConfig = {{ firebase_config | tojson }};
   var ENV = {{ env | tojson }};
   var AUTH_ENABLED = {{ auth_enabled | tojson }};
+  var SIGNED_IN = {{ signed_in | tojson }};
 
   var overlay    = document.getElementById('authOverlay');
   var body       = document.getElementById('portalBody');
@@ -134,6 +135,11 @@
   var auth = null;
 
   function showApp(user) {
+    // If the page was served anonymously, the member sections aren't in this
+    // HTML at all. /api/auth/verify has just set the session cookie, so one
+    // reload brings the real page back. It can't loop: the reloaded render
+    // sees the session and sets SIGNED_IN.
+    if (!SIGNED_IN) { window.location.reload(); return; }
     overlay.classList.add('hidden');
     body.classList.remove('blurred');
     window.currentUser = user;

@@ -285,6 +285,64 @@ def brand_static(filename):
     return send_from_directory(BRAND_DIR, filename)
 
 
+# ══════════════════════════════════════════════════════════════════════
+# GAME PATCH VERSION (READ-ONLY)
+# ══════════════════════════════════════════════════════════════════════
+# The header shows which Star Citizen patch the org's data reflects. That value
+# is derived, not configured: it's the newest row in dataforge.db's
+# patch_history, written by the extractor. An env var would go stale silently
+# the next time a patch lands, so the portal reads the same source the tools app
+# reads — READ-ONLY, since the extractor owns that file.
+def _dataforge_db_path():
+    path = os.environ.get('DATAFORGE_DB')
+    if path:
+        return path
+    # Mirrors app/server.py's default so a local checkout resolves the same file
+    # for both apps without either needing the env var set.
+    return str(REPO_ROOT.parent / 'shared' / 'data' / 'dataforge.db')
+
+
+# Cached: this runs on every page render, and the underlying value changes only
+# when the extractor imports a new patch. A miss is cheap, but reopening a
+# multi-hundred-MB database per request for one small row is not.
+# `at` is None until the first read. A successful read and a failed one are both
+# cached — keyed on WHETHER we've looked, not on what we found — so a missing
+# database doesn't mean re-trying the open on every single request.
+_PATCH_CACHE = {'value': None, 'at': None}
+_PATCH_TTL = 300  # seconds
+
+
+def read_patch_version():
+    """Newest imported patch, or None.
+
+    Returns None rather than raising if dataforge.db is missing, unreadable, or
+    has no patch_history — the template simply omits the line. The portal must
+    not fail to render because a database it doesn't own is unavailable.
+    """
+    now = time.time()
+    if _PATCH_CACHE['at'] is not None and now - _PATCH_CACHE['at'] < _PATCH_TTL:
+        return _PATCH_CACHE['value']
+
+    value = None
+    try:
+        uri = Path(_dataforge_db_path()).resolve().as_uri() + '?mode=ro'
+        conn = sqlite3.connect(uri, uri=True)
+        try:
+            row = conn.execute(
+                'SELECT patch_version FROM patch_history '
+                'ORDER BY imported_at DESC LIMIT 1'
+            ).fetchone()
+            if row:
+                value = row[0]
+        finally:
+            conn.close()
+    except (sqlite3.Error, OSError, ValueError) as exc:
+        app.logger.info('patch version unavailable (%s)', exc)
+
+    _PATCH_CACHE.update(value=value, at=now)
+    return value
+
+
 @app.context_processor
 def inject_globals():
     def asset_v(rel_path):
@@ -303,6 +361,7 @@ def inject_globals():
         'asset_v': asset_v,
         'env': ENV,
         'tools_url': TOOLS_URL,
+        'patch_version': read_patch_version(),
         'firebase_config': {
             'apiKey': FIREBASE_API_KEY,
             'authDomain': FIREBASE_AUTH_DOMAIN,
@@ -522,9 +581,19 @@ def mission_board():
 def index():
     """Landing page. Hosts the login overlay; content behind it stays blurred
     until a session exists, matching the tools app's pattern."""
+    # Member data is rendered ONLY for an authenticated session. The login
+    # overlay is client-side, so without this the readiness matrix sits in HTML
+    # served to anyone who requests the URL — /join is meant to be the only
+    # page a non-member can see anything on.
+    #
+    # IS_LOCAL counts as signed in: the dev machine has no server session (the
+    # local bypass is client-side), and an empty board would make the page
+    # impossible to work on.
+    signed_in = bool(session.get('discord_id')) or IS_LOCAL
     return render_template(
         'index.html',
-        readiness=read_readiness(),
+        signed_in=signed_in,
+        readiness=read_readiness() if signed_in else [],
         statuses=[dict(s) for s in org_status.STATUSES],
     )
 

@@ -1,0 +1,11 @@
+# Deploy artefacts are consumed by systemd, nginx, and bash on Linux, where a
+# stray CR inside an ExecStart line continuation fails in a way that reads as a
+# typo. This repo runs with core.autocrlf=true, so whether a file arrives LF or
+# CRLF depends on which tool wrote it — these lines take that out of play.
+#
+# Scoped deliberately: a repo-wide `* text=auto` would renormalise thousands of
+# unrelated files in a single commit.
+*.service               text eol=lf
+*.conf                  text eol=lf
+*.sh                    text eol=lf
+.github/workflows/*.yml text eol=lf

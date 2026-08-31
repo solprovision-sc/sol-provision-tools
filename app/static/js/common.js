@@ -71,7 +71,7 @@ function sizeBadge(size, label) {
 }
 
 // ── Logo HTML ─────────────────────────────────────────────────────────────────
-function logoHTML() {
+function logoHTML(patchVersion = null) {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
@@ -80,6 +80,7 @@ function logoHTML() {
       <div>
         <div class="logo-text">Sol Provision</div>
         <div class="logo-sub">Data Intelligence</div>
+        ${patchVersion ? `<div class="logo-patch"><span class="patch-label">Patch:</span> ${patchVersion}</div>` : ''}
       </div>
     </a>`;
 }
@@ -88,23 +89,16 @@ function logoHTML() {
 // userInfo is optional. When provided and the user is rank >= 5, we append the
 // officer-only "HQ" link. Anyone else gets the normal nav.
 function navHTML(active, userInfo) {
-	const links = [
-	{ href: '/',              label: 'Dashboard' },
-	//{ href: '/ships',         label: 'Ships' },
-	// { href: '/components',    label: 'Components' },
-	// { href: '/weapons/ship',  label: 'Ship Weapons' },
-	// { href: '/weapons/fps',   label: 'FPS Weapons' },
-	// { href: '/armor',         label: 'Armor' },
-	// { href: '/shops',         label: 'Shops' },
-	//{ href: '/crafting', 	  label: 'Crafting'},
-	//{ href: '/mission-rep',   label: 'Mission Rep' },
-	//{ href: '/mining-signatures', label: 'Mining Sigs' },
-	//{ href: '/cargo-planner', label: 'Cargo Planner' },
-	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
-	//{ href: '/ledger', label: 'Ledger' },
-	//{ href: '/item_collection',    label: 'Item Collection' },
-	//{ href: '/base-builder',  label: 'Base Builder' },
-	];
+  // Portal | Tools | HQ, matching the portal app's header so the two sites
+  // read as one product. HQ is appended for rank 5+ below.
+  //
+  // The long commented-out list of per-page links that used to live here was
+  // removed 2026-08-31 — the tools dashboard is the single entry point now and
+  // those pages are reached from within it.
+  const links = [
+    { href: window.PORTAL_URL || 'https://portal.solprovision.com', label: 'Portal' },
+    { href: '/',                                                    label: 'Tools' },
+  ];
   // Rank may be int or string depending on the snapshot row; coerce defensively
   // so a stringy "5" still grants access. The server enforces the same gate.
   const rankRaw = userInfo && userInfo.rank;
@@ -131,7 +125,10 @@ async function renderHeader(activePage) {
       // Not logged in
     }
     
-    document.getElementById('header-logo').innerHTML = logoHTML();
+    // Patch version lives under the logo, where it's visible whether or not
+    // someone is signed in. It used to sit in header-meta, which the user block
+    // replaces on sign-in — so members never saw it.
+    document.getElementById('header-logo').innerHTML = logoHTML(meta.patch_version);
     document.getElementById('header-nav').innerHTML  = navHTML(activePage, userInfo);
 
     // Right side: show user info or patch info
@@ -161,9 +158,9 @@ async function renderHeader(activePage) {
           <div class="user-rank">${rankDisplay}</div>
         </div>`;
     } else {
-      document.getElementById('header-meta').innerHTML = `
-        <div>Patch <span>${meta.patch_version}</span></div>
-        <div>${(meta.total_ships||0).toLocaleString()} ships · ${(meta.total_entities||0).toLocaleString()} entities</div>`;
+      // Signed out: nothing on the right. The patch version moved to the logo
+      // above, so repeating it here would just duplicate it.
+      document.getElementById('header-meta').innerHTML = '';
     }
     
   } catch(e) {

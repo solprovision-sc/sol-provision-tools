@@ -80,6 +80,20 @@ def brand_static(filename):
     return send_from_directory(BRAND_DIR, filename)
 
 
+# Sibling portal site, linked from the tools header. Points at the matching
+# environment so tools-dev doesn't send officers into the production portal.
+PORTAL_URL = os.environ.get(
+    'PORTAL_URL',
+    'https://portal-dev.solprovision.com' if is_dev
+    else 'https://portal.solprovision.com',
+).rstrip('/')
+
+
+@app.context_processor
+def inject_portal_url():
+    return {"portal_url": PORTAL_URL}
+
+
 @app.context_processor
 def inject_asset_version():
     """Cache-busting stamp for static assets referenced in templates.
