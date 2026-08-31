@@ -313,7 +313,7 @@ a.deck-card:hover h2 { color: var(--accent); }
 /* ── Division Readiness Matrix ─────────────────────────────────────────── */
 /* First section on the page — .portal-body already supplies the top padding,
    so no margin-top here. */
-.section-head { text-align: center; margin-bottom: var(--space-6); }
+.section-head { text-align: center; margin-bottom: var(--space-5); }
 
 .section-head h2 {
   font-family: var(--font-display);
@@ -338,14 +338,55 @@ a.deck-card:hover h2 { color: var(--accent); }
 }
 
 .div-card {
-  /* Tighter bottom padding than top — the date sits close to the base, so the
-     symmetric 24px read as a gap rather than breathing room. */
-  padding: var(--space-5) var(--space-5) var(--space-3);
+  /* Deliberately squat. This row is a glance-and-move-on status strip sitting
+     above the Command Deck, not a content card — vertical padding is trimmed
+     to almost nothing and the internal gaps with it. */
+  padding: var(--space-2) var(--space-4);
   background: var(--bg-elevated);
   border: 1px solid var(--line);
   border-left: 3px solid var(--status-color);
   border-radius: var(--radius-md);
+  position: relative;          /* anchors the tooltip */
+  cursor: default;
+  /* The body's 1.55 is set for reading paragraphs; across four short lines it
+     added ~20px of card height on its own. */
+  line-height: 1.25;
 }
+
+/* ── Status tooltip ──────────────────────────────────────────────────────
+   Replaces the always-visible legend: the definition for whatever state this
+   division is in, on hover. Pure CSS so there's no JS to keep in step, and
+   the same text is on aria-label for anyone who can't hover. */
+.div-card::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  /* Below the card, not above: this row sits at the top of the page, so an
+     upward tooltip covers the section heading every time. */
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  padding: var(--space-3);
+  background: var(--ink-900);
+  color: var(--fg2);
+  border: 1px solid var(--status-color);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  line-height: var(--leading-body);
+  text-transform: none;
+  letter-spacing: 0;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 120ms ease;
+  z-index: 20;
+  pointer-events: none;        /* never swallows the pointer */
+}
+.div-card:hover::after,
+.div-card:focus-within::after { opacity: 1; visibility: visible; }
 
 /* One custom property per state drives the border, dot, and status text, so a
    new state needs one rule rather than three. */
@@ -358,7 +399,7 @@ a.deck-card:hover h2 { color: var(--accent); }
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  margin-top: 3px;
   font-family: var(--font-cond);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -385,14 +426,14 @@ a.deck-card:hover h2 { color: var(--accent); }
 }
 
 .div-posture {
-  margin-top: var(--space-2);
+  margin-top: 4px;
   font-size: var(--text-sm);
   color: var(--fg2);
 }
 
 .div-updated {
   display: block;
-  margin-top: var(--space-3);
+  margin-top: 5px;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   letter-spacing: 0.06em;
