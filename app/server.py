@@ -8,6 +8,17 @@ import requests
 import time
 from datetime import timedelta, datetime, timezone
 from functools import wraps
+import sys
+
+# Code shared with the portal app lives under shared/. The two are separate
+# processes with separate venvs, so each puts the repo root on sys.path rather
+# than relying on an installed package. org_status owns the ONE definition of
+# where org_status.db lives — if each app resolved that path its own way, an
+# env var set on one side would silently point them at different files.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from shared import applications, opord, org_status
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -67,6 +78,20 @@ def brand_static(filename):
     route is what makes it work locally and keeps the apps self-contained.
     """
     return send_from_directory(BRAND_DIR, filename)
+
+
+# Sibling portal site, linked from the tools header. Points at the matching
+# environment so tools-dev doesn't send officers into the production portal.
+PORTAL_URL = os.environ.get(
+    'PORTAL_URL',
+    'https://portal-dev.solprovision.com' if is_dev
+    else 'https://portal.solprovision.com',
+).rstrip('/')
+
+
+@app.context_processor
+def inject_portal_url():
+    return {"portal_url": PORTAL_URL}
 
 
 @app.context_processor
@@ -215,7 +240,90 @@ def get_user_db():
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     return conn
-    
+
+
+def get_org_status_db(read_only=False):
+    """Connect to the org-status DB (division readiness shown on the portal).
+
+    This app is the only WRITER; the portal opens the same file read-only.
+    Mirrors get_ownership_db()'s auto-create-on-first-use so a fresh deploy
+    needs no manual sqlite3 setup — but the schema is version-tracked with
+    PRAGMA user_version inside shared/org_status.py rather than re-running
+    CREATE TABLE IF NOT EXISTS, so an older file can't sit at a stale shape and
+    fail at query time with no signal.
+    """
+    conn = org_status.connect(read_only=read_only)
+    if not read_only:
+        org_status.migrate(conn)
+    return conn
+
+
+def get_applications_db(read_only=True):
+    """Connect to applications.db — the public /join form's landing table.
+
+    READ-ONLY by default and by design: the PORTAL owns writes to this file
+    (it is the thing taking submissions), the same way this app owns writes to
+    org_status.db and the portal only reads that. Officer review that needs to
+    change a row's status would make this a second writer, which is a
+    deliberate decision, not something to switch on quietly.
+    """
+    return applications.connect(read_only=read_only)
+
+
+def get_opord_db(read_only=False):
+    """Connect to opord.db, creating and migrating it on first use.
+
+    This app is the WRITER (the officer-only editor); the portal will read it
+    read-only for the Mission Board, same direction as org_status.db.
+    """
+    conn = opord.connect(read_only=read_only)
+    if not read_only:
+        opord.migrate(conn)
+    return conn
+
+
+# Mission Commander picker order, set by Dusty: these four by name, then any
+# other rank-5, then rank-4 (Wing Commanders) alphabetically. Names not on the
+# roster are simply skipped, so this list can outlive a rank change.
+COMMANDER_PRIORITY = ["Sulyce", "Marauder", "Jenner Darr", "Entriri"]
+
+
+def commander_options():
+    """Rank 4+ members for the Mission Commander dropdown."""
+    conn = get_user_db()
+    try:
+        rows = conn.execute(
+            """SELECT display_name, username, rank FROM discord_members
+               WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM discord_members)
+                 AND CAST(rank AS INTEGER) >= 4""").fetchall()
+    finally:
+        conn.close()
+
+    people = []
+    seen = set()
+    for r in rows:
+        name = (r["display_name"] or r["username"] or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        people.append({"name": name, "rank": rank_int(r["rank"])})
+
+    by_name = {p["name"].lower(): p for p in people}
+    ordered = []
+    for pinned in COMMANDER_PRIORITY:
+        p = by_name.pop(pinned.lower(), None)
+        if p:
+            ordered.append(p)
+    # Sort on letters only: a display name like '"Steel Team Six" WickerBeast'
+    # would otherwise lead the list on its opening quote rather than its name.
+    def sort_key(person):
+        stripped = re.sub(r"^[^0-9A-Za-z]+", "", person["name"])
+        return (-person["rank"], (stripped or person["name"]).lower())
+
+    rest = sorted(by_name.values(), key=sort_key)
+    return ordered + rest
+
+
 # ── Blueprint ownership DB (separate from dataforge.db) ───────────────────────
 # The extractor pipeline replaces dataforge.db wholesale every patch, so the
 # ownership rows have to live in their own file. Default location sits next to
@@ -4963,6 +5071,284 @@ def api_officers_coverage():
 # ── API: Member leaderboard ───────────────────────────────────────────────────
 # GET /api/officers/members
 # Per-member totals + per-category counts, with Discord display names.
+
+# ══════════════════════════════════════════════════════════════════════
+# PORTAL ADMINISTRATION — Division Readiness
+# ══════════════════════════════════════════════════════════════════════
+# Officers set division posture here; the portal renders it read-only. This app
+# is the only writer. Any officer may edit any division on purpose: Science has
+# no rank-5 member, so division-scoped editing would leave it permanently
+# unmanageable. Accountability is by attribution (updated_by_name), not by lock.
+
+@app.route('/api/officers/readiness', methods=['GET'])
+@require_officer
+def api_officers_readiness():
+    """Current readiness for all divisions, plus the status vocabulary and a
+    short change history for the HQ panel."""
+    conn = get_org_status_db()
+    try:
+        return jsonify({
+            "divisions": org_status.get_readiness(conn),
+            "statuses": [dict(s) for s in org_status.STATUSES],
+            "recent": org_status.recent_changes(conn, limit=10),
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/readiness', methods=['PUT'])
+@require_officer
+def api_officers_readiness_save():
+    """Save readiness. Accepts the whole form; writes only what changed."""
+    payload = request.get_json(silent=True) or {}
+    submitted = payload.get("divisions")
+    if not isinstance(submitted, list):
+        return jsonify({"error": "expected a 'divisions' list"}), 400
+
+    actor_id = session.get('discord_id')
+    actor_name = session.get('callsign') or session.get('username')
+
+    conn = get_org_status_db()
+    try:
+        current = {d["code"]: d for d in org_status.get_readiness(conn)}
+        changed = []
+        for item in submitted:
+            if not isinstance(item, dict):
+                return jsonify({"error": "malformed division entry"}), 400
+            code = item.get("code")
+            status = item.get("status")
+            posture = (item.get("posture") or "").strip()
+
+            existing = current.get(code)
+            if existing is None:
+                return jsonify({"error": f"unknown division: {code}"}), 400
+
+            # Only write what actually moved. Saving all four on every submit
+            # would stamp every division with this officer's name and fill the
+            # change log with entries that record nothing.
+            if existing["status"] == status and existing["posture"] == posture:
+                continue
+
+            try:
+                changed.append(org_status.set_readiness(
+                    conn, code, status, posture, actor_id, actor_name))
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
+        return jsonify({
+            "saved": len(changed),
+            "changed": changed,
+            "divisions": org_status.get_readiness(conn),
+        })
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/tasking', methods=['GET'])
+@require_officer
+def api_officers_tasking():
+    """The four Upcoming Tasking slots."""
+    conn = get_org_status_db()
+    try:
+        return jsonify({"slots": org_status.get_tasking(conn),
+                        "slot_count": org_status.TASKING_SLOTS})
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/tasking', methods=['PUT'])
+@require_officer
+def api_officers_tasking_save():
+    """Save tasking. Accepts all slots; writes only what changed.
+
+    Same reasoning as readiness: saving every slot on each submit would stamp
+    all four with this officer's name whether or not they touched them.
+    """
+    payload = request.get_json(silent=True) or {}
+    submitted = payload.get("slots")
+    if not isinstance(submitted, list):
+        return jsonify({"error": "expected a 'slots' list"}), 400
+
+    actor_id = session.get('discord_id')
+    actor_name = session.get('callsign') or session.get('username')
+
+    conn = get_org_status_db()
+    try:
+        current = {row["slot"]: row for row in org_status.get_tasking(conn)}
+        changed = []
+        for item in submitted:
+            if not isinstance(item, dict):
+                return jsonify({"error": "malformed slot entry"}), 400
+            try:
+                slot = int(item.get("slot"))
+            except (TypeError, ValueError):
+                return jsonify({"error": f"bad slot: {item.get('slot')!r}"}), 400
+
+            title = (item.get("title") or "").strip()
+            date = (item.get("tasking_date") or "").strip() or None
+
+            existing = current.get(slot)
+            if existing is None:
+                return jsonify({"error": f"unknown slot: {slot}"}), 400
+            if existing["title"] == title and existing["tasking_date"] == date:
+                continue
+
+            try:
+                changed.append(org_status.set_tasking(
+                    conn, slot, title, date, actor_id, actor_name))
+            except ValueError as exc:
+                return jsonify({"error": str(exc)}), 400
+
+        return jsonify({"saved": len(changed), "changed": changed,
+                        "slots": org_status.get_tasking(conn)})
+    finally:
+        conn.close()
+
+
+# ── OpOrds ────────────────────────────────────────────────────────────
+# The editor is its own officer-only page; HQ Admin lists them.
+
+@app.route('/officers/opord/new')
+@app.route('/officers/opord/<int:opord_id>')
+def opord_editor(opord_id=None):
+    """OpOrd editor. Rank 5+ only, matching /officers itself."""
+    if rank_int(session.get('rank')) < 5:
+        return redirect('/')
+    return render_template("opord_edit.html",
+                           active_page="/officers",
+                           opord_id=opord_id,
+                           commanders=commander_options(),
+                           signal_types=list(opord.SIGNAL_TYPES),
+                           statuses=list(opord.STATUSES),
+                           signal_note=opord.SIGNAL_NOTE,
+                           default_muster_time=opord.DEFAULT_MUSTER_TIME,
+                           default_muster_tz=opord.DEFAULT_MUSTER_TZ)
+
+
+@app.route('/api/officers/opords')
+@require_officer
+def api_opords_list():
+    conn = get_opord_db()
+    try:
+        return jsonify({"opords": opord.list_opords(conn),
+                        "current": (opord.current_opord(conn) or {}).get("id")})
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>')
+@require_officer
+def api_opord_get(opord_id):
+    conn = get_opord_db()
+    try:
+        row = opord.get(conn, opord_id)
+        return (jsonify(row) if row else (jsonify({"error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord', methods=['POST'])
+@require_officer
+def api_opord_create():
+    payload = request.get_json(silent=True) or {}
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        new_id = opord.create(conn, payload.get("header") or {},
+                              payload.get("body"), actor=actor)
+        return jsonify({"ok": True, "id": new_id})
+    except opord.ValidationError as exc:
+        return jsonify({"ok": False, "errors": exc.errors}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>', methods=['PUT'])
+@require_officer
+def api_opord_update(opord_id):
+    payload = request.get_json(silent=True) or {}
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        ok = opord.update(conn, opord_id, payload.get("header") or {},
+                          payload.get("body"), actor=actor)
+        return (jsonify({"ok": True, "id": opord_id}) if ok
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    except opord.ValidationError as exc:
+        return jsonify({"ok": False, "errors": exc.errors}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>/duplicate', methods=['POST'])
+@require_officer
+def api_opord_duplicate(opord_id):
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        new_id = opord.duplicate(conn, opord_id, actor=actor)
+        return (jsonify({"ok": True, "id": new_id}) if new_id
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>/post', methods=['POST'])
+@require_officer
+def api_opord_post(opord_id):
+    """Make this the Mission Board OpOrd; whatever was posted is archived."""
+    actor = session.get('callsign') or session.get('username')
+    conn = get_opord_db()
+    try:
+        ok = opord.post(conn, opord_id, actor=actor)
+        return (jsonify({"ok": True}) if ok
+                else (jsonify({"ok": False, "error": "Not found"}), 404))
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/opord/<int:opord_id>', methods=['DELETE'])
+@require_officer
+def api_opord_delete(opord_id):
+    conn = get_opord_db()
+    try:
+        return jsonify({"ok": opord.delete(conn, opord_id)})
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/applications')
+@require_officer
+def api_officers_applications():
+    """Membership applications for the HQ review panel.
+
+    Returns the full rows rather than a summary: there are a few dozen of them,
+    so paging or a per-row detail fetch would be machinery for nothing.
+    """
+    limit = request.args.get('limit', default=50, type=int)
+    limit = max(1, min(limit, 200))
+    status = request.args.get('status') or None
+
+    try:
+        conn = get_applications_db()
+    except sqlite3.OperationalError as exc:
+        # The portal creates this file on its first submission. Before that it
+        # legitimately does not exist — an empty panel, not an error.
+        app.logger.info('applications.db unavailable (%s)', exc)
+        return jsonify({'available': False, 'counts': {}, 'applications': []})
+
+    try:
+        if status and status not in applications.STATUSES:
+            return jsonify({'error': f'unknown status: {status}'}), 400
+        return jsonify({
+            'available': True,
+            'counts': applications.counts_by_status(conn),
+            'statuses': list(applications.STATUSES),
+            'applications': applications.list_applications(conn, status, limit),
+        })
+    finally:
+        conn.close()
+
 
 @app.route('/api/officers/members')
 @require_officer

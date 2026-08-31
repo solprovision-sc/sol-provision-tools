@@ -1,0 +1,47 @@
+# Provisioner Portal — DEV
+#
+# Install to /etc/systemd/system/solprovision-portal-dev.service
+# See portal/deploy/README.md for the full install sequence.
+#
+# Modelled on solprovision-dev.service, with two deliberate differences:
+#   - its own venv, so a portal dependency can never bump Flask/Werkzeug under
+#     the tools app on that app's next restart
+#   - PORTAL_ENV is stated outright rather than inferred from the install path
+
+[Unit]
+Description=Sol Provision Provisioner Portal DEV — Gunicorn Flask App
+After=network.target
+
+[Service]
+User=solprovision
+Group=solprovision
+WorkingDirectory=/var/www/sol-provision-tools-dev/portal
+
+Environment="PORTAL_ENV=dev"
+Environment="MEE6_DB=/var/www/sparqy/data/mee6_snapshots.db"
+Environment="FIREBASE_SERVICE_ACCOUNT=/var/www/sol-provision-tools-dev/app/firebase-service-account.json"
+
+# Read-only, for the patch version shown in the header. Mirrors prod, where the
+# tools unit was confirmed to keep dataforge.db at the checkout root. Verify the
+# dev side the same way before trusting it:
+#     systemctl show solprovision-dev -p Environment
+# The extractor owns this file; the portal reads one row from patch_history.
+Environment="DATAFORGE_DB=/var/www/sol-provision-tools-dev/dataforge.db"
+
+# PORTAL_SECRET_KEY lives here, not in this unit file — unit files are
+# world-readable, and a leaked session key lets anyone forge a portal session.
+EnvironmentFile=/etc/sol-provision/portal-dev.env
+
+ExecStart=/var/www/sol-provision-tools-dev/portal/venv/bin/gunicorn \
+    --workers 2 \
+    --bind 127.0.0.1:5002 \
+    --timeout 120 \
+    --access-logfile /var/log/solprovision-portal-dev/access.log \
+    --error-logfile /var/log/solprovision-portal-dev/error.log \
+    server:app
+
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

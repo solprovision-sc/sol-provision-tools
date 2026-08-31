@@ -75,7 +75,7 @@ function logoHTML(patchVersion = null) {
   return `
     <a href="/" class="logo">
       <div class="logo-mark">
-        <img src="/static/img/sp_logo_2026.png" alt="Sol Provision" />
+        <img src="/brand/img/Circular_Badge_Logo_White_1080x1080.png" alt="Sol Provision" />
       </div>
       <div>
         <div class="logo-text">Sol Provision</div>
@@ -89,19 +89,16 @@ function logoHTML(patchVersion = null) {
 // userInfo is optional. When provided and the user is rank >= 5, we append the
 // officer-only "HQ" link. Anyone else gets the normal nav.
 function navHTML(active, userInfo) {
-	const links = [
-	{ href: '/',              label: 'Dashboard' },
-	// { href: '/ships',         label: 'Ships' },
-	// { href: '/components',    label: 'Components' },
-	// { href: '/weapons/ship',  label: 'Ship Weapons' },
-	// { href: '/weapons/fps',   label: 'FPS Weapons' },
-	// { href: '/armor',         label: 'Armor' },
-	// { href: '/shops',         label: 'Shops' },
-	// { href: '/crafting', 	  label: 'Crafting'},
-	// { href: '/cargo-planner', label: 'Cargo Planner' },
-	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
-	// { href: '/ledger', label: 'Ledger' },
-	];
+  // Portal | Tools | HQ, matching the portal app's header so the two sites
+  // read as one product. HQ is appended for rank 5+ below.
+  //
+  // The long commented-out list of per-page links that used to live here was
+  // removed 2026-08-31 — the tools dashboard is the single entry point now and
+  // those pages are reached from within it.
+  const links = [
+    { href: window.PORTAL_URL || 'https://portal.solprovision.com', label: 'Portal' },
+    { href: '/',                                                    label: 'Tools' },
+  ];
   // Rank may be int or string depending on the snapshot row; coerce defensively
   // so a stringy "5" still grants access. The server enforces the same gate.
   const rankRaw = userInfo && userInfo.rank;
@@ -128,11 +125,13 @@ async function renderHeader(activePage) {
       // Not logged in
     }
     
-    // Render logo with patch version
+    // Patch version lives under the logo, where it's visible whether or not
+    // someone is signed in. It used to sit in header-meta, which the user block
+    // replaces on sign-in — so members never saw it.
     document.getElementById('header-logo').innerHTML = logoHTML(meta.patch_version);
     document.getElementById('header-nav').innerHTML  = navHTML(activePage, userInfo);
-    
-    // Right side: show user info if logged in, otherwise show nothing
+
+    // Right side: show user info or patch info
     if (userInfo) {
       let rankDisplay = '';
       
@@ -159,7 +158,8 @@ async function renderHeader(activePage) {
           <div class="user-rank">${rankDisplay}</div>
         </div>`;
     } else {
-      // Not logged in: show nothing
+      // Signed out: nothing on the right. The patch version moved to the logo
+      // above, so repeating it here would just duplicate it.
       document.getElementById('header-meta').innerHTML = '';
     }
     

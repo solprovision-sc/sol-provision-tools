@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Mission Board — Sol Provision{% endblock %}
+
+{% block body %}
+<main class="portal-body" id="portalBody">
+
+  <section class="section-head">
+    <h2>Mission Board</h2>
+    <p class="section-sub">Current operation order.</p>
+  </section>
+
+{% if not opord %}
+  <!-- No posted OpOrd, or the posted one is more than 48h past muster. -->
+  <section class="opord-placeholder">
+    <div class="eyebrow">Standby</div>
+    <h1>Next OpOrd — In Work</h1>
+    <p class="lede">
+      No operation order is currently posted. Command will publish the next one
+      here ahead of muster.
+    </p>
+  </section>
+
+{% else %}
+  <article class="opord-brief">
+
+    <header class="brief-head">
+      <div class="eyebrow">Operation Order</div>
+      <h1>{{ opord.title }}</h1>
+      <dl class="brief-meta">
+        {% if opord.mission_date %}
+        <div><dt>Date</dt><dd>{{ opord.mission_date }}</dd></div>
+        {% endif %}
+        {% if opord.muster_time %}
+        <div><dt>Muster</dt><dd>{{ opord.muster_time }} {{ tz_label(opord.muster_tz) }}</dd></div>
+        {% endif %}
+        {% if opord.commander %}
+        <div><dt>Mission Commander</dt><dd>{{ opord.commander }}</dd></div>
+        {% endif %}
+      </dl>
+    </header>
+
+    {% set b = opord.body %}
+
+    <!-- 1 ── Task Organization ──────────────────────────────────────────── -->
+    <section class="brief-section">
+      <h2><span class="sec-num">1</span> Task Organization</h2>
+      {% if b.task_organization.units %}
+      <ul class="unit-list">
+        {% for u in b.task_organization.units %}
+        <li class="unit">
+          <div class="unit-name">{{ u.name or 'Unnamed unit' }}</div>
+          <ul class="unit-facts">
+            {% if u.crew_size %}<li>{{ u.crew_size }} crew</li>{% endif %}
+            {% if u.ships %}<li>{{ u.ships }}</li>{% endif %}
+            {% if u.led_by %}<li>Led by {{ u.led_by }}</li>{% endif %}
+          </ul>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="brief-empty">No units assigned.</p>{% endif %}
+
+      {% if opord.area_of_operation %}
+      <p class="brief-line"><span class="brief-key">Area of Operation</span>
+         {{ opord.area_of_operation }}</p>
+      {% endif %}
+    </section>
+
+    <!-- 2 ── Situation ─────────────────────────────────────────────────── -->
+    {% if b.situation.enemy_forces or b.situation.friendly_forces or b.situation.obstacles %}
+    <section class="brief-section">
+      <h2><span class="sec-num">2</span> Situation</h2>
+      {% if b.situation.enemy_forces %}
+      <p class="brief-line"><span class="brief-key">A. Enemy Forces</span>{{ b.situation.enemy_forces }}</p>{% endif %}
+      {% if b.situation.friendly_forces %}
+      <p class="brief-line"><span class="brief-key">B. Friendly Forces</span>{{ b.situation.friendly_forces }}</p>{% endif %}
+      {% if b.situation.obstacles %}
+      <p class="brief-line"><span class="brief-key">C. Obstacles / Challenges</span>{{ b.situation.obstacles }}</p>{% endif %}
+    </section>
+    {% endif %}
+
+    <!-- 3 ── Mission ───────────────────────────────────────────────────── -->
+    {% if b.mission %}
+    <section class="brief-section">
+      <h2><span class="sec-num">3</span> Mission</h2>
+      <p class="brief-body">{{ b.mission }}</p>
+    </section>
+    {% endif %}
+
+    <!-- 4 ── Execution ─────────────────────────────────────────────────── -->
+    <section class="brief-section">
+      <h2><span class="sec-num">4</span> Execution</h2>
+
+      {% if b.execution.intent %}
+      <p class="brief-line"><span class="brief-key">{{ letters.intent }}. Intent</span>
+         {{ b.execution.intent }}</p>
+      {% endif %}
+
+      {% for step in b.execution.steps %}
+        {% if step.type == 'unit_tasks' %}
+          {% set unit = (b.task_organization.units | selectattr('id','equalto',step.unit_id) | first) %}
+          <div class="brief-step">
+            <div class="brief-key">{{ letters[step.id] }}. Tasks to
+              <strong>{{ unit.name if unit else 'Unassigned' }}</strong></div>
+            {% if step.tasks %}
+            <ul class="task-list">
+              {% for t in step.tasks %}<li>{{ t }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="brief-step">
+            <div class="brief-key">{{ letters[step.id] }}. {{ step.title or 'Note' }}</div>
+            {% if step.body %}<p class="brief-body">{{ step.body }}</p>{% endif %}
+          </div>
+        {% endif %}
+      {% endfor %}
+
+      {% if b.execution.time_schedule %}
+      <div class="brief-step">
+        <div class="brief-key">{{ letters.time_schedule }}. Time Schedule</div>
+        <ul class="sched-list">
+          {% for row in b.execution.time_schedule %}
+          <li><span class="sched-when">{{ row.time }}</span>{{ row.text }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- 5 ── Service Support ───────────────────────────────────────────── -->
+    {# NOTE: ['items'] not .items — Jinja resolves attributes first, so
+   `.items` hands back the dict METHOD rather than our key. #}
+    {% if b.service_support.medical or b.service_support.personnel or b.service_support['items'] %}
+    <section class="brief-section">
+      <h2><span class="sec-num">5</span> Service Support</h2>
+      {% if b.service_support.medical %}
+      <p class="brief-line"><span class="brief-key">A. Medical</span>{{ b.service_support.medical }}</p>{% endif %}
+      {% if b.service_support.personnel %}
+      <p class="brief-line"><span class="brief-key">B. Personnel</span>{{ b.service_support.personnel }}</p>{% endif %}
+      {% for item in b.service_support['items'] %}
+      <p class="brief-line"><span class="brief-key">{{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[loop.index + 1] }}. {{ item.title }}</span>{{ item.detail }}</p>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <!-- 6 ── Command & Signal ──────────────────────────────────────────── -->
+    <section class="brief-section">
+      <h2><span class="sec-num">6</span> Command &amp; Signal</h2>
+      {% if b.command_signal.command %}
+      <p class="brief-line"><span class="brief-key">A. Command</span>{{ b.command_signal.command }}</p>{% endif %}
+      <p class="brief-line"><span class="brief-key">B. Signal</span>
+         Communications will be via {{ b.command_signal.signal_type }}{% if b.command_signal.signal_detail %} — {{ b.command_signal.signal_detail }}{% endif %}.</p>
+      <p class="brief-note">{{ signal_note }}</p>
+      {% for note in b.command_signal.notes %}
+      <p class="brief-line"><span class="brief-key">{{ 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[loop.index + 1] }}. {{ note.title }}</span>{{ note.detail }}</p>
+      {% endfor %}
+    </section>
+
+  </article>
+{% endif %}
+
+{% if tasking %}
+  <!-- Upcoming Tasking. Blank slots are filtered out server-side, so an empty
+       list means nothing is scheduled and the whole section stays hidden. -->
+  <section class="tasking-board">
+    <header class="section-head">
+      <h2>Upcoming Tasking</h2>
+      <p class="section-sub">Operations on the calendar.</p>
+    </header>
+    <ol class="tasking-list">
+      {% for t in tasking %}
+      <li class="tasking-item{% if t.is_past %} past{% endif %}">
+        <span class="tasking-when">{{ t.when or '—' }}</span>
+        <span class="tasking-title">{{ t.title }}</span>
+        {% if t.is_past %}<span class="tasking-flag">past</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+{% endif %}
+
+  <p class="brief-back"><a href="/">&larr; Back to the Portal</a></p>
+
+</main>
+{% endblock %}
