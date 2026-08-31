@@ -562,9 +562,15 @@
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
-  gap: 18px;
+  /* Row gap deliberately larger than the column gap: cards side by side read
+     as a pair, cards stacked read as separate groups, and they need different
+     amounts of air to do that. */
+  gap: 28px 18px;
   align-items: start;
 }
+/* The admin view is two sibling grids with nothing between them, so the two
+   rows of cards ran together as one block. */
+.admin-grid + .admin-grid { margin-top: 28px; }
 
 .admin-card {
   background: var(--bg2);
