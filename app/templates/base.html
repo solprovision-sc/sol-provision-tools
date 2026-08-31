@@ -26,6 +26,9 @@
 
 <script src="/static/js/common.js?v={{ asset_v('js/common.js') }}"></script>
 <script>
+// Where the header's "Portal" link goes. Set before renderHeader so navHTML
+// can read it; env-aware so tools-dev links to portal-dev.
+window.PORTAL_URL = {{ portal_url | tojson }};
 const PAGE = '{{ active_page }}';
 renderHeader(PAGE);
 {% block page_script %}{% endblock %}

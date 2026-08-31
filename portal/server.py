@@ -522,9 +522,19 @@ def mission_board():
 def index():
     """Landing page. Hosts the login overlay; content behind it stays blurred
     until a session exists, matching the tools app's pattern."""
+    # Member data is rendered ONLY for an authenticated session. The login
+    # overlay is client-side, so without this the readiness matrix sits in HTML
+    # served to anyone who requests the URL — /join is meant to be the only
+    # page a non-member can see anything on.
+    #
+    # IS_LOCAL counts as signed in: the dev machine has no server session (the
+    # local bypass is client-side), and an empty board would make the page
+    # impossible to work on.
+    signed_in = bool(session.get('discord_id')) or IS_LOCAL
     return render_template(
         'index.html',
-        readiness=read_readiness(),
+        signed_in=signed_in,
+        readiness=read_readiness() if signed_in else [],
         statuses=[dict(s) for s in org_status.STATUSES],
     )
 

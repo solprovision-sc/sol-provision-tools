@@ -88,23 +88,16 @@ function logoHTML() {
 // userInfo is optional. When provided and the user is rank >= 5, we append the
 // officer-only "HQ" link. Anyone else gets the normal nav.
 function navHTML(active, userInfo) {
-	const links = [
-	{ href: '/',              label: 'Dashboard' },
-	//{ href: '/ships',         label: 'Ships' },
-	// { href: '/components',    label: 'Components' },
-	// { href: '/weapons/ship',  label: 'Ship Weapons' },
-	// { href: '/weapons/fps',   label: 'FPS Weapons' },
-	// { href: '/armor',         label: 'Armor' },
-	// { href: '/shops',         label: 'Shops' },
-	//{ href: '/crafting', 	  label: 'Crafting'},
-	//{ href: '/mission-rep',   label: 'Mission Rep' },
-	//{ href: '/mining-signatures', label: 'Mining Sigs' },
-	//{ href: '/cargo-planner', label: 'Cargo Planner' },
-	// { href: '/starmap',       label: 'Star Map' },       // ← ADD THIS
-	//{ href: '/ledger', label: 'Ledger' },
-	//{ href: '/item_collection',    label: 'Item Collection' },
-	//{ href: '/base-builder',  label: 'Base Builder' },
-	];
+  // Portal | Tools | HQ, matching the portal app's header so the two sites
+  // read as one product. HQ is appended for rank 5+ below.
+  //
+  // The long commented-out list of per-page links that used to live here was
+  // removed 2026-08-31 — the tools dashboard is the single entry point now and
+  // those pages are reached from within it.
+  const links = [
+    { href: window.PORTAL_URL || 'https://portal.solprovision.com', label: 'Portal' },
+    { href: '/',                                                    label: 'Tools' },
+  ];
   // Rank may be int or string depending on the snapshot row; coerce defensively
   // so a stringy "5" still grants access. The server enforces the same gate.
   const rankRaw = userInfo && userInfo.rank;
