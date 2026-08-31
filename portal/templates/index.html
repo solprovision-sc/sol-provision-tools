@@ -56,9 +56,9 @@
           {{ st.label }}
         </div>
         {% if d.posture %}<p class="div-posture">{{ d.posture }}</p>{% endif %}
-        {% if d.updated_at %}
-        <time class="div-updated" datetime="{{ d.updated_at }}">{{ d.updated_at[:10] }}</time>
-        {% endif %}
+        {# The "last updated" date was dropped 2026-08-31 to keep these cards to
+           a glance. `d.updated_at` is still supplied by the route if it's ever
+           wanted back — in the tooltip, say, where it costs no height. #}
       </article>
       {% endfor %}
     </div>
