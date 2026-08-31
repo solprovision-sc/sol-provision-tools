@@ -24,7 +24,7 @@ import os
 import sqlite3
 import sys
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 from functools import wraps
 from pathlib import Path
 
@@ -457,6 +457,46 @@ def read_current_opord():
         conn.close()
 
 
+def read_tasking():
+    """Upcoming Tasking rows for the board, non-empty slots only.
+
+    Tolerates a missing table on purpose. The portal opens org_status.db
+    READ-ONLY and cannot migrate it, so between a deploy and the first officer
+    visit to HQ the table may genuinely not exist yet. That is an empty board,
+    not a 500.
+    """
+    try:
+        conn = org_status.connect(read_only=True)
+    except sqlite3.OperationalError as exc:
+        app.logger.info('org_status.db unavailable (%s)', exc)
+        return []
+    try:
+        slots = org_status.get_tasking(conn)
+    except sqlite3.OperationalError as exc:
+        app.logger.info('upcoming_tasking not present yet (%s) — the tools app '
+                        'creates it on its next HQ Admin load', exc)
+        return []
+    finally:
+        conn.close()
+
+    today = date.today()
+    out = []
+    for slot in slots:
+        if not slot["title"]:
+            continue                       # blank slots are hidden by design
+        raw = slot["tasking_date"]
+        when, past = "", False
+        if raw:
+            try:
+                d = date.fromisoformat(raw)
+                when = f"{d.day:02d} {d.strftime('%b').upper()}"
+                past = d < today
+            except ValueError:
+                when = raw                 # keep whatever was stored rather than hide it
+        out.append({"title": slot["title"], "when": when, "is_past": past})
+    return out
+
+
 @app.route('/mission-board')
 @require_page_login
 def mission_board():
@@ -471,6 +511,7 @@ def mission_board():
     return render_template(
         'mission_board.html',
         opord=current,
+        tasking=read_tasking(),
         letters=opord.section_letters(current['body']) if current else {},
         signal_note=opord.SIGNAL_NOTE,
         tz_label=opord.tz_label,
