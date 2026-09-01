@@ -160,6 +160,38 @@ In the Firebase console for **`sp-ledger`** → Authentication → Settings → 
 `auth/unauthorized-domain`. This is the same single project dev uses; there is no separate prod
 project.
 
+### 11. New-application tripwire (VoxBot)
+
+When `/api/join` stores a new application, the portal fires an empty POST to VoxBot, which @here-pings
+the Acquisitions channel. The unit sets it:
+
+```
+Environment="JOIN_WEBHOOK_URL=http://159.89.34.140:8001/api/application"
+```
+
+**Prod only.** The dev unit deliberately leaves it unset, which disables the call — otherwise every
+test submission on portal-dev pings the channel. Unsetting it is also the kill switch if VoxBot is
+noisy or Jenner's box moves: no code change, just edit the unit and restart.
+
+The body is empty by design. No applicant data leaves the VPS, which is what makes plain HTTP to a
+bare IP acceptable here. If VoxBot ever wants the actual application contents, that is a different
+conversation — it would need HTTPS and a shared secret.
+
+Confirm the VPS can reach it before relying on it:
+
+```bash
+curl -sS -m 5 -o /dev/null -w 'HTTP %{http_code}\n' \
+  -X POST -H 'Content-Type: application/json' -d '{}' \
+  http://159.89.34.140:8001/api/application
+```
+
+A non-2xx or a timeout means outbound egress or his listener, not our code — the portal logs the
+failure and carries on either way. Watch it live:
+
+```bash
+sudo journalctl -u solprovision-portal -f | grep 'join webhook'
+```
+
 ---
 
 ## Part B — merge to main
