@@ -251,22 +251,64 @@ collide. Copying the file is still the simpler path — it avoids installing `op
 putting the spreadsheet there even temporarily.
 
 **`opord.db` — copy dev → prod on the VPS.** The OpOrds were authored through tools-dev, so they
-exist only in the dev checkout. Stop the writer, not the reader — the tools app owns this file:
+exist only in the dev checkout.
+
+Two different services are involved, which is easy to get wrong: the **source** is written by
+`solprovision-dev` and the **destination** by `solprovision`. Use `sqlite3 .backup` rather than `cp`
+— it takes a read lock and folds in the `-wal` contents, so the source needs no stop at all. A plain
+`cp` of a live WAL database silently loses whatever hasn't checkpointed yet.
+
+**Look before overwriting.** If prod already has OpOrds, this replaces them:
 
 ```bash
-sudo systemctl stop solprovision
-sudo -u solprovision cp /var/www/sol-provision-tools-dev/opord.db \
-                        /var/www/sol-provision-tools/opord.db
-sudo systemctl start solprovision
+sudo -u solprovision sqlite3 /var/www/sol-provision-tools/opord.db \
+  'SELECT id, status, title FROM opords;' 2>/dev/null || echo 'no prod opord.db yet — safe'
 ```
 
-Use `cp` while the service is stopped rather than a live copy: with WAL enabled, copying the `.db`
-alone from a running database loses whatever is still in the `-wal` file. To copy hot instead, use
-`sqlite3 source.db ".backup /path/dest.db"`, which is WAL-safe.
+Snapshot the source hot, no service stop:
+
+```bash
+sudo -u solprovision sqlite3 /var/www/sol-provision-tools-dev/opord.db \
+  ".backup '/tmp/opord-from-dev.db'"
+sqlite3 /tmp/opord-from-dev.db 'SELECT id, status, title FROM opords;'   # sanity-check
+```
+
+Then swap it in. Stop both the writer and the reader so neither holds a handle across the move, and
+delete the stale `-wal`/`-shm` sidecars — leaving them next to a replaced `.db` is what corrupts it:
+
+```bash
+sudo systemctl stop solprovision solprovision-portal
+sudo -u solprovision rm -f /var/www/sol-provision-tools/opord.db-wal \
+                           /var/www/sol-provision-tools/opord.db-shm
+sudo -u solprovision cp /tmp/opord-from-dev.db /var/www/sol-provision-tools/opord.db
+sudo systemctl start solprovision solprovision-portal
+rm -f /tmp/opord-from-dev.db
+```
+
+`cp` as the `solprovision` user, not root — a root-owned database is readable but not writable, so
+the tools app would fail on the next OpOrd save. Confirm:
+
+```bash
+ls -l /var/www/sol-provision-tools/opord.db     # want solprovision solprovision
+```
 
 **`org_status.db` — optional.** Four division rows and four tasking slots. Copying it the same way as
 `opord.db` preserves the change log; re-entering it through prod HQ takes under a minute. Either is
 fine.
+
+### After copying opord.db
+
+A copied OpOrd keeps its `status`. If one is `posted` and its muster is less than 48h old, the portal
+Mission Board shows it as the live brief the moment the portal restarts — the same rule that governs
+a natively-posted one. Check what prod will display:
+
+```bash
+sudo -u solprovision sqlite3 /var/www/sol-provision-tools/opord.db \
+  "SELECT id, status, mission_date, muster_at_utc, title FROM opords ORDER BY id;"
+```
+
+If a stale one is posted, demote it from HQ → Admin → Mission Board rather than editing the database
+by hand: `post()` also archives the previously posted row, and doing it in SQL skips that.
 
 ### Backups
 
