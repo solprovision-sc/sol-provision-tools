@@ -344,10 +344,14 @@ by hand: `post()` also archives the previously posted row, and doing it in SQL s
 
 ### Backups
 
-Covered by `tools/backup_dbs.sh`, which snapshots every database whose contents cannot be
-regenerated — the three above plus the member-ownership and feed databases. See
-[tools/backup_dbs.sh](../../tools/backup_dbs.sh) for the list and the reasoning about what is
-deliberately excluded.
+Covered by `tools/backup_dbs.sh`: the three above plus `cargo_planner`, `uex_feed`, and
+`warehouse_inventory`.
+
+It does **not** cover `blueprint_ownership`, `ship_ownership`, or `mee6_snapshots` — those have their
+own crontab entries and their own prune rules, and duplicating them here would write a second set of
+snapshots into the same directories. See the comments in
+[tools/backup_dbs.sh](../../tools/backup_dbs.sh) for the full reasoning, including why `dataforge.db`
+is excluded.
 
 Install it and schedule it:
 

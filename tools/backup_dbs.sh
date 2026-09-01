@@ -2,7 +2,7 @@
 #
 # Snapshot every SQLite database that holds data we cannot regenerate.
 #
-# Replaces the per-database crontab lines this repo used to rely on. One entry
+# One entry
 # per database in DATABASES below beats one crontab line per database plus a
 # matching prune line: adding a database is now a one-line change that cannot
 # drift out of sync with its own retention rule (which is exactly what happened
@@ -15,7 +15,7 @@
 #
 # Install:
 #   sudo install -m 755 tools/backup_dbs.sh /usr/local/bin/sp-backup-dbs
-# Cron (replaces the individual backup AND prune lines):
+# Cron (add alongside the existing ownership/mee6 backup lines):
 #   17 */12 * * * /usr/local/bin/sp-backup-dbs >> /var/log/sp_backup.log 2>&1
 #
 # Exits non-zero if ANY database failed, so cron mails you / the log shows it.
@@ -29,12 +29,16 @@ KEEP_DAYS="${SP_BACKUP_KEEP_DAYS:-14}"
 
 # name : absolute source path
 #
-# NOT dataforge.db — it is ~200MB and fully regenerable by re-running the
-# extractor against Data.p4k. At two snapshots a day for 14 days it would be
-# ~5.6GB of disk to protect the one database we can rebuild from scratch.
+# SCOPED DELIBERATELY. blueprint_ownership, ship_ownership and mee6_snapshots are
+# already backed up by their own crontab entries and pruned by their own rules —
+# they are absent here on purpose, not by oversight. Listing them would write a
+# second set of snapshots into the same directories alongside the existing ones.
+# If those crontab lines are ever folded into this script, add them back here and
+# delete the lines, so each database has exactly one owner.
 #
-# NOT warehouse_inventory.db — the Google Sheet is the source of truth and the
-# puller rebuilds it every 2 minutes.
+# NOT dataforge.db — ~200MB and fully regenerable by re-running the extractor
+# against Data.p4k. Disk is not the constraint it once was, but there is still no
+# reason to snapshot the one database we can rebuild from scratch.
 DATABASES=(
   # Portal-era. applications.db holds real recruiting submissions; opord.db and
   # org_status.db hold hand-authored operational content. No other copy exists.
@@ -42,19 +46,18 @@ DATABASES=(
   "opord:${SRC_DIR}/opord.db"
   "org_status:${SRC_DIR}/org_status.db"
 
-  # Member-entered. Keyed by discord_id — losing these means asking members to
-  # re-enter their own claims.
-  "blueprint_ownership:${SRC_DIR}/blueprint_ownership.db"
-  "ship_ownership:${SRC_DIR}/ship_ownership.db"
+  # Member-entered, keyed by discord_id (cargo_planner holds mission_stacks).
+  # Losing these means asking members to re-enter their own work.
   "cargo_planner:${SRC_DIR}/cargo_planner.db"
 
   # Accumulated history. UEX serves current prices only, so the trend series
   # cannot be re-fetched once lost.
   "uex_feed:${SRC_DIR}/uex_feed.db"
 
-  # Gates every login on both sites. SPARQy would rebuild it on its next timer,
-  # but until then nobody can sign in — and last_login stamps don't come back.
-  "mee6_snapshots:${MEE6_DB:-/var/www/sparqy/data/mee6_snapshots.db}"
+  # Rebuildable from the Google Sheet in normal operation — included anyway,
+  # because that makes the Sheet a single point of failure. If it is deleted,
+  # mangled, or access lapses, this file becomes the last good copy.
+  "warehouse_inventory:${WAREHOUSE_DB:-${SRC_DIR}/warehouse_inventory.db}"
 )
 
 command -v sqlite3 >/dev/null || { echo "FATAL: sqlite3 not on PATH"; exit 2; }
