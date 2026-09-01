@@ -38,6 +38,12 @@ Environment="ORG_STATUS_DB=/var/www/sol-provision-tools/org_status.db"
 Environment="OPORD_DB=/var/www/sol-provision-tools/opord.db"
 Environment="APPLICATIONS_DB=/var/www/sol-provision-tools/applications.db"
 
+# New-application tripwire for VoxBot, which @here-pings the Acquisitions
+# channel. An empty POST; no applicant data is sent. Set ONLY here, never in the
+# dev unit — otherwise every test submission on portal-dev pings the channel.
+# Unset the variable to disable the notification without a code change.
+Environment="JOIN_WEBHOOK_URL=http://159.89.34.140:8001/api/application"
+
 # PORTAL_SECRET_KEY lives here, not in this unit file — unit files are
 # world-readable, and a leaked session key lets anyone forge a portal session.
 EnvironmentFile=/etc/sol-provision/portal.env

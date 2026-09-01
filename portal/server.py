@@ -23,7 +23,10 @@ config, which would invalidate every live tools session on deploy.
 import os
 import sqlite3
 import sys
+import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import date, timedelta
 from functools import wraps
 from pathlib import Path
@@ -614,6 +617,65 @@ def index():
 JOIN_THROTTLE_SECONDS = 30
 _join_last_post: dict = {}
 
+# ── New-application tripwire ─────────────────────────────────────────────────
+# VoxBot (Jenner's Discord bot) pings the Acquisitions channel when a new
+# application lands. It is a pure tripwire by design: the request ARRIVING is
+# the whole signal, and the body carries nothing. That is deliberate and worth
+# preserving — an applicant's details never leave this box, so the endpoint
+# being plain HTTP to a bare IP costs us nothing. Do not "improve" this by
+# posting the form contents.
+#
+# Unset means disabled, which is how dev stays quiet: only the prod systemd unit
+# sets it. Without that, every test submission on portal-dev would @here the
+# channel.
+JOIN_WEBHOOK_URL = os.environ.get('JOIN_WEBHOOK_URL', '').strip()
+JOIN_WEBHOOK_TIMEOUT = float(os.environ.get('JOIN_WEBHOOK_TIMEOUT', '5'))
+
+
+def _post_tripwire(url, timeout, application_id):
+    """POST an empty JSON body. Runs on a background thread; never raises."""
+    try:
+        req = urllib.request.Request(
+            url,
+            data=b'{}',                       # he accepts empty or {}; {} is
+            method='POST',                    # safe if his handler parses JSON
+            headers={'Content-Type': 'application/json',
+                     'User-Agent': 'sol-provision-portal/1.0'},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            app.logger.info('join webhook: application %s -> HTTP %s',
+                            application_id, resp.status)
+    except Exception as exc:
+        # Deliberately broad. This is a notification, not part of the
+        # application: VoxBot being down, unreachable, or slow must never turn
+        # into a failed submission for a prospective member. An uncaught
+        # exception on a thread would also just dump a traceback to stderr with
+        # nobody handling it, so catch and log it properly.
+        app.logger.warning('join webhook: application %s failed (%s: %s)',
+                           application_id, type(exc).__name__, exc)
+
+
+def notify_new_application(application_id):
+    """Fire the tripwire for a genuinely new application.
+
+    Call AFTER the row is committed, and only for a real insert — the honeypot
+    and the 24h-duplicate paths both answer 200 without storing anything, and
+    pinging officers for those would train them to ignore the alert.
+
+    Runs on a daemon thread so the applicant's response doesn't wait on a
+    round trip to someone else's server. The trade is that a ping in flight
+    during a restart is lost; for a Discord notification that's the right side
+    of the trade.
+    """
+    if not JOIN_WEBHOOK_URL:
+        return
+    threading.Thread(
+        target=_post_tripwire,
+        args=(JOIN_WEBHOOK_URL, JOIN_WEBHOOK_TIMEOUT, application_id),
+        name=f'join-webhook-{application_id}',
+        daemon=True,
+    ).start()
+
 
 def get_applications_db():
     """Connect to applications.db, creating and migrating it on first use."""
@@ -688,6 +750,9 @@ def submit_join():
     _join_last_post[ip] = now
     app.logger.info('join: application %s stored (%s / %s)', new_id,
                     fields['rsi_username'], fields['division_interest'])
+    # After the write, and only for a real insert. Non-blocking and it cannot
+    # raise, so the applicant's response is unaffected either way.
+    notify_new_application(new_id)
     return jsonify({'ok': True, 'id': new_id})
 
 
