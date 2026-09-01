@@ -344,14 +344,18 @@ by hand: `post()` also archives the previously posted row, and doing it in SQL s
 
 ### Backups
 
-Covered by `tools/backup_dbs.sh` — **every** database we snapshot, in one place. Nine of them:
+Covered by `tools/backup_dbs.sh` — every database this repo owns, in one place. Eight of them:
 `applications`, `opord`, `org_status`, `blueprint_ownership`, `ship_ownership`, `cargo_planner`,
-`uex_feed`, `warehouse_inventory`, `mee6_snapshots`.
+`uex_feed`, `warehouse_inventory`. Each entry carries both the snapshot and its own retention, so no
+backup or prune lines for these remain in the crontab.
 
-There are deliberately **no backup or prune lines left in the crontab**. Each entry in the script
-carries both the snapshot and its own retention, so the two cannot drift apart — which is exactly
-what happened before, when `mee6_snapshots` sat for months with a prune rule and nothing creating
-anything for it to prune. Only `dataforge.db` is excluded, being regenerable from Data.p4k.
+Two databases are deliberately **not** here:
+
+- `mee6_snapshots.db` — SPARQy backs it up itself, inside `run_snapshot.sh`, immediately after
+  writing the snapshot so a failed sync cannot overwrite a good backup. It gzips the result too
+  (~5.7MB vs ~22MB). Its prune rule stays in the crontab. Adding it here would give one file two
+  writers.
+- `dataforge.db` — regenerable from Data.p4k.
 
 Install it and schedule it:
 

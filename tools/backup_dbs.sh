@@ -29,11 +29,16 @@ KEEP_DAYS="${SP_BACKUP_KEEP_DAYS:-14}"
 
 # name : absolute source path
 #
-# EVERY database we back up is listed here — no backup jobs remain in the
-# crontab. That is the point: an entry here carries both the snapshot and its own
-# retention, so the two cannot drift apart. They already had — mee6_snapshots
-# spent months with a prune rule and nothing creating anything for it to prune,
-# because those lived on separate crontab lines that nobody read together.
+# Every database WE own is listed here, and no backup jobs remain in the crontab
+# for them. An entry here carries both the snapshot and its own retention, so the
+# two cannot drift apart.
+#
+# NOT mee6_snapshots.db — deliberately. SPARQy already backs it up inside
+# /var/www/sparqy/scripts/run_snapshot.sh, immediately AFTER writing the
+# snapshot, so a failed sync cannot overwrite a good backup. That ordering is the
+# point of doing it there and this script cannot reproduce it. SPARQy also gzips
+# the result (~5.7MB vs ~22MB raw), and it is SPARQy's own data. One writer per
+# file. Its retention lives in the crontab; leave that line alone.
 #
 # NOT dataforge.db — ~200MB and fully regenerable by re-running the extractor
 # against Data.p4k. Disk is no longer the constraint, but there is still no
@@ -59,10 +64,6 @@ DATABASES=(
   # because that rebuild is what makes the Sheet a single point of failure. If it
   # is deleted, mangled, or access lapses, this file is the last good copy.
   "warehouse_inventory:${WAREHOUSE_DB:-${SRC_DIR}/warehouse_inventory.db}"
-
-  # Gates every login on both sites. SPARQy rebuilds it on its next timer, but
-  # until then nobody can sign in — and last_login stamps don't come back.
-  "mee6_snapshots:${MEE6_DB:-/var/www/sparqy/data/mee6_snapshots.db}"
 )
 
 command -v sqlite3 >/dev/null || { echo "FATAL: sqlite3 not on PATH"; exit 2; }
