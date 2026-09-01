@@ -344,44 +344,35 @@ by hand: `post()` also archives the previously posted row, and doing it in SQL s
 
 ### Backups
 
-These three files are **not** covered by whatever backs up `dataforge.db` — add them. They are small
-(tens of KB) and change rarely, but two of them are the only copy of hand-authored content:
-`applications.db` holds real recruiting submissions that exist nowhere else, and `opord.db` holds
-authored operation orders. `dataforge.db` is rebuildable from the extractor; these are not.
+Covered by `tools/backup_dbs.sh`, which snapshots every database whose contents cannot be
+regenerated — the three above plus the member-ownership and feed databases. See
+[tools/backup_dbs.sh](../../tools/backup_dbs.sh) for the list and the reasoning about what is
+deliberately excluded.
 
-Back them up with SQLite's own backup API, not `cp`. In WAL mode a plain copy of a live database can
-land mid-transaction. `.backup` takes a read lock rather than blocking writers, so this is safe to
-run against the live site with no service stop:
+Install it and schedule it:
 
 ```bash
-sudo tee /usr/local/bin/backup-portal-dbs.sh > /dev/null <<'SH'
-#!/usr/bin/env bash
-set -euo pipefail
-SRC=/var/www/sol-provision-tools
-DEST=/var/backups/solprovision
-STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-mkdir -p "$DEST"
-for db in org_status opord applications; do
-  [ -f "$SRC/$db.db" ] || continue
-  sqlite3 "$SRC/$db.db" ".backup '$DEST/$db-$STAMP.db'"
-done
-find "$DEST" -name '*.db' -mtime +30 -delete
-SH
-sudo chmod 755 /usr/local/bin/backup-portal-dbs.sh
+sudo install -m 755 /var/www/sol-provision-tools/tools/backup_dbs.sh /usr/local/bin/sp-backup-dbs
+crontab -e
 ```
 
-Schedule it daily:
+```
+17 */12 * * * /usr/local/bin/sp-backup-dbs >> /var/log/sp_backup.log 2>&1
+```
+
+It replaces the per-database backup and prune lines that used to live in the crontab: one entry in
+the script's `DATABASES` list now carries both, so a database can no longer end up with a retention
+rule and no backup.
+
+Verify the next morning — a backup nobody checks is not a backup:
 
 ```bash
-sudo crontab -e
+tail -20 /var/log/sp_backup.log
+ls -la /var/www/backups/*/ | head -40
 ```
 
-```
-17 4 * * *  /usr/local/bin/backup-portal-dbs.sh
-```
-
-Verify it actually produced files the next morning — a backup nobody checks is not a backup:
+Restoring is a file copy with the writer stopped. Check the snapshot before trusting it:
 
 ```bash
-ls -la /var/backups/solprovision/
+sqlite3 /var/www/backups/applications/applications_<stamp>.db   'PRAGMA integrity_check; SELECT COUNT(*) FROM applications;'
 ```
