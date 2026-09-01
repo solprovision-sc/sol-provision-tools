@@ -17,7 +17,10 @@ const R_MIN = 60;
 const R_MAX = 12000;
 
 export function createCameraController(container) {
-  const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 80000);
+  // Aspect comes from the map block, not the window. attachResize() re-syncs it
+  // (and fires immediately on observe), so a 0-width container here self-corrects.
+  const aspect0 = (container.clientWidth || 1) / (container.clientHeight || 1);
+  const camera = new THREE.PerspectiveCamera(50, aspect0, 0.1, 80000);
   camera.position.set(0, 400, 900);
 
   let spherical       = { ...DEFAULT_VIEW };

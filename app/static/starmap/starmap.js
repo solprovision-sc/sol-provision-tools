@@ -55,8 +55,8 @@ scene.add(makeStarfield());
 
 const { renderer }                              = createRenderer(container);
 const { camera, update: updateCamera, flyTo, reset: resetCamera } = createCameraController(container);
-const { composer, bloomPass }                   = createComposer(renderer, scene, camera);
-attachResize(renderer, composer, camera);
+const { composer, bloomPass }                   = createComposer(renderer, scene, camera, container);
+attachResize(renderer, composer, camera, container);
 
 const loop = createLoop();
 

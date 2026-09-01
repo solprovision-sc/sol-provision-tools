@@ -3,9 +3,9 @@
 //  (all unchecked by default). Owns the selection state; tells the map to
 //  rebuild the heat-disk overlay via the onChange callback. Pure DOM.
 //
-//  The panel is fixed-positioned directly under the Set Position panel; its
-//  top is recomputed from that panel's live height (it grows/shrinks as the
-//  coords entry opens), so the two stay stacked without overlapping.
+//  The panel lives in the page sidebar in normal document flow, so it needs no
+//  manual positioning — the old relayout() that docked it beneath the Set
+//  Position panel was removed when the map moved out of fullscreen.
 // ═══════════════════════════════════════════════════════════════════
 
 import { ORE_LIST } from '../scene/oreheat.js';
@@ -49,35 +49,13 @@ function setEnabled(on) {
   emit();
 }
 
-// Keep the panel docked beneath the Set Position panel, and cap the ore list so
-// it scrolls within the remaining space above the bottom of the viewport.
-function relayout() {
-  const above = $('position-panel');
-  const me = $('ore-panel');
-  if (!above || !me) return;
-  me.style.top = `${Math.round(above.getBoundingClientRect().bottom + 12)}px`;
-
-  const list = $('ore-list');
-  const avail = Math.max(100, window.innerHeight - 26 - list.getBoundingClientRect().top - 16);
-  list.style.maxHeight = `${Math.round(avail)}px`;
-}
-
 export function initOreHeat(callbacks) {
   cb = callbacks;
   buildList();
 
   $('ore-toggle').addEventListener('click', () => setEnabled(!enabled));
 
-  relayout();
-  window.addEventListener('resize', relayout);
-  // The Set Position panel changes height (coords entry, status/clear rows);
-  // watch it so we re-dock when it does.
-  if (window.ResizeObserver) {
-    new ResizeObserver(relayout).observe($('position-panel'));
-  }
-
   return {
-    relayout,
     // Re-emit the current selection so the map can rebuild for a new system.
     refresh: emit,
   };

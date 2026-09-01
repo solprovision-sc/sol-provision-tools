@@ -10,12 +10,20 @@ const raycaster = new THREE.Raycaster();
 raycaster.params.Points = { threshold: 10 };
 const mouse = new THREE.Vector2();
 
+// NDC must be measured against the canvas container's rect, not the window —
+// the map is a block inset from the page edges, so window-relative coordinates
+// would offset every pick by the header + sidebar dimensions.
+function setMouseFrom(e, container) {
+  const r = container.getBoundingClientRect();
+  mouse.x =  ((e.clientX - r.left) / r.width)  * 2 - 1;
+  mouse.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+}
+
 export function initPicker(container, camera, world, onSelect) {
   const tip = document.getElementById('tooltip');
 
   container.addEventListener('mousemove', e => {
-    mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    setMouseFrom(e, container);
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(world.meshes, false);
     if (hits.length > 0 && hits[0].object.userData.bodyId) {
@@ -25,17 +33,22 @@ export function initPicker(container, camera, world, onSelect) {
         tip.style.left   = (e.clientX + 14) + 'px';
         tip.style.top    = (e.clientY - 8)  + 'px';
         tip.classList.add('show');
-        document.body.style.cursor = 'pointer';
+        // Scope the cursor to the map: the page around it is normal chrome now.
+        container.style.cursor = 'pointer';
         return;
       }
     }
     tip.classList.remove('show');
-    document.body.style.cursor = 'default';
+    container.style.cursor = 'default';
+  });
+
+  container.addEventListener('mouseleave', () => {
+    tip.classList.remove('show');
+    container.style.cursor = 'default';
   });
 
   container.addEventListener('click', e => {
-    mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    setMouseFrom(e, container);
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(world.meshes, false);
     if (hits.length > 0 && hits[0].object.userData.bodyId) {
