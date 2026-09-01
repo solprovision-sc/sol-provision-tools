@@ -1,491 +1,563 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Star Map — Sol Provision</title>
+{% extends "base.html" %}
+{% block title %}Star Map — Sol Provision{% endblock %}
 
-<!-- Shared fonts from base.html -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;600;700&family=Share+Tech+Mono&family=Exo+2:wght@300;400;600&display=swap" rel="stylesheet">
-
+{% block extra_css %}
 <style>
-  /* ── RESET ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  /* ═══════════════════════════════════════════════════════════════════
+     STAR MAP — page chrome is standard brand (Orbitron / Bai Jamjuree,
+     rust + gold) inherited from theme.css. Only surfaces that float ON
+     TOP of the 3D canvas keep the holographic instrument look.
 
-  /* ── SYSTEM THEMES ──
-     Holographic palette inspired by the RSI Arkmap: deep navy void, cyan
-     instrument glow, glassy translucent panels. Per-system classes retint the
-     accent (Pyro = ember, Nyx = periwinkle). */
+     Every holo variable is namespaced --sm-* precisely so the per-system
+     retint classes (body.pyro-theme / body.nyx-theme, set by ui/hud.js)
+     cannot bleed into the brand header, nav, or sidebar. Do not rename
+     these back to bare --accent / --bg.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* ── HOLO PALETTE (map interior only) ── */
   :root {
-    --accent:       #5fe3ff;
-    --accent-dim:   #3f8fae;
-    --accent-faint: #0a2230;
-    --accent-2:     #c3f1ff;
-    --hud-red:      #ff5566;
-    --hud-orange:   #ff9d4d;
-    --bg:           #030710;
-    --panel-bg:     rgba(8,18,30,0.62);
-    --panel-border: rgba(95,227,255,0.22);
-    --panel-glow:   rgba(95,227,255,0.06);
+    --sm-accent:       #5fe3ff;
+    --sm-accent-dim:   #3f8fae;
+    --sm-accent-faint: #0a2230;
+    --sm-accent-2:     #c3f1ff;
+    --sm-red:          #ff5566;
+    --sm-orange:       #ff9d4d;
+    --sm-void:         #030710;
+    --sm-panel-bg:     rgba(8,18,30,0.62);
+    --sm-panel-border: rgba(95,227,255,0.22);
+    --sm-panel-glow:   rgba(95,227,255,0.06);
   }
   body.pyro-theme {
-    --accent:       #ff9d4d;
-    --accent-dim:   #c4642a;
-    --accent-faint: #2a1000;
-    --accent-2:     #ffd089;
-    --bg:           #0a0400;
-    --panel-bg:     rgba(24,10,2,0.62);
-    --panel-border: rgba(255,157,77,0.24);
-    --panel-glow:   rgba(255,157,77,0.07);
+    --sm-accent:       #ff9d4d;
+    --sm-accent-dim:   #c4642a;
+    --sm-accent-faint: #2a1000;
+    --sm-accent-2:     #ffd089;
+    --sm-void:         #0a0400;
+    --sm-panel-bg:     rgba(24,10,2,0.62);
+    --sm-panel-border: rgba(255,157,77,0.24);
+    --sm-panel-glow:   rgba(255,157,77,0.07);
   }
   body.nyx-theme {
-    --accent:       #aeb9ff;
-    --accent-dim:   #6c79c4;
-    --accent-faint: #0a0f24;
-    --accent-2:     #e1e7ff;
-    --bg:           #03040b;
-    --panel-bg:     rgba(9,11,24,0.66);
-    --panel-border: rgba(174,185,255,0.22);
-    --panel-glow:   rgba(174,185,255,0.06);
+    --sm-accent:       #aeb9ff;
+    --sm-accent-dim:   #6c79c4;
+    --sm-accent-faint: #0a0f24;
+    --sm-accent-2:     #e1e7ff;
+    --sm-void:         #03040b;
+    --sm-panel-bg:     rgba(9,11,24,0.66);
+    --sm-panel-border: rgba(174,185,255,0.22);
+    --sm-panel-glow:   rgba(174,185,255,0.06);
   }
 
-  /* ── BASE ── */
-  html, body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: var(--bg); transition: background 0.6s;
-    cursor: default;
-    font-family: 'Rajdhani', sans-serif;
-  }
-  #canvas-container { position: fixed; inset: 0; }
-
-  /* glassy panel mixin, applied to every floating chrome surface */
-  .panel {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 3px;
-    backdrop-filter: blur(12px) saturate(115%);
-    -webkit-backdrop-filter: blur(12px) saturate(115%);
-    box-shadow: 0 10px 34px rgba(0,0,0,0.45), inset 0 0 26px var(--panel-glow);
+  /* ── PAGE SHELL ──
+     The map is a fixed-height block, not a fullscreen canvas, so the page
+     itself never scrolls — the sidebar scrolls internally like ships/crafting. */
+  main.sm-main {
+    padding: 24px;
+    height: calc(100vh - 112px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
-  /* ── OVERLAYS ── */
-  #vignette {
-    position: fixed; inset: 0; pointer-events: none; z-index: 4;
-    background: radial-gradient(ellipse at center, transparent 56%, rgba(0,0,0,0.62) 100%);
+  /* ── SIDEBAR TITLE ──
+     Sticky so it stays at the top while the tool sections scroll under it.
+     The negative top/margin cancel the aside's 20px top padding, so the title
+     docks flush against the header instead of 20px below it. */
+  .sm-sidebar-title {
+    position: sticky;
+    top: -20px;
+    z-index: 2;
+    background: var(--panel);
+    margin-top: -20px;
+    padding-top: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--border2);
   }
-  #flash {
-    position: fixed; inset: 0; z-index: 50; pointer-events: none;
-    background: var(--accent); opacity: 0; transition: opacity 0.15s;
-    mix-blend-mode: screen;
+  .sm-sidebar-title-main {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .sm-sidebar-title-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-top: 6px;
   }
 
-  /* ── CORNER BRACKETS ── */
-  .corner { position: fixed; width: 22px; height: 22px; z-index: 3; pointer-events: none; opacity: 0.6; }
-  .corner-tl { top: 10px;    left: 10px;  border-top:    1px solid var(--accent-dim); border-left:   1px solid var(--accent-dim); }
-  .corner-tr { top: 10px;    right: 10px; border-top:    1px solid var(--accent-dim); border-right:  1px solid var(--accent-dim); }
-  .corner-bl { bottom: 10px; left: 10px;  border-bottom: 1px solid var(--accent-dim); border-left:   1px solid var(--accent-dim); }
-  .corner-br { bottom: 10px; right: 10px; border-bottom: 1px solid var(--accent-dim); border-right:  1px solid var(--accent-dim); }
-
-  /* ── HEADER ── */
-  #sm-header {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 0 26px; height: 52px;
-    background: linear-gradient(180deg, rgba(4,10,18,0.82) 0%, rgba(4,10,18,0.25) 70%, transparent 100%);
-    border-bottom: 1px solid var(--panel-border);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    transition: border-color 0.4s, background 0.4s;
+  /* ── MAP BLOCK ──
+     Brand-surfaced container (matches the primary content block on ships /
+     crafting): a bar of system tabs + status, then the 3D viewport. */
+  .sm-mapblock {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
   }
-  body.pyro-theme #sm-header { background: linear-gradient(180deg, rgba(16,6,0,0.82) 0%, rgba(16,6,0,0.25) 70%, transparent 100%); }
-  body.nyx-theme  #sm-header { background: linear-gradient(180deg, rgba(5,6,16,0.82) 0%, rgba(5,6,16,0.25) 70%, transparent 100%); }
 
-  #sm-back {
-    font-family: 'Share Tech Mono', monospace; font-size: 10px;
-    letter-spacing: 2px; color: var(--accent-dim); text-decoration: none;
-    transition: color 0.2s; padding: 4px 0;
+  .sm-mapbar {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-wrap: wrap;
+    flex-shrink: 0;
   }
-  #sm-back:hover { color: var(--accent); }
 
-  .sm-logo {
-    font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 13px;
-    letter-spacing: 3.5px; color: var(--accent-2); text-transform: uppercase;
-    transition: color 0.4s; text-shadow: 0 0 14px var(--panel-glow);
+  /* System tabs — brand chrome, not holo. */
+  .sm-systems { display: flex; gap: 0; }
+  .sys-btn {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 6px 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-right-width: 0;
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.15s;
   }
-  .sm-logo span { color: var(--accent); transition: color 0.4s; text-shadow: 0 0 12px var(--accent); }
-
-  #sm-header-right {
-    font-family: 'Share Tech Mono', monospace; font-size: 10px;
-    color: var(--accent-dim); display: flex; align-items: center; gap: 22px;
-    transition: color 0.4s;
+  .sys-btn:last-child { border-right-width: 1px; }
+  .sys-btn:hover { color: var(--gold); background: var(--bg3); }
+  .sys-btn.active {
+    color: var(--gold);
+    background: var(--accent-dim);
+    border-color: var(--accent2);
   }
-  #system-id { letter-spacing: 2px; }
 
-  .live { color: var(--accent) !important; }
-  .live::before {
-    content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent); margin-right: 6px; box-shadow: 0 0 8px var(--accent);
-    animation: blink 2s infinite; transition: background 0.4s;
+  .sm-status {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
   }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
-
-  #body-count { color: var(--accent-dim); }
-
+  .sm-status .live { color: var(--gold); }
+  .sm-status .live::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--positive);
+    margin-right: 7px;
+    box-shadow: 0 0 8px var(--status-green-glow);
+    animation: sm-blink 2s infinite;
+  }
+  @keyframes sm-blink { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
   #danger-badge {
-    font-size: 9px; letter-spacing: 2px; color: var(--hud-orange);
-    border: 1px solid rgba(255,157,77,0.4); border-radius: 2px; padding: 2px 8px; display: none;
+    color: var(--accent);
+    border: 1px solid var(--accent2);
+    padding: 2px 8px;
+    display: none;
   }
   body.pyro-theme #danger-badge,
   body.nyx-theme  #danger-badge { display: inline-block; }
 
-  /* ── SYSTEM SELECTOR ── */
-  #system-selector {
-    position: fixed; top: 64px; left: 50%; transform: translateX(-50%);
-    z-index: 20; display: flex; overflow: hidden;
+  /* ── VIEWPORT ──
+     Positioning context for the canvas and every holo overlay. The canvas
+     sizes to THIS element (see core/renderer.js), not to the window. */
+  .sm-viewport {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--sm-void);
+    transition: background 0.6s;
   }
-  .sys-btn {
-    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 3px;
-    padding: 9px 24px; cursor: pointer; transition: all 0.2s;
-    color: var(--accent-dim); background: transparent; border: none; outline: none;
-    text-transform: uppercase; user-select: none;
-    border-right: 1px solid var(--panel-border);
-  }
-  .sys-btn:last-child { border-right: none; }
-  .sys-btn:hover  { color: var(--accent); background: rgba(95,227,255,0.05); }
-  .sys-btn.active { color: var(--bg); background: var(--accent); text-shadow: none; }
-  body.pyro-theme .sys-btn.active { color: #160600; background: var(--accent); }
-  body.nyx-theme  .sys-btn.active { color: #05060f; background: var(--accent); }
+  #canvas-container { position: absolute; inset: 0; }
+  #canvas-container canvas { display: block; }
 
-  /* ── FILTER PANEL ── */
-  #filters {
-    position: fixed; top: 64px; left: 26px; z-index: 20;
-    padding: 13px 17px; transition: border-color 0.4s;
+  /* glassy panel mixin, applied to holo surfaces floating over the canvas */
+  .sm-panel {
+    background: var(--sm-panel-bg);
+    border: 1px solid var(--sm-panel-border);
+    border-radius: 3px;
+    backdrop-filter: blur(12px) saturate(115%);
+    -webkit-backdrop-filter: blur(12px) saturate(115%);
+    box-shadow: 0 10px 34px rgba(0,0,0,0.45), inset 0 0 26px var(--sm-panel-glow);
   }
-  #filters::before {
-    content: 'DISPLAY FILTER'; display: block;
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
-    color: var(--accent-dim); margin-bottom: 11px;
-    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
-  }
-  .filter-btn {
-    display: flex; align-items: center; gap: 9px; margin-bottom: 7px;
-    cursor: pointer; font-size: 12px; letter-spacing: 1px;
-    color: var(--accent-dim); transition: color 0.2s; user-select: none;
-  }
-  .filter-btn:hover  { color: var(--accent); }
-  .filter-btn.active { color: var(--accent-2); }
-  .filter-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--accent-faint); border: 1px solid var(--accent-dim); transition: all 0.2s;
-  }
-  .filter-btn.active .filter-dot { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--accent); }
 
-  /* ── CONTROLS PANEL ── */
+  /* ── CANVAS OVERLAYS ── */
+  #vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(ellipse at center, transparent 56%, rgba(0,0,0,0.62) 100%);
+  }
+  #flash {
+    position: absolute; inset: 0; z-index: 50; pointer-events: none;
+    background: var(--sm-accent); opacity: 0; transition: opacity 0.15s;
+    mix-blend-mode: screen;
+  }
+
+  .corner { position: absolute; width: 22px; height: 22px; z-index: 5; pointer-events: none; opacity: 0.6; }
+  .corner-tl { top: 10px;    left: 10px;  border-top:    1px solid var(--sm-accent-dim); border-left:   1px solid var(--sm-accent-dim); }
+  .corner-tr { top: 10px;    right: 10px; border-top:    1px solid var(--sm-accent-dim); border-right:  1px solid var(--sm-accent-dim); }
+  .corner-bl { bottom: 10px; left: 10px;  border-bottom: 1px solid var(--sm-accent-dim); border-left:   1px solid var(--sm-accent-dim); }
+  .corner-br { bottom: 10px; right: 10px; border-bottom: 1px solid var(--sm-accent-dim); border-right:  1px solid var(--sm-accent-dim); }
+
+  /* ── NAV CONTROLS (stays an overlay — the gestures happen here) ── */
   #controls {
-    position: fixed; bottom: 74px; right: 26px; z-index: 20;
-    padding: 15px 19px; min-width: 220px; transition: border-color 0.4s;
+    position: absolute; bottom: 18px; right: 18px; z-index: 20;
+    padding: 13px 16px; min-width: 210px;
   }
   #controls::before {
     content: 'NAV CONTROLS'; display: block;
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
-    color: var(--accent-dim); margin-bottom: 12px;
-    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.24em;
+    color: var(--sm-accent-dim); margin-bottom: 11px;
+    border-bottom: 1px solid var(--sm-panel-border); padding-bottom: 8px;
   }
-  .ctrl-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .ctrl-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .ctrl-row:last-child { margin-bottom: 0; }
   .ctrl-key {
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--accent-2);
-    background: rgba(95,227,255,0.07); border: 1px solid rgba(95,227,255,0.22); border-radius: 2px;
-    padding: 3px 6px; min-width: 72px; text-align: center;
+    font-family: var(--font-mono); font-size: 9px; color: var(--sm-accent-2);
+    background: var(--sm-accent-faint); border: 1px solid var(--sm-panel-border);
+    border-radius: 2px; padding: 3px 6px; min-width: 74px; text-align: center;
   }
-  .ctrl-desc { font-size: 12px; color: var(--accent-dim); letter-spacing: 1px; }
+  .ctrl-desc { font-size: 11px; color: var(--sm-accent-dim); letter-spacing: 0.08em; }
 
-  /* ── ORBIT TOGGLE ── */
-  #orbit-toggle {
-    position: fixed; bottom: 26px; right: 26px; z-index: 20;
-    padding: 11px 19px; font-family: 'Share Tech Mono', monospace;
-    font-size: 10px; letter-spacing: 2px; color: var(--accent-dim);
-    cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; gap: 10px; user-select: none;
-  }
-  #orbit-toggle:hover, #orbit-toggle.active { border-color: var(--accent); color: var(--accent); }
-  #orbit-toggle .ind { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-dim); transition: all 0.2s; }
-  #orbit-toggle.active .ind { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-
-  /* ── INFO PANEL ── */
+  /* ── INFO PANEL (stays an overlay — contextual to a clicked body) ── */
   #info-panel {
-    position: fixed; top: 64px; right: 26px; z-index: 20;
-    width: 290px; transform: translateX(340px);
-    transition: transform 0.34s cubic-bezier(0.4,0,0.2,1), border-color 0.4s;
+    position: absolute; top: 18px; right: 18px; z-index: 21;
+    width: 290px; transform: translateX(calc(100% + 28px));
+    transition: transform 0.34s cubic-bezier(0.4,0,0.2,1);
     pointer-events: none;
   }
-  #info-panel.visible { transform: translateX(0); pointer-events: all; }
+  #info-panel.visible { transform: translateX(0); pointer-events: auto; }
   #iph {
-    padding: 11px 15px; border-bottom: 1px solid var(--panel-border);
-    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 15px; border-bottom: 1px solid var(--sm-panel-border);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
   }
-  #ipt    { font-weight: 700; font-size: 16px; color: var(--accent-2); letter-spacing: 2px; text-transform: uppercase; transition: color 0.4s; text-shadow: 0 0 14px var(--panel-glow); }
-  #iptype { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--accent); letter-spacing: 2px; transition: color 0.4s; }
-  #ipclose { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--accent-dim); cursor: pointer; padding: 2px 6px; transition: color 0.2s; }
-  #ipclose:hover { color: var(--hud-red); }
+  #ipt {
+    font-family: var(--font-display); font-weight: 700; font-size: 14px;
+    color: var(--sm-accent-2); letter-spacing: 0.1em; text-transform: uppercase;
+    text-shadow: 0 0 14px var(--sm-panel-glow);
+  }
+  #iptype {
+    font-family: var(--font-mono); font-size: 9px; color: var(--sm-accent);
+    letter-spacing: 0.18em; margin-top: 4px;
+  }
+  #ipclose {
+    font-family: var(--font-mono); font-size: 12px; color: var(--sm-accent-dim);
+    cursor: pointer; padding: 2px 6px; transition: color 0.2s; flex-shrink: 0;
+  }
+  #ipclose:hover { color: var(--sm-red); }
   #ipbody { padding: 13px 15px; }
   .info-row {
-    display: flex; justify-content: space-between; align-items: baseline;
-    margin-bottom: 7px; font-family: 'Share Tech Mono', monospace; font-size: 10px;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    margin-bottom: 7px; font-family: var(--font-mono); font-size: 10px;
   }
-  .info-label { color: var(--accent-dim); letter-spacing: 1px; transition: color 0.4s; }
-  .info-value { color: var(--accent-2); transition: color 0.4s; }
+  .info-label { color: var(--sm-accent-dim); letter-spacing: 0.1em; }
+  .info-value { color: var(--sm-accent-2); text-align: right; }
   #idesc {
-    font-size: 12px; color: rgba(195,241,255,0.6); line-height: 1.55; margin-top: 11px;
-    border-top: 1px solid var(--panel-border); padding-top: 11px;
-  }
-  body.pyro-theme #idesc { color: rgba(255,208,137,0.6); }
-  body.nyx-theme  #idesc { color: rgba(225,231,255,0.6); }
-
-  /* ── SET POSITION PANEL ── */
-  #position-panel {
-    position: fixed; top: 258px; left: 26px; z-index: 20;
-    width: 240px; padding: 13px 15px;
-    max-height: calc(100vh - 320px); overflow-y: auto;
-    transition: border-color 0.4s;
-  }
-  #position-panel::before {
-    content: 'SET POSITION'; display: block;
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
-    color: var(--accent-dim); margin-bottom: 11px;
-    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
-  }
-  .pos-select, .pos-coords-input {
-    font-family: 'Share Tech Mono', monospace; font-size: 11px;
-    background: rgba(8,18,30,0.72); color: var(--accent-2);
-    border: 1px solid var(--panel-border); border-radius: 2px;
-    padding: 5px 6px; outline: none; color-scheme: dark;
-  }
-  .pos-select:focus, .pos-coords-input:focus { border-color: var(--accent); }
-  .pos-select { width: 100%; margin-bottom: 8px; }
-  .pos-hint {
-    font-size: 11px; line-height: 1.45; color: var(--accent-dim);
-    letter-spacing: 0.5px; margin-bottom: 7px;
-  }
-  .pos-hint b { color: var(--accent-2); font-weight: 600; }
-  .pos-coords-input {
-    width: 100%; resize: vertical; min-height: 48px; line-height: 1.4;
-    margin-bottom: 6px;
-  }
-  .pos-coords-input::placeholder { color: var(--accent-dim); opacity: 0.55; }
-  .pos-btn {
-    width: 100%; margin-top: 6px; cursor: pointer; user-select: none;
-    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
-    text-transform: uppercase; padding: 7px 0; border-radius: 2px;
-    color: var(--bg); background: var(--accent); border: 1px solid var(--accent);
-    transition: filter 0.2s;
-  }
-  .pos-btn:hover { filter: brightness(1.15); }
-  .pos-clear {
-    color: var(--accent-dim); background: transparent; border-color: var(--panel-border);
-  }
-  .pos-clear:hover { color: var(--hud-red); border-color: var(--hud-red); filter: none; }
-  #pos-result, #pos-status {
-    font-family: 'Share Tech Mono', monospace; font-size: 10px; line-height: 1.45;
-    margin-top: 8px; color: var(--accent-dim);
-  }
-  #pos-result .warn, #pos-result.warn, #pos-status.warn { color: var(--hud-orange); }
-  #pos-result.bad, #pos-status.bad { color: var(--hud-red); }
-  #pos-result.ok, #pos-status.ok { color: var(--accent); }
-
-  /* ── ORE CONCENTRATIONS PANEL ── */
-  #ore-panel {
-    position: fixed; left: 26px; top: 470px; z-index: 20;   /* top refined at runtime by relayout() */
-    width: 240px; padding: 13px 15px;
-    transition: border-color 0.4s;
-  }
-  #ore-panel::before {
-    content: 'ORE CONCENTRATIONS'; display: block;
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; letter-spacing: 3px;
-    color: var(--accent-dim); margin-bottom: 11px;
-    border-bottom: 1px solid var(--panel-border); padding-bottom: 8px;
-  }
-  /* master on/off toggle */
-  #ore-toggle {
-    display: flex; align-items: center; justify-content: space-between;
-    cursor: pointer; user-select: none; margin-bottom: 10px;
-    font-family: 'Share Tech Mono', monospace; font-size: 10px; letter-spacing: 2px;
-    color: var(--accent-dim); transition: color 0.2s;
-  }
-  #ore-toggle:hover { color: var(--accent); }
-  #ore-toggle.active { color: var(--accent-2); }
-  .ore-switch {
-    width: 30px; height: 15px; border-radius: 8px; position: relative;
-    background: var(--accent-faint); border: 1px solid var(--accent-dim); transition: all 0.2s;
-  }
-  .ore-switch::after {
-    content: ''; position: absolute; top: 1px; left: 1px;
-    width: 11px; height: 11px; border-radius: 50%;
-    background: var(--accent-dim); transition: all 0.2s;
-  }
-  #ore-toggle.active .ore-switch { background: rgba(95,227,255,0.18); border-color: var(--accent); }
-  #ore-toggle.active .ore-switch::after { left: 16px; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
-
-  /* gradient legend */
-  #ore-legend { margin-bottom: 11px; opacity: 0.55; transition: opacity 0.2s; }
-  #ore-panel.on #ore-legend { opacity: 1; }
-  #ore-legend-bar {
-    height: 7px; border-radius: 2px;
-    background: linear-gradient(90deg, hsl(0,85%,50%), hsl(60,85%,50%), hsl(120,85%,50%));
-    border: 1px solid var(--panel-border);
-  }
-  #ore-legend-labels {
-    display: flex; justify-content: space-between; margin-top: 3px;
-    font-family: 'Share Tech Mono', monospace; font-size: 8px; letter-spacing: 1px;
-    color: var(--accent-dim);
-  }
-
-  /* ore checkbox list */
-  #ore-list {
-    max-height: 38vh; overflow-y: auto; padding-right: 4px;
-    opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
-  }
-  #ore-panel.on #ore-list { opacity: 1; pointer-events: auto; }
-  .ore-row {
-    display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
-    cursor: pointer; user-select: none;
-    font-size: 12px; letter-spacing: 0.5px; color: var(--accent-dim);
-    transition: color 0.15s;
-  }
-  .ore-row:hover { color: var(--accent); }
-  .ore-row.checked { color: var(--accent-2); }
-  .ore-box {
-    width: 12px; height: 12px; flex: 0 0 auto; border-radius: 2px;
-    background: var(--accent-faint); border: 1px solid var(--accent-dim);
-    position: relative; transition: all 0.15s;
-  }
-  .ore-row.checked .ore-box { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--accent); }
-  .ore-row.checked .ore-box::after {
-    content: ''; position: absolute; left: 3px; top: 0px;
-    width: 4px; height: 8px; border: solid var(--bg);
-    border-width: 0 2px 2px 0; transform: rotate(45deg);
-  }
-  #ore-empty {
-    font-family: 'Share Tech Mono', monospace; font-size: 9px; line-height: 1.4;
-    color: var(--accent-dim); margin-top: 8px;
+    font-size: 11px; color: var(--sm-accent-dim); line-height: 1.55; margin-top: 11px;
+    border-top: 1px solid var(--sm-panel-border); padding-top: 11px;
+    max-height: 30vh; overflow-y: auto;
   }
 
   /* ── TOOLTIP ── */
   #tooltip {
-    position: fixed; z-index: 30; pointer-events: none;
-    background: var(--panel-bg); border: 1px solid var(--accent);
+    position: fixed; z-index: 60; pointer-events: none;
+    background: var(--sm-panel-bg); border: 1px solid var(--sm-accent);
     border-radius: 2px;
     backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    padding: 6px 10px; font-family: 'Share Tech Mono', monospace;
-    font-size: 11px; color: var(--accent-2); letter-spacing: 1px;
-    box-shadow: 0 0 14px var(--panel-glow);
-    opacity: 0; transition: opacity 0.15s, border-color 0.4s, color 0.4s;
+    padding: 6px 10px; font-family: var(--font-mono);
+    font-size: 11px; color: var(--sm-accent-2); letter-spacing: 0.1em;
+    box-shadow: 0 0 14px var(--sm-panel-glow);
+    opacity: 0; transition: opacity 0.15s;
     white-space: nowrap;
   }
   #tooltip.show { opacity: 1; }
+
+  /* ═══ SIDEBAR TOOLS — brand styling throughout ═══ */
+
+  /* ── Display filter ── */
+  .filter-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 5px 6px; cursor: pointer; user-select: none;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text3); transition: all 0.15s;
+  }
+  .filter-btn:hover { color: var(--text); background: var(--bg2); }
+  .filter-btn.active { color: var(--text); }
+  .filter-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: transparent; border: 1px solid var(--border2); transition: all 0.15s;
+  }
+  .filter-btn.active .filter-dot {
+    background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 0 7px rgba(232,133,92,0.55);
+  }
+
+  /* ── Set position ── */
+  .pos-select, .pos-coords-input {
+    width: 100%;
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--bg2); color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 8px; outline: none; color-scheme: dark;
+    transition: border-color 0.15s;
+  }
+  .pos-select:focus, .pos-coords-input:focus { border-color: var(--accent); }
+  .pos-select { margin-bottom: 8px; }
+  .pos-hint {
+    font-size: 11px; line-height: 1.5; color: var(--text3);
+    margin-bottom: 8px;
+  }
+  .pos-hint b { color: var(--gold); font-weight: 600; }
+  .pos-coords-input { resize: vertical; min-height: 52px; line-height: 1.4; margin-bottom: 8px; }
+  .pos-coords-input::placeholder { color: var(--text3); opacity: 0.6; }
+  .pos-btn {
+    width: 100%; margin-top: 6px; cursor: pointer; user-select: none;
+    font-family: var(--font-ui); font-weight: 600; font-size: 10px;
+    letter-spacing: 0.15em; text-transform: uppercase; padding: 9px 0;
+    border: 1px solid var(--accent2); background: transparent;
+    color: var(--accent); transition: all 0.15s;
+  }
+  .pos-btn:hover { background: var(--accent-dim); border-color: var(--accent); color: var(--gold); }
+  .pos-clear { border-color: var(--border); color: var(--text2); }
+  .pos-clear:hover { border-color: var(--status-red); background: transparent; color: var(--status-red); }
+  #pos-result, #pos-status {
+    font-family: var(--font-mono); font-size: 10px; line-height: 1.5;
+    margin-top: 8px; color: var(--text3);
+  }
+  #pos-result .warn, #pos-result.warn, #pos-status.warn { color: var(--warning); }
+  #pos-result.bad,  #pos-status.bad  { color: var(--status-red); }
+  #pos-result.ok,   #pos-status.ok   { color: var(--positive); }
+
+  /* ── Ore concentrations ── */
+  #ore-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none; margin-bottom: 10px;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text3); transition: color 0.15s;
+  }
+  #ore-toggle:hover { color: var(--text); }
+  #ore-toggle.active { color: var(--text); }
+  .ore-switch {
+    width: 30px; height: 15px; border-radius: 8px; position: relative; flex-shrink: 0;
+    background: var(--bg2); border: 1px solid var(--border2); transition: all 0.2s;
+  }
+  .ore-switch::after {
+    content: ''; position: absolute; top: 1px; left: 1px;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--text3); transition: all 0.2s;
+  }
+  #ore-toggle.active .ore-switch { background: var(--accent-dim); border-color: var(--accent2); }
+  #ore-toggle.active .ore-switch::after {
+    left: 16px; background: var(--accent);
+    box-shadow: 0 0 7px rgba(232,133,92,0.55);
+  }
+
+  /* Legend keeps the red→green concentration ramp: it is a data scale, not
+     brand chrome, and scene/oreheat.js paints the disks from this same ramp. */
+  #ore-legend { margin-bottom: 12px; opacity: 0.45; transition: opacity 0.2s; }
+  #ore-panel.on #ore-legend { opacity: 1; }
+  #ore-legend-bar {
+    height: 7px;
+    background: linear-gradient(90deg, hsl(0,85%,50%), hsl(60,85%,50%), hsl(120,85%,50%));
+    border: 1px solid var(--border);
+  }
+  #ore-legend-labels {
+    display: flex; justify-content: space-between; margin-top: 4px;
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text3);
+  }
+
+  #ore-list {
+    max-height: 320px; overflow-y: auto; padding-right: 4px;
+    opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
+  }
+  #ore-panel.on #ore-list { opacity: 1; pointer-events: auto; }
+  .ore-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 4px 6px; cursor: pointer; user-select: none;
+    font-size: 12px; color: var(--text3); transition: all 0.15s;
+  }
+  .ore-row:hover { color: var(--text); background: var(--bg2); }
+  .ore-row.checked { color: var(--text); }
+  .ore-box {
+    width: 12px; height: 12px; flex: 0 0 auto;
+    background: var(--bg2); border: 1px solid var(--border2);
+    position: relative; transition: all 0.15s;
+  }
+  .ore-row.checked .ore-box { background: var(--accent); border-color: var(--accent); }
+  .ore-row.checked .ore-box::after {
+    content: ''; position: absolute; left: 3px; top: 0;
+    width: 4px; height: 8px; border: solid var(--bg-base);
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  #ore-empty {
+    font-family: var(--font-mono); font-size: 9px; line-height: 1.5;
+    color: var(--text3); margin-top: 8px;
+  }
+
+  /* ── Orbital motion toggle ── */
+  #orbit-toggle {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 6px; cursor: pointer; user-select: none;
+    font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text3); transition: all 0.15s;
+  }
+  #orbit-toggle:hover { color: var(--text); background: var(--bg2); }
+  #orbit-toggle.active { color: var(--text); }
+  #orbit-toggle .ind {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    background: transparent; border: 1px solid var(--border2); transition: all 0.15s;
+  }
+  #orbit-toggle.active .ind {
+    background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 0 7px rgba(232,133,92,0.55);
+  }
+
+  /* ── Narrow screens: sidebar stacks above the map ── */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    aside {
+      position: static; height: auto;
+      border-right: none; border-bottom: 1px solid var(--border);
+    }
+    main.sm-main { height: 70vh; }
+  }
 </style>
-</head>
-<body>
+{% endblock %}
 
-<div id="canvas-container"></div>
-<div id="vignette"></div>
-<div id="flash"></div>
+{% block body %}
+<div class="layout">
 
-<div class="corner corner-tl"></div>
-<div class="corner corner-tr"></div>
-<div class="corner corner-bl"></div>
-<div class="corner corner-br"></div>
+  <aside id="sidebar">
+    <div class="sm-sidebar-title">
+      <div class="sm-sidebar-title-main">Sol Provision</div>
+      <div class="sm-sidebar-title-sub">Navigational Systems</div>
+    </div>
 
-<!-- HEADER -->
-<div id="sm-header">
-  <a id="sm-back" href="/">← DASHBOARD</a>
-  <div class="sm-logo">SOL <span>PROVISION</span> — NAVIGATIONAL SYSTEMS</div>
-  <div id="sm-header-right">
-    <span class="live">ARK STARMAP DATA</span>
-    <span id="system-id">SYS: STANTON // UEE TERRITORY</span>
-    <span id="body-count">4 PLANETS // 12 MOONS</span>
-    <span id="danger-badge">⚠ HIGH DANGER</span>
-  </div>
-</div>
+    <div class="sidebar-section">
+      <span class="section-label">Display Filter</span>
+      <div id="filters">
+        <div class="filter-btn active" data-type="PLANET"       ><div class="filter-dot"></div>Planets</div>
+        <div class="filter-btn active" data-type="SATELLITE"    ><div class="filter-dot"></div>Moons</div>
+        <div class="filter-btn active" data-type="orbits"       ><div class="filter-dot"></div>Orbit Rings</div>
+        <div class="filter-btn active" data-type="labels"       ><div class="filter-dot"></div>Labels</div>
+        <div class="filter-btn active" data-type="JUMPPOINT"    ><div class="filter-dot"></div>Jump Points</div>
+        <div class="filter-btn active" data-type="ASTEROID_BELT"><div class="filter-dot"></div>Asteroid Fields</div>
+        <div class="filter-btn active" data-type="LAGRANGE"     ><div class="filter-dot"></div>Lagrange Points</div>
+      </div>
+    </div>
 
-<!-- SYSTEM SELECTOR -->
-<div id="system-selector" class="panel">
-  <button class="sys-btn active" data-system="stanton">STANTON</button>
-  <button class="sys-btn"        data-system="pyro">PYRO</button>
-  <button class="sys-btn"        data-system="nyx">NYX</button>
-</div>
+    <div class="sidebar-section">
+      <span class="section-label">Orbital Motion</span>
+      <div id="orbit-toggle"><div class="ind"></div>Animate Orbits</div>
+    </div>
 
-<!-- FILTERS -->
-<div id="filters" class="panel">
-  <div class="filter-btn active" data-type="PLANET"       ><div class="filter-dot"></div>PLANETS</div>
-  <div class="filter-btn active" data-type="SATELLITE"    ><div class="filter-dot"></div>MOONS</div>
-  <div class="filter-btn active" data-type="orbits"       ><div class="filter-dot"></div>ORBIT RINGS</div>
-  <div class="filter-btn active" data-type="labels"       ><div class="filter-dot"></div>LABELS</div>
-  <div class="filter-btn active" data-type="JUMPPOINT"    ><div class="filter-dot"></div>JUMP POINTS</div>
-  <div class="filter-btn active" data-type="ASTEROID_BELT"><div class="filter-dot"></div>ASTEROID FIELDS</div>
-  <div class="filter-btn active" data-type="LAGRANGE"     ><div class="filter-dot"></div>LAGRANGE POINTS</div>
-</div>
+    <div class="sidebar-section">
+      <span class="section-label">Set Position</span>
+      <div id="position-panel">
+        <select id="pos-system" class="pos-select">
+          <option value="stanton">Stanton</option>
+          <option value="pyro">Pyro</option>
+          <option value="nyx">Nyx</option>
+        </select>
+        <select id="pos-location" class="pos-select"></select>
+        <div id="pos-coords" hidden>
+          <div class="pos-hint">Type <b>/showlocation</b> in in-game chat, then paste the result:</div>
+          <textarea id="pos-coords-input" class="pos-coords-input" rows="3"
+                    placeholder="Coordinates: x:-19023432445.8 y:-2613543032.8 z:-2189.7"></textarea>
+          <button id="pos-coords-set" class="pos-btn">Set Marker</button>
+          <div id="pos-result"></div>
+        </div>
+        <div id="pos-status"></div>
+        <button id="pos-clear" class="pos-btn pos-clear" hidden>Clear Position</button>
+      </div>
+    </div>
 
-<!-- SET POSITION -->
-<div id="position-panel" class="panel">
-  <select id="pos-system" class="pos-select">
-    <option value="stanton">STANTON</option>
-    <option value="pyro">PYRO</option>
-    <option value="nyx">NYX</option>
-  </select>
-  <select id="pos-location" class="pos-select"></select>
-  <div id="pos-coords" hidden>
-    <div class="pos-hint">Type <b>/showlocation</b> in in-game chat, then paste the result:</div>
-    <textarea id="pos-coords-input" class="pos-coords-input" rows="3"
-              placeholder="Coordinates: x:-19023432445.8 y:-2613543032.8 z:-2189.7"></textarea>
-    <button id="pos-coords-set" class="pos-btn">SET MARKER</button>
-    <div id="pos-result"></div>
-  </div>
-  <div id="pos-status"></div>
-  <button id="pos-clear" class="pos-btn pos-clear" hidden>CLEAR POSITION</button>
-</div>
+    <div class="sidebar-section">
+      <span class="section-label">Ore Concentrations</span>
+      <div id="ore-panel">
+        <div id="ore-toggle"><span>Heat Map Overlay</span><span class="ore-switch"></span></div>
+        <div id="ore-legend">
+          <div id="ore-legend-bar"></div>
+          <div id="ore-legend-labels"><span>Low</span><span>Concentration</span><span>High</span></div>
+        </div>
+        <div id="ore-list"></div>
+      </div>
+    </div>
+  </aside>
 
-<!-- ORE CONCENTRATIONS -->
-<div id="ore-panel" class="panel">
-  <div id="ore-toggle"><span>HEAT MAP OVERLAY</span><span class="ore-switch"></span></div>
-  <div id="ore-legend">
-    <div id="ore-legend-bar"></div>
-    <div id="ore-legend-labels"><span>LOW</span><span>CONCENTRATION</span><span>HIGH</span></div>
-  </div>
-  <div id="ore-list"></div>
-</div>
+  <main class="sm-main">
+    <div class="sm-mapblock">
 
-<!-- CONTROLS -->
-<div id="controls" class="panel">
-  <div class="ctrl-row"><div class="ctrl-key">LEFT DRAG</div><div class="ctrl-desc">ROTATE VIEW</div></div>
-  <div class="ctrl-row"><div class="ctrl-key">RIGHT DRAG</div><div class="ctrl-desc">PAN</div></div>
-  <div class="ctrl-row"><div class="ctrl-key">SCROLL</div><div class="ctrl-desc">ZOOM</div></div>
-  <div class="ctrl-row"><div class="ctrl-key">CLICK</div><div class="ctrl-desc">SELECT BODY</div></div>
-  <div class="ctrl-row"><div class="ctrl-key">F</div><div class="ctrl-desc">RESET VIEW</div></div>
-</div>
+      <div class="sm-mapbar">
+        <div class="sm-systems">
+          <button class="sys-btn active" data-system="stanton">Stanton</button>
+          <button class="sys-btn"        data-system="pyro">Pyro</button>
+          <button class="sys-btn"        data-system="nyx">Nyx</button>
+        </div>
+        <div class="sm-status">
+          <span class="live">Ark Starmap Data</span>
+          <span id="system-id">SYS: Stanton // UEE Territory</span>
+          <span id="body-count">4 Planets // 12 Moons</span>
+          <span id="danger-badge">⚠ High Danger</span>
+        </div>
+      </div>
 
-<!-- ORBIT TOGGLE -->
-<div id="orbit-toggle" class="panel">
-  <div class="ind"></div>ORBITAL MOTION
-</div>
+      <div class="sm-viewport" id="sm-viewport">
+        <div id="canvas-container"></div>
+        <div id="vignette"></div>
+        <div id="flash"></div>
 
-<!-- INFO PANEL -->
-<div id="info-panel" class="panel">
-  <div id="iph">
-    <div><div id="ipt">—</div><div id="iptype">—</div></div>
-    <div id="ipclose">[ X ]</div>
-  </div>
-  <div id="ipbody">
-    <div class="info-row"><span class="info-label">DESIGNATION</span><span class="info-value" id="i-desig">—</span></div>
-    <div class="info-row"><span class="info-label">TYPE</span>       <span class="info-value" id="i-type">—</span></div>
-    <div class="info-row"><span class="info-label">PARENT BODY</span><span class="info-value" id="i-parent">—</span></div>
-    <div class="info-row"><span class="info-label">ORBITAL DIST</span><span class="info-value" id="i-dist">—</span></div>
-    <div class="info-row"><span class="info-label">ORBIT PERIOD</span><span class="info-value" id="i-period">—</span></div>
-    <div class="info-row"><span class="info-label">BODY RADIUS</span><span class="info-value" id="i-size">—</span></div>
-    <div class="info-row"><span class="info-label">FACTION</span>    <span class="info-value" id="i-faction">—</span></div>
-    <div id="idesc">—</div>
-  </div>
+        <div class="corner corner-tl"></div>
+        <div class="corner corner-tr"></div>
+        <div class="corner corner-bl"></div>
+        <div class="corner corner-br"></div>
+
+        <!-- NAV CONTROLS — overlay, kept next to the gestures it describes -->
+        <div id="controls" class="sm-panel">
+          <div class="ctrl-row"><div class="ctrl-key">LEFT DRAG</div><div class="ctrl-desc">Rotate view</div></div>
+          <div class="ctrl-row"><div class="ctrl-key">RIGHT DRAG</div><div class="ctrl-desc">Pan</div></div>
+          <div class="ctrl-row"><div class="ctrl-key">SCROLL</div><div class="ctrl-desc">Zoom</div></div>
+          <div class="ctrl-row"><div class="ctrl-key">CLICK</div><div class="ctrl-desc">Select body</div></div>
+          <div class="ctrl-row"><div class="ctrl-key">F</div><div class="ctrl-desc">Reset view</div></div>
+        </div>
+
+        <!-- INFO PANEL — overlay, slides in on body select -->
+        <div id="info-panel" class="sm-panel">
+          <div id="iph">
+            <div><div id="ipt">—</div><div id="iptype">—</div></div>
+            <div id="ipclose">[ X ]</div>
+          </div>
+          <div id="ipbody">
+            <div class="info-row"><span class="info-label">Designation</span> <span class="info-value" id="i-desig">—</span></div>
+            <div class="info-row"><span class="info-label">Type</span>        <span class="info-value" id="i-type">—</span></div>
+            <div class="info-row"><span class="info-label">Parent Body</span> <span class="info-value" id="i-parent">—</span></div>
+            <div class="info-row"><span class="info-label">Orbital Dist</span><span class="info-value" id="i-dist">—</span></div>
+            <div class="info-row"><span class="info-label">Orbit Period</span><span class="info-value" id="i-period">—</span></div>
+            <div class="info-row"><span class="info-label">Body Radius</span> <span class="info-value" id="i-size">—</span></div>
+            <div class="info-row"><span class="info-label">Faction</span>     <span class="info-value" id="i-faction">—</span></div>
+            <div id="idesc">—</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
 </div>
 
 <div id="tooltip"></div>
@@ -498,6 +570,10 @@
   }
 }
 </script>
+<!-- No ?v= here on purpose. starmap.js pulls ~20 unversioned relative submodules;
+     stamping only the entry would let a returning browser pair a fresh entry with
+     a cached old core/renderer.js, whose createComposer/attachResize take the old
+     signature — the canvas would size to the window inside the block. Entry and
+     submodules must share one cache policy until they are all versioned. -->
 <script type="module" src="/static/starmap/starmap.js"></script>
-</body>
-</html>
+{% endblock %}
