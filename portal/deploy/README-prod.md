@@ -344,14 +344,14 @@ by hand: `post()` also archives the previously posted row, and doing it in SQL s
 
 ### Backups
 
-Covered by `tools/backup_dbs.sh`: the three above plus `cargo_planner`, `uex_feed`, and
-`warehouse_inventory`.
+Covered by `tools/backup_dbs.sh` — **every** database we snapshot, in one place. Nine of them:
+`applications`, `opord`, `org_status`, `blueprint_ownership`, `ship_ownership`, `cargo_planner`,
+`uex_feed`, `warehouse_inventory`, `mee6_snapshots`.
 
-It does **not** cover `blueprint_ownership`, `ship_ownership`, or `mee6_snapshots` — those have their
-own crontab entries and their own prune rules, and duplicating them here would write a second set of
-snapshots into the same directories. See the comments in
-[tools/backup_dbs.sh](../../tools/backup_dbs.sh) for the full reasoning, including why `dataforge.db`
-is excluded.
+There are deliberately **no backup or prune lines left in the crontab**. Each entry in the script
+carries both the snapshot and its own retention, so the two cannot drift apart — which is exactly
+what happened before, when `mee6_snapshots` sat for months with a prune rule and nothing creating
+anything for it to prune. Only `dataforge.db` is excluded, being regenerable from Data.p4k.
 
 Install it and schedule it:
 

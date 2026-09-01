@@ -15,7 +15,7 @@
 #
 # Install:
 #   sudo install -m 755 tools/backup_dbs.sh /usr/local/bin/sp-backup-dbs
-# Cron (add alongside the existing ownership/mee6 backup lines):
+# Cron (replaces every per-database backup AND prune line):
 #   17 */12 * * * /usr/local/bin/sp-backup-dbs >> /var/log/sp_backup.log 2>&1
 #
 # Exits non-zero if ANY database failed, so cron mails you / the log shows it.
@@ -29,15 +29,14 @@ KEEP_DAYS="${SP_BACKUP_KEEP_DAYS:-14}"
 
 # name : absolute source path
 #
-# SCOPED DELIBERATELY. blueprint_ownership, ship_ownership and mee6_snapshots are
-# already backed up by their own crontab entries and pruned by their own rules —
-# they are absent here on purpose, not by oversight. Listing them would write a
-# second set of snapshots into the same directories alongside the existing ones.
-# If those crontab lines are ever folded into this script, add them back here and
-# delete the lines, so each database has exactly one owner.
+# EVERY database we back up is listed here — no backup jobs remain in the
+# crontab. That is the point: an entry here carries both the snapshot and its own
+# retention, so the two cannot drift apart. They already had — mee6_snapshots
+# spent months with a prune rule and nothing creating anything for it to prune,
+# because those lived on separate crontab lines that nobody read together.
 #
 # NOT dataforge.db — ~200MB and fully regenerable by re-running the extractor
-# against Data.p4k. Disk is not the constraint it once was, but there is still no
+# against Data.p4k. Disk is no longer the constraint, but there is still no
 # reason to snapshot the one database we can rebuild from scratch.
 DATABASES=(
   # Portal-era. applications.db holds real recruiting submissions; opord.db and
@@ -48,6 +47,8 @@ DATABASES=(
 
   # Member-entered, keyed by discord_id (cargo_planner holds mission_stacks).
   # Losing these means asking members to re-enter their own work.
+  "blueprint_ownership:${SRC_DIR}/blueprint_ownership.db"
+  "ship_ownership:${SRC_DIR}/ship_ownership.db"
   "cargo_planner:${SRC_DIR}/cargo_planner.db"
 
   # Accumulated history. UEX serves current prices only, so the trend series
@@ -55,9 +56,13 @@ DATABASES=(
   "uex_feed:${SRC_DIR}/uex_feed.db"
 
   # Rebuildable from the Google Sheet in normal operation — included anyway,
-  # because that makes the Sheet a single point of failure. If it is deleted,
-  # mangled, or access lapses, this file becomes the last good copy.
+  # because that rebuild is what makes the Sheet a single point of failure. If it
+  # is deleted, mangled, or access lapses, this file is the last good copy.
   "warehouse_inventory:${WAREHOUSE_DB:-${SRC_DIR}/warehouse_inventory.db}"
+
+  # Gates every login on both sites. SPARQy rebuilds it on its next timer, but
+  # until then nobody can sign in — and last_login stamps don't come back.
+  "mee6_snapshots:${MEE6_DB:-/var/www/sparqy/data/mee6_snapshots.db}"
 )
 
 command -v sqlite3 >/dev/null || { echo "FATAL: sqlite3 not on PATH"; exit 2; }
@@ -113,9 +118,12 @@ for entry in "${DATABASES[@]}"; do
     echo "OK    ${name}: ${size} -> ${dest}"
     backed_up=$((backed_up + 1))
 
-    # Prune this database's own history. Scoped to the pattern we write, so a
-    # stray file in the directory is never deleted by us.
-    find "$dest_dir" -maxdepth 1 -name "${name}_*.db" -type f \
+    # Prune this database's own history. The glob is "_*.db*", not "_*.db":
+    # snapshots written by the crontab rules this script replaced used a
+    # different timestamp format, and the mee6 rule allowed a suffix (.db.gz).
+    # Both are still pruned. Anchored on the name prefix, so an unrelated file
+    # in the directory is never in range.
+    find "$dest_dir" -maxdepth 1 -name "${name}_*.db*" -type f \
          -mtime "+${KEEP_DAYS}" -delete 2>/dev/null
 done
 
