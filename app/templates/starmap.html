@@ -52,7 +52,7 @@
      The map is a fixed-height block, not a fullscreen canvas, so the page
      itself never scrolls — the sidebar scrolls internally like ships/crafting. */
   main.sm-main {
-    padding: 24px;
+    padding: 0;                       /* edge-to-edge: no gutter around the map */
     height: calc(100vh - 112px);
     overflow: hidden;
     display: flex;
@@ -92,75 +92,62 @@
     margin-top: 6px;
   }
 
-  /* ── MAP BLOCK ──
-     Brand-surfaced container (matches the primary content block on ships /
-     crafting): a bar of system tabs + status, then the 3D viewport. */
-  .sm-mapblock {
+  /* ── SYSTEM TABS — overlay, top-left of the map ── */
+  .sm-systems {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 22;
     display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0;
-    background: var(--panel);
-    border: 1px solid var(--border);
   }
-
-  .sm-mapbar {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg2);
-    flex-wrap: wrap;
-    flex-shrink: 0;
-  }
-
-  /* System tabs — brand chrome, not holo. */
-  .sm-systems { display: flex; gap: 0; }
   .sys-btn {
     font-family: var(--font-mono);
     font-size: 10px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    padding: 6px 16px;
-    background: transparent;
-    border: 1px solid var(--border);
+    padding: 7px 16px;
+    background: var(--sm-panel-bg);
+    backdrop-filter: blur(10px) saturate(115%);
+    -webkit-backdrop-filter: blur(10px) saturate(115%);
+    border: 1px solid var(--border2);
     border-right-width: 0;
     color: var(--text3);
     cursor: pointer;
     transition: all 0.15s;
   }
   .sys-btn:last-child { border-right-width: 1px; }
-  .sys-btn:hover { color: var(--gold); background: var(--bg3); }
+  .sys-btn:hover { color: var(--gold); }
   .sys-btn.active {
     color: var(--gold);
     background: var(--accent-dim);
     border-color: var(--accent2);
   }
 
+  /* ── SYSTEM STATUS — overlay, top-right of the map ──
+     "Ark Starmap Data" removed; the remaining readouts sit in brand tan a
+     step larger than the old 10px bar text.
+
+     --sand, not --tan: --tan (= --fieldtan #6B6250) is a surface/border
+     mid-tone and measures 1.05:1 against the brighter nebula here, i.e.
+     invisible. --sand is the brand's light warm tan and holds up over every
+     part of the map. */
   .sm-status {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 22;
     display: flex;
     align-items: center;
     gap: 18px;
-    margin-left: auto;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--text3);
+    color: var(--sand);
+    text-shadow: 0 1px 6px rgba(0,0,0,0.85);   /* legible over bright nebula */
+    pointer-events: none;
   }
-  .sm-status .live { color: var(--gold); }
-  .sm-status .live::before {
-    content: '';
-    display: inline-block;
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--positive);
-    margin-right: 7px;
-    box-shadow: 0 0 8px var(--status-green-glow);
-    animation: sm-blink 2s infinite;
-  }
-  @keyframes sm-blink { 0%,100% { opacity: 1 } 50% { opacity: 0.25 } }
+  /* Danger stays warning-coloured — it is a hazard flag, not a readout. */
   #danger-badge {
     color: var(--accent);
     border: 1px solid var(--accent2);
@@ -169,6 +156,24 @@
   }
   body.pyro-theme #danger-badge,
   body.nyx-theme  #danger-badge { display: inline-block; }
+
+  /* The tabs (~217px) and the readout (~531px) share the map's top edge, so
+     they collide once the map is narrower than ~780px. Below that the readout
+     drops beneath the tabs and is allowed to wrap rather than run underneath
+     them. Keyed to the window: map width is window − 280px sidebar above the
+     900px breakpoint, and the full window below it, so 1100px covers both. */
+  @media (max-width: 1100px) {
+    .sm-status {
+      top: 56px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px 14px;
+      max-width: calc(100% - 28px);
+    }
+    /* Info panel shares this corner, so it clears the relocated readout —
+       allowing for it wrapping to two lines. */
+    #info-panel { top: 104px; }
+  }
 
   /* ── VIEWPORT ──
      Positioning context for the canvas and every holo overlay. The canvas
@@ -206,8 +211,6 @@
   }
 
   .corner { position: absolute; width: 22px; height: 22px; z-index: 5; pointer-events: none; opacity: 0.6; }
-  .corner-tl { top: 10px;    left: 10px;  border-top:    1px solid var(--sm-accent-dim); border-left:   1px solid var(--sm-accent-dim); }
-  .corner-tr { top: 10px;    right: 10px; border-top:    1px solid var(--sm-accent-dim); border-right:  1px solid var(--sm-accent-dim); }
   .corner-bl { bottom: 10px; left: 10px;  border-bottom: 1px solid var(--sm-accent-dim); border-left:   1px solid var(--sm-accent-dim); }
   .corner-br { bottom: 10px; right: 10px; border-bottom: 1px solid var(--sm-accent-dim); border-right:  1px solid var(--sm-accent-dim); }
 
@@ -232,8 +235,9 @@
   .ctrl-desc { font-size: 11px; color: var(--sm-accent-dim); letter-spacing: 0.08em; }
 
   /* ── INFO PANEL (stays an overlay — contextual to a clicked body) ── */
+  /* top offset clears the status readout now overlaid in this same corner */
   #info-panel {
-    position: absolute; top: 18px; right: 18px; z-index: 21;
+    position: absolute; top: 52px; right: 14px; z-index: 21;
     width: 290px; transform: translateX(calc(100% + 28px));
     transition: transform 0.34s cubic-bezier(0.4,0,0.2,1);
     pointer-events: none;
@@ -518,31 +522,29 @@
   </aside>
 
   <main class="sm-main">
-    <div class="sm-mapblock">
+    <div class="sm-viewport" id="sm-viewport">
+      <div id="canvas-container"></div>
+      <div id="vignette"></div>
+      <div id="flash"></div>
 
-      <div class="sm-mapbar">
-        <div class="sm-systems">
-          <button class="sys-btn active" data-system="stanton">Stanton</button>
-          <button class="sys-btn"        data-system="pyro">Pyro</button>
-          <button class="sys-btn"        data-system="nyx">Nyx</button>
-        </div>
-        <div class="sm-status">
-          <span class="live">Ark Starmap Data</span>
-          <span id="system-id">SYS: Stanton // UEE Territory</span>
-          <span id="body-count">4 Planets // 12 Moons</span>
-          <span id="danger-badge">⚠ High Danger</span>
-        </div>
+      <!-- Only the lower brackets remain: the upper two sat underneath the
+           system tabs and status readout once those became corner overlays. -->
+      <div class="corner corner-bl"></div>
+      <div class="corner corner-br"></div>
+
+      <!-- SYSTEM TABS — overlay, top-left -->
+      <div class="sm-systems">
+        <button class="sys-btn active" data-system="stanton">Stanton</button>
+        <button class="sys-btn"        data-system="pyro">Pyro</button>
+        <button class="sys-btn"        data-system="nyx">Nyx</button>
       </div>
 
-      <div class="sm-viewport" id="sm-viewport">
-        <div id="canvas-container"></div>
-        <div id="vignette"></div>
-        <div id="flash"></div>
-
-        <div class="corner corner-tl"></div>
-        <div class="corner corner-tr"></div>
-        <div class="corner corner-bl"></div>
-        <div class="corner corner-br"></div>
+      <!-- SYSTEM STATUS — overlay, top-right -->
+      <div class="sm-status">
+        <span id="system-id">SYS: Stanton // UEE Territory</span>
+        <span id="body-count">4 Planets // 12 Moons</span>
+        <span id="danger-badge">⚠ High Danger</span>
+      </div>
 
         <!-- NAV CONTROLS — overlay, kept next to the gestures it describes -->
         <div id="controls" class="sm-panel">
@@ -570,8 +572,6 @@
             <div id="idesc">—</div>
           </div>
         </div>
-      </div>
-
     </div>
   </main>
 </div>
