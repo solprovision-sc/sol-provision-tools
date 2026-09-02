@@ -713,6 +713,56 @@
   text-transform: uppercase; color: var(--text3);
 }
 .app-detail dd { margin: 0; font-size: .8rem; color: var(--text2); white-space: pre-wrap; }
+/* ── Application review actions ───────────────────────────────────────────
+   Approve/decline sit inside the expanded row, under the details they are a
+   decision about. Colour carries meaning here rather than decoration, so both
+   buttons also carry a word — never colour alone. */
+.app-actions {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.app-btn {
+  font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; padding: 7px 16px; cursor: pointer;
+  background: transparent; border: 1px solid currentColor; border-radius: 3px;
+  transition: background .12s, color .12s;
+}
+.app-btn:disabled { opacity: .4; cursor: not-allowed; }
+.app-btn-approve { color: var(--green); }
+.app-btn-approve:hover:not(:disabled) { background: var(--green); color: var(--bg); }
+.app-btn-reject  { color: var(--danger); }
+.app-btn-reject:hover:not(:disabled)  { background: var(--danger); color: var(--bg); }
+/* The decision already taken, so it reads as state rather than an offer. */
+.app-btn.is-current { background: currentColor; }
+.app-btn.is-current.app-btn-approve { color: var(--green); }
+.app-btn.is-current.app-btn-reject  { color: var(--danger); }
+.app-btn.is-current span { color: var(--bg); }
+
+/* Welcome-email attestation. Only rendered once an application is accepted —
+   there is nothing to attest to on one that was declined. */
+.app-email-check {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding: 9px 12px;
+  border: 1px dashed var(--border2); border-radius: 3px;
+  background: var(--green-dim);
+}
+.app-email-check input[type="checkbox"] {
+  width: 15px; height: 15px; accent-color: var(--green);
+  cursor: pointer; flex-shrink: 0;
+}
+.app-email-check label {
+  font-size: .76rem; color: var(--text2); cursor: pointer; user-select: none;
+}
+.app-email-check.is-done { border-style: solid; border-color: var(--green); }
+.app-email-who {
+  font-family: var(--font-mono); font-size: .6rem; letter-spacing: .05em;
+  color: var(--text3); margin-left: auto; text-align: right; white-space: nowrap;
+}
+.app-row-msg {
+  font-family: var(--font-mono); font-size: .64rem; letter-spacing: .05em;
+  color: var(--text3);
+}
+.app-row-msg.is-error { color: var(--danger); }
 .app-src {
   font-family: var(--font-mono); font-size: .62rem; letter-spacing: .06em;
   color: var(--text3);
@@ -1994,8 +2044,9 @@ async function saveReadiness() {
 }
 
 // ── Portal Administration: Membership Applications ─────────────────────
-// Read-only. The portal owns writes to applications.db; this panel is a review
-// surface, not an editor.
+// The portal owns applications.db and is the only thing that INSERTs. This
+// panel updates review columns on rows that already exist: the accept/decline
+// decision, and whether the welcome email went out.
 
 var APPS_CACHE = [];
 
@@ -2059,7 +2110,7 @@ function renderAppRows(apps) {
     return;
   }
   list.innerHTML = apps.map(function (a) {
-    return '<details class="app-row">'
+    return '<details class="app-row" data-app-id="' + a.id + '">'
       + "<summary>"
       +   '<span class="app-when">' + escapeHtml(fmtDate(a.submitted_at)) + "</span>"
       +   '<span class="app-main">'
@@ -2080,10 +2131,134 @@ function renderAppRows(apps) {
       +   "<dt>18+ confirmed</dt><dd>" + (a.age_confirmed ? "Yes" : "Not recorded") + "</dd>"
       +   '<dt>Source</dt><dd class="app-src">' + escapeHtml(a.source || "web")
       +     "  ·  " + escapeHtml(a.submitted_at || "") + "</dd>"
-      + "</dl></div>"
+      + "</dl>"
+      + appActionsHTML(a)
+      + "</div>"
       + "</details>";
   }).join("");
 }
+
+// Decision controls + the welcome-email attestation, rendered from the row so
+// a reload and an in-place update produce identical markup.
+function appActionsHTML(a) {
+  var accepted = a.status === "accepted";
+  var declined = a.status === "declined";
+  var html =
+      '<div class="app-actions">'
+    +   '<button type="button" class="app-btn app-btn-approve'
+    +     (accepted ? " is-current" : "") + '"'
+    +     ' data-app-id="' + a.id + '" data-decision="accepted"'
+    +     (accepted ? " disabled" : "") + '><span>'
+    +     (accepted ? "Approved" : "Approve") + "</span></button>"
+    +   '<button type="button" class="app-btn app-btn-reject'
+    +     (declined ? " is-current" : "") + '"'
+    +     ' data-app-id="' + a.id + '" data-decision="declined"'
+    +     (declined ? " disabled" : "") + '><span>'
+    +     (declined ? "Rejected" : "Reject") + "</span></button>"
+    +   '<span class="app-row-msg" id="app-msg-' + a.id + '">'
+    +     (a.reviewed_by ? "by " + escapeHtml(a.reviewed_by) : "") + "</span>"
+    + "</div>";
+
+  // Only an accepted applicant gets a welcome email, so the checkbox exists
+  // only in that state. The server enforces the same rule.
+  if (accepted) {
+    var done = a.email_sent === "Y";
+    var who = (done && a.email_sent_by)
+      ? escapeHtml(a.email_sent_by) + " · " + escapeHtml(fmtDate(a.email_sent_at))
+      : "";
+    html +=
+        '<div class="app-email-check' + (done ? " is-done" : "") + '">'
+      +   '<input type="checkbox" id="app-email-' + a.id + '"'
+      +     ' data-app-id="' + a.id + '"' + (done ? " checked" : "") + ">"
+      +   '<label for="app-email-' + a.id + '">'
+      +     "Welcome email sent to this applicant</label>"
+      +   '<span class="app-email-who">' + who + "</span>"
+      + "</div>";
+  }
+  return html;
+}
+
+// Replace one row in place. Re-rendering the whole list would collapse every
+// open <details>, including the one being worked in.
+function refreshAppRow(updated) {
+  for (var i = 0; i < APPS_CACHE.length; i++) {
+    if (APPS_CACHE[i].id === updated.id) { APPS_CACHE[i] = updated; break; }
+  }
+  var row = document.querySelector('.app-row[data-app-id="' + updated.id + '"]');
+  if (!row) return;
+  var badge = row.querySelector(".app-badge");
+  if (badge) {
+    badge.className = "app-badge st-" + updated.status;
+    badge.textContent = updated.status;
+  }
+  var detail = row.querySelector(".app-detail");
+  var actions = detail && detail.querySelector(".app-actions");
+  if (!actions) return;
+  // Drop the old controls and re-render them from the row we just got back.
+  var email = detail.querySelector(".app-email-check");
+  if (email) email.remove();
+  actions.outerHTML = appActionsHTML(updated);
+}
+
+function setAppMsg(id, text, isError) {
+  var el = document.getElementById("app-msg-" + id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle("is-error", !!isError);
+}
+
+async function decideApplication(id, decision, btn) {
+  var buttons = btn.parentNode.querySelectorAll(".app-btn");
+  buttons.forEach(function (b) { b.disabled = true; });
+  setAppMsg(id, decision === "accepted" ? "Approving…" : "Rejecting…", false);
+  try {
+    var r = await fetch("/api/officers/application/" + id + "/status", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: decision })
+    });
+    var data = await r.json();
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    refreshAppRow(data.application);
+    if (data.counts) renderAppCounts(data.counts);
+  } catch (err) {
+    buttons.forEach(function (b) { b.disabled = false; });
+    setAppMsg(id, err.message, true);
+  }
+}
+
+async function markEmailSent(id, sent, box) {
+  box.disabled = true;
+  setAppMsg(id, "Saving…", false);
+  try {
+    var r = await fetch("/api/officers/application/" + id + "/email-sent", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sent: sent })
+    });
+    var data = await r.json();
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    refreshAppRow(data.application);
+  } catch (err) {
+    box.checked = !sent;                 // put the tick back where it was
+    box.disabled = false;
+    setAppMsg(id, err.message, true);
+  }
+}
+
+// Delegated: rows are re-rendered on every filter change and after each
+// decision, so per-element listeners would need re-binding each time.
+document.getElementById("apps-list").addEventListener("click", function (e) {
+  var btn = e.target.closest(".app-btn");
+  if (!btn || btn.disabled) return;
+  e.preventDefault();
+  decideApplication(parseInt(btn.dataset.appId, 10), btn.dataset.decision, btn);
+});
+document.getElementById("apps-list").addEventListener("change", function (e) {
+  var box = e.target.closest('.app-email-check input[type="checkbox"]');
+  if (!box) return;
+  markEmailSent(parseInt(box.dataset.appId, 10), box.checked, box);
+});
 
 // ── Portal Administration: Upcoming Tasking ────────────────────────────
 // Four fixed slots, same change-only save as Division Readiness.

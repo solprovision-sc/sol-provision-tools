@@ -261,11 +261,21 @@ def get_org_status_db(read_only=False):
 def get_applications_db(read_only=True):
     """Connect to applications.db — the public /join form's landing table.
 
-    READ-ONLY by default and by design: the PORTAL owns writes to this file
-    (it is the thing taking submissions), the same way this app owns writes to
-    org_status.db and the portal only reads that. Officer review that needs to
-    change a row's status would make this a second writer, which is a
-    deliberate decision, not something to switch on quietly.
+    Read-only by default. The PORTAL owns this file: it creates it, runs the
+    migrations, and is the only thing that INSERTs.
+
+    Officer review (HQ accept/decline, welcome-email attestation) passes
+    read_only=False and makes this a second writer. That was called out as a
+    deliberate decision rather than something to switch on quietly, so: the
+    write volume is a handful of applications a week against a few officer
+    clicks, connect() already sets WAL with busy_timeout=5000, and the two
+    writers touch disjoint columns — the portal only ever writes new rows, HQ
+    only ever updates review columns on rows that exist.
+
+    Schema ownership is NOT shared. This app never calls applications.migrate();
+    the portal does that at startup. If a review write lands in the seconds
+    between the two services restarting after a schema change, it fails with a
+    clear message and works on retry — see api_officers_application_status.
     """
     return applications.connect(read_only=read_only)
 
@@ -5346,6 +5356,94 @@ def api_officers_applications():
             'statuses': list(applications.STATUSES),
             'applications': applications.list_applications(conn, status, limit),
         })
+    finally:
+        conn.close()
+
+
+def _review_actor():
+    """Who is performing a review action, for the audit columns."""
+    return (str(session.get('discord_id') or ''),
+            session.get('callsign') or session.get('username') or 'unknown')
+
+
+def _applications_write_conn():
+    """Read-write handle for officer review, with a legible failure.
+
+    The portal owns migrations and runs them at startup. Between the two
+    services restarting after a schema change there is a window where this app
+    is new and the file is not — surfacing that as "try again in a moment"
+    beats a raw OperationalError about a missing column.
+    """
+    conn = get_applications_db(read_only=False)
+    version = conn.execute('PRAGMA user_version').fetchone()[0]
+    if version < applications.SCHEMA_VERSION:
+        conn.close()
+        raise RuntimeError(
+            f'applications.db is at schema v{version}, this build needs '
+            f'v{applications.SCHEMA_VERSION}. The portal migrates it on start '
+            f'— try again in a moment.')
+    return conn
+
+
+@app.route('/api/officers/application/<int:application_id>/status', methods=['PUT'])
+@require_officer
+def api_officers_application_status(application_id):
+    """Accept or decline an application from the HQ review panel."""
+    payload = request.get_json(silent=True) or {}
+    status = (payload.get('status') or '').strip()
+    if status not in applications.REVIEW_DECISIONS:
+        return jsonify({'error': 'status must be one of: '
+                                 + ', '.join(applications.REVIEW_DECISIONS)}), 400
+
+    actor_id, actor_name = _review_actor()
+    try:
+        conn = _applications_write_conn()
+    except RuntimeError as exc:
+        return jsonify({'error': str(exc)}), 503
+    except sqlite3.OperationalError as exc:
+        return jsonify({'error': f'applications.db unavailable: {exc}'}), 503
+
+    try:
+        row = applications.set_status(conn, application_id, status,
+                                      actor_id, actor_name)
+        app.logger.info('application %s -> %s by %s', application_id, status,
+                        actor_name)
+        return jsonify({'ok': True, 'application': row,
+                        'counts': applications.counts_by_status(conn)})
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    finally:
+        conn.close()
+
+
+@app.route('/api/officers/application/<int:application_id>/email-sent',
+           methods=['PUT'])
+@require_officer
+def api_officers_application_email_sent(application_id):
+    """Record that the welcome email went out to an accepted applicant."""
+    payload = request.get_json(silent=True) or {}
+    sent = bool(payload.get('sent'))
+
+    actor_id, actor_name = _review_actor()
+    try:
+        conn = _applications_write_conn()
+    except RuntimeError as exc:
+        return jsonify({'error': str(exc)}), 503
+    except sqlite3.OperationalError as exc:
+        return jsonify({'error': f'applications.db unavailable: {exc}'}), 503
+
+    try:
+        row = applications.set_email_sent(conn, application_id, sent,
+                                          actor_id, actor_name)
+        app.logger.info('application %s welcome email=%s by %s', application_id,
+                        'Y' if sent else 'cleared', actor_name)
+        return jsonify({'ok': True, 'application': row})
+    except LookupError as exc:
+        return jsonify({'error': str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     finally:
         conn.close()
 
