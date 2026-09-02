@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DB_PATH = REPO_ROOT / "applications.db"
 
 MIN_SQLITE = (3, 35, 0)
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # ── Form vocabulary ──────────────────────────────────────────────────────────
 # Allowlists. Anything not in these is rejected rather than stored, so a crafted
@@ -128,6 +128,20 @@ _MIGRATIONS = [
 
     CREATE UNIQUE INDEX idx_applications_legacy_key
         ON applications (legacy_key) WHERE legacy_key IS NOT NULL;
+    """,
+    # 3 ─────────────────────────────────────────────────────────────────────
+    # Officer review from HQ: the accept/decline decision already had a home in
+    # `status`, but there was no record of the welcome email actually going out.
+    #
+    # email_sent is 'Y' or NULL rather than 0/1 because it is a manual
+    # attestation ("I sent it"), not a system-observed fact — NULL reads as
+    # "nobody has claimed this yet", which is the honest default. The _by/_at
+    # pair mirrors reviewed_by/reviewed_at so both actions are auditable the
+    # same way.
+    """
+    ALTER TABLE applications ADD COLUMN email_sent    TEXT;
+    ALTER TABLE applications ADD COLUMN email_sent_by TEXT;
+    ALTER TABLE applications ADD COLUMN email_sent_at TEXT;
     """,
 ]
 
@@ -347,6 +361,89 @@ def list_applications(conn: sqlite3.Connection, status: str | None = None,
             "SELECT * FROM applications ORDER BY submitted_at DESC LIMIT ?",
             (limit,)).fetchall()
     return [dict(r) for r in rows]
+
+
+# ── Officer review ───────────────────────────────────────────────────────────
+# These are the ONLY writes the tools app performs on this database. The portal
+# owns the file: it creates it, runs migrations, and is the sole INSERTer. HQ
+# updates review columns on rows that already exist and never adds one.
+#
+# Two processes writing one SQLite file is fine here, and deliberately so:
+# connect() sets WAL and busy_timeout=5000, the write volume is a handful of
+# rows a week against a few officer clicks, and the two writers touch disjoint
+# columns. What is NOT shared is schema ownership — migrations stay with the
+# portal, so there is one answer to "what shape is this table".
+
+# What the HQ buttons are allowed to set. Narrower than STATUSES on purpose:
+# 'new' is the insert default, and 'reviewing'/'withdrawn' have no button, so
+# accepting them here would let a crafted request set a state the UI cannot
+# reach or undo.
+REVIEW_DECISIONS = ("accepted", "declined")
+
+
+def set_status(conn: sqlite3.Connection, application_id: int, status: str,
+               actor_id: str, actor_name: str) -> dict:
+    """Record an accept/decline decision. Returns the updated row.
+
+    Clearing back to a non-accepted status also clears the email attestation:
+    leaving a stale 'Y' on a declined application would misreport that a
+    welcome email went to someone who was turned down.
+    """
+    if status not in REVIEW_DECISIONS:
+        raise ValueError(f"not a review decision: {status!r}")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if status == "accepted":
+        cur = conn.execute(
+            "UPDATE applications SET status = ?, reviewed_by = ?, reviewed_at = ? "
+            "WHERE id = ?",
+            (status, f"{actor_name} ({actor_id})", now, application_id))
+    else:
+        cur = conn.execute(
+            "UPDATE applications SET status = ?, reviewed_by = ?, reviewed_at = ?, "
+            "       email_sent = NULL, email_sent_by = NULL, email_sent_at = NULL "
+            "WHERE id = ?",
+            (status, f"{actor_name} ({actor_id})", now, application_id))
+    if cur.rowcount == 0:
+        raise LookupError(f"no application with id {application_id}")
+    conn.commit()
+    return get_application(conn, application_id)
+
+
+def set_email_sent(conn: sqlite3.Connection, application_id: int, sent: bool,
+                   actor_id: str, actor_name: str) -> dict:
+    """Record that the welcome email went out (or take that back).
+
+    Only meaningful for an accepted application, and enforced here rather than
+    only in the UI — the checkbox is hidden until approval, but a hidden control
+    is not a rule.
+    """
+    row = get_application(conn, application_id)
+    if row is None:
+        raise LookupError(f"no application with id {application_id}")
+    if sent and row["status"] != "accepted":
+        raise ValueError(
+            "welcome email can only be recorded on an accepted application "
+            f"(this one is {row['status']!r})")
+
+    now = datetime.now(timezone.utc).isoformat()
+    if sent:
+        conn.execute(
+            "UPDATE applications SET email_sent = 'Y', email_sent_by = ?, "
+            "       email_sent_at = ? WHERE id = ?",
+            (f"{actor_name} ({actor_id})", now, application_id))
+    else:
+        conn.execute(
+            "UPDATE applications SET email_sent = NULL, email_sent_by = NULL, "
+            "       email_sent_at = NULL WHERE id = ?", (application_id,))
+    conn.commit()
+    return get_application(conn, application_id)
+
+
+def get_application(conn: sqlite3.Connection, application_id: int):
+    row = conn.execute("SELECT * FROM applications WHERE id = ?",
+                       (application_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def counts_by_status(conn: sqlite3.Connection) -> dict:

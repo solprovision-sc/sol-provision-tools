@@ -684,6 +684,38 @@ def get_applications_db():
     return conn
 
 
+def migrate_applications_at_startup():
+    """Bring applications.db up to schema at boot, not on the first submission.
+
+    This app owns the schema; the tools app opens the same file read-write to
+    record officer review decisions but deliberately never migrates it, so there
+    is one answer to what shape the table is.
+
+    That makes WHEN we migrate matter. Left lazy, a new column would not exist
+    until the next person submitted the join form — so after a deploy that adds
+    one, HQ would sit broken for however long that took. Migrating at boot
+    closes the gap to the few seconds between the two services restarting.
+
+    Never fatal: a portal that cannot reach this file must still serve the
+    Mission Board and the readiness matrix.
+    """
+    try:
+        conn = applications.connect()
+    except Exception as exc:
+        app.logger.warning('applications.db unavailable at startup (%s)', exc)
+        return
+    try:
+        version = applications.migrate(conn)
+        app.logger.info('applications.db at schema v%s', version)
+    except Exception as exc:
+        app.logger.error('applications.db migration failed (%s)', exc)
+    finally:
+        conn.close()
+
+
+migrate_applications_at_startup()
+
+
 def _client_ip():
     """Real client IP behind nginx. X-Forwarded-For is a comma-separated chain;
     the left-most entry is the original client."""
