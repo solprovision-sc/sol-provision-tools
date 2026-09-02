@@ -341,6 +341,35 @@
   #pos-result.bad,  #pos-status.bad  { color: var(--status-red); }
   #pos-result.ok,   #pos-status.ok   { color: var(--positive); }
 
+  /* ── Collapsible sidebar section ──
+     Mirrors the .filter-group2 caret convention on ships / crafting. Generic on
+     purpose (any .sidebar-section can opt in by adding .sm-collapsible plus a
+     .sm-section-toggle label and a .sm-section-body), but only Ore
+     Concentrations uses it today — it is the one section long enough to force
+     the sidebar to scroll. */
+  .sm-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    user-select: none;
+    transition: color 0.15s;
+  }
+  .sm-section-toggle:hover { color: var(--text2); }
+  .sm-section-toggle:focus-visible {
+    outline: 1px solid var(--accent2);
+    outline-offset: 2px;
+  }
+  .sm-section-toggle .caret {
+    display: inline-block;
+    width: 9px;
+    font-size: 8px;
+    color: var(--text3);
+    transition: transform 0.15s;
+  }
+  .sm-collapsible.collapsed .caret { transform: rotate(-90deg); }
+  .sm-collapsible.collapsed .sm-section-body { display: none; }
+
   /* ── Ore concentrations ── */
   #ore-toggle {
     display: flex; align-items: center; justify-content: space-between;
@@ -488,9 +517,12 @@
       </div>
     </div>
 
-    <div class="sidebar-section">
-      <span class="section-label">Ore Concentrations</span>
-      <div id="ore-panel">
+    <div class="sidebar-section sm-collapsible">
+      <span class="section-label sm-section-toggle" role="button" tabindex="0"
+            aria-expanded="true" aria-controls="ore-panel">
+        <span class="caret" aria-hidden="true">▼</span>Ore Concentrations
+      </span>
+      <div id="ore-panel" class="sm-section-body">
         <div id="ore-toggle"><span>Heat Map Overlay</span><span class="ore-switch"></span></div>
         <div id="ore-legend">
           <div id="ore-legend-bar"></div>
@@ -576,4 +608,26 @@
      signature — the canvas would size to the window inside the block. Entry and
      submodules must share one cache policy until they are all versioned. -->
 <script type="module" src="/static/starmap/starmap.js"></script>
+{% endblock %}
+
+{% block page_script %}
+// Collapsible sidebar sections. Pure chrome — collapsing never changes the ore
+// selection, so a heat-map overlay stays rendered while the section is shut.
+// Lives here rather than in the starmap modules because it touches no scene
+// state and must work even if the WebGL bundle fails to load.
+document.querySelectorAll('.sm-collapsible').forEach(section => {
+  const toggle = section.querySelector('.sm-section-toggle');
+  if (!toggle) return;
+  const set = collapsed => {
+    section.classList.toggle('collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+  };
+  toggle.addEventListener('click', () => set(!section.classList.contains('collapsed')));
+  toggle.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+      e.preventDefault();                     // stop Space from scrolling the sidebar
+      set(!section.classList.contains('collapsed'));
+    }
+  });
+});
 {% endblock %}
