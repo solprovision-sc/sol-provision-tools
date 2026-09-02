@@ -341,36 +341,20 @@
   #pos-result.bad,  #pos-status.bad  { color: var(--status-red); }
   #pos-result.ok,   #pos-status.ok   { color: var(--positive); }
 
-  /* ── Collapsible sidebar section ──
-     Mirrors the .filter-group2 caret convention on ships / crafting. Generic on
-     purpose (any .sidebar-section can opt in by adding .sm-collapsible plus a
-     .sm-section-toggle label and a .sm-section-body), but only Ore
-     Concentrations uses it today — it is the one section long enough to force
-     the sidebar to scroll. */
-  .sm-section-toggle {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    cursor: pointer;
-    user-select: none;
-    transition: color 0.15s;
-  }
-  .sm-section-toggle:hover { color: var(--text2); }
-  .sm-section-toggle:focus-visible {
+  /* ── Ore concentrations ──
+     The Heat Map Overlay row is always visible; the legend and the 32-ore list
+     are a disclosure body that only opens when the overlay is switched on.
+     ui/oreheat.js already mirrors the master state onto #ore-panel as .on, so
+     the disclosure is pure CSS keyed off that — no separate collapse control,
+     and collapsed-by-default falls out of .on being absent on first load. */
+  #ore-body { display: none; }
+  #ore-panel.on #ore-body { display: block; }
+
+  #ore-toggle:focus-visible {
     outline: 1px solid var(--accent2);
     outline-offset: 2px;
   }
-  .sm-section-toggle .caret {
-    display: inline-block;
-    width: 9px;
-    font-size: 8px;
-    color: var(--text3);
-    transition: transform 0.15s;
-  }
-  .sm-collapsible.collapsed .caret { transform: rotate(-90deg); }
-  .sm-collapsible.collapsed .sm-section-body { display: none; }
 
-  /* ── Ore concentrations ── */
   #ore-toggle {
     display: flex; align-items: center; justify-content: space-between;
     cursor: pointer; user-select: none; margin-bottom: 10px;
@@ -397,8 +381,7 @@
 
   /* Legend keeps the red→green concentration ramp: it is a data scale, not
      brand chrome, and scene/oreheat.js paints the disks from this same ramp. */
-  #ore-legend { margin-bottom: 12px; opacity: 0.45; transition: opacity 0.2s; }
-  #ore-panel.on #ore-legend { opacity: 1; }
+  #ore-legend { margin-bottom: 12px; }
   #ore-legend-bar {
     height: 7px;
     background: linear-gradient(90deg, hsl(0,85%,50%), hsl(60,85%,50%), hsl(120,85%,50%));
@@ -410,11 +393,9 @@
     text-transform: uppercase; color: var(--text3);
   }
 
-  #ore-list {
-    max-height: 320px; overflow-y: auto; padding-right: 4px;
-    opacity: 0.4; pointer-events: none; transition: opacity 0.2s;
-  }
-  #ore-panel.on #ore-list { opacity: 1; pointer-events: auto; }
+  /* No dimmed/inert state any more — the list is only in the DOM flow while the
+     overlay is on, so it is never shown in a state you cannot interact with. */
+  #ore-list { max-height: 320px; overflow-y: auto; padding-right: 4px; }
   .ore-row {
     display: flex; align-items: center; gap: 9px;
     padding: 4px 6px; cursor: pointer; user-select: none;
@@ -517,18 +498,21 @@
       </div>
     </div>
 
-    <div class="sidebar-section sm-collapsible">
-      <span class="section-label sm-section-toggle" role="button" tabindex="0"
-            aria-expanded="true" aria-controls="ore-panel">
-        <span class="caret" aria-hidden="true">▼</span>Ore Concentrations
-      </span>
-      <div id="ore-panel" class="sm-section-body">
-        <div id="ore-toggle"><span>Heat Map Overlay</span><span class="ore-switch"></span></div>
-        <div id="ore-legend">
-          <div id="ore-legend-bar"></div>
-          <div id="ore-legend-labels"><span>Low</span><span>Concentration</span><span>High</span></div>
+    <div class="sidebar-section">
+      <span class="section-label">Ore Concentrations</span>
+      <div id="ore-panel">
+        <!-- Always visible; switching it on discloses #ore-body. -->
+        <div id="ore-toggle" role="switch" tabindex="0"
+             aria-checked="false" aria-expanded="false" aria-controls="ore-body">
+          <span>Heat Map Overlay</span><span class="ore-switch" aria-hidden="true"></span>
         </div>
-        <div id="ore-list"></div>
+        <div id="ore-body">
+          <div id="ore-legend">
+            <div id="ore-legend-bar"></div>
+            <div id="ore-legend-labels"><span>Low</span><span>Concentration</span><span>High</span></div>
+          </div>
+          <div id="ore-list"></div>
+        </div>
       </div>
     </div>
   </aside>
@@ -610,24 +594,3 @@
 <script type="module" src="/static/starmap/starmap.js"></script>
 {% endblock %}
 
-{% block page_script %}
-// Collapsible sidebar sections. Pure chrome — collapsing never changes the ore
-// selection, so a heat-map overlay stays rendered while the section is shut.
-// Lives here rather than in the starmap modules because it touches no scene
-// state and must work even if the WebGL bundle fails to load.
-document.querySelectorAll('.sm-collapsible').forEach(section => {
-  const toggle = section.querySelector('.sm-section-toggle');
-  if (!toggle) return;
-  const set = collapsed => {
-    section.classList.toggle('collapsed', collapsed);
-    toggle.setAttribute('aria-expanded', String(!collapsed));
-  };
-  toggle.addEventListener('click', () => set(!section.classList.contains('collapsed')));
-  toggle.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
-      e.preventDefault();                     // stop Space from scrolling the sidebar
-      set(!section.classList.contains('collapsed'));
-    }
-  });
-});
-{% endblock %}
