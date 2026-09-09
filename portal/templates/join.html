@@ -252,23 +252,36 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      var body = await r.json();
+      // Read as text first. Calling r.json() straight off means an HTML
+      // error page blows up in the parser and the applicant is shown
+      // "Unexpected token '<'" instead of anything actionable.
+      var raw = await r.text();
+      var body = null;
+      try { body = raw ? JSON.parse(raw) : null; } catch (e) { /* not JSON */ }
 
-      if (r.status === 400 && body.errors) {
+      if (r.status === 400 && body && body.errors) {
         msg.className = 'form-msg err';
         msg.textContent = 'Please correct the highlighted fields.';
         showErrors(body.errors);
         return;
       }
-      if (!r.ok) { throw new Error(body.error || ('HTTP ' + r.status)); }
+      if (!r.ok) {
+        throw new Error((body && body.error)
+          || 'The server could not accept your application right now.');
+      }
 
       form.hidden = true;
       success.hidden = false;
       success.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } catch (err) {
       msg.className = 'form-msg err';
-      msg.textContent = 'Could not submit: ' + err.message
-        + '. If this keeps happening, reach us on Discord.';
+      // Server-side failures arrive as a finished, plain-English sentence. A
+      // network failure surfaces as TypeError "Failed to fetch", which means
+      // nothing to an applicant — substitute something they can act on.
+      var reason = (err instanceof TypeError)
+        ? "We couldn't reach the server. Check your connection and try again."
+        : err.message;
+      msg.textContent = reason + ' If this keeps happening, reach us on Discord.';
     } finally {
       btn.disabled = false;
     }

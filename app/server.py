@@ -183,6 +183,67 @@ def rank_int(rank):
     except (TypeError, ValueError):
         return 0
 
+# ══════════════════════════════════════════════════════════════════════
+# DATABASE FAILURES THAT ARE OPERATIONAL, NOT BUGS
+# ══════════════════════════════════════════════════════════════════════
+# A permissions or lock problem is infrastructure, and the error should say so.
+#
+# Written after a real incident: org_status.db was copied to prod as root, so
+# the service could read it but not write it. SQLite opens a read-only file
+# happily and only fails at the first write, so HQ loaded normally and only
+# Save broke — with "attempt to write a readonly database" reaching the officer
+# as an opaque 500 and an HTML error page, which the browser then reported as
+# "Unexpected token '<' ... is not valid JSON". Three layers of indirection
+# between the operator and the one sentence that mattered.
+#
+# Matched on message text because sqlite3 raises a bare OperationalError for
+# all of these rather than distinct types.
+_DB_HINTS = (
+    ('readonly database',
+     'the file is not writable by the service account — check ownership of the '
+     '.db AND its -wal/-shm sidecars'),
+    ('unable to open database file',
+     'the file could not be opened — check the path, and that the directory is '
+     'writable (SQLite creates its sidecars alongside the file)'),
+    ('database is locked',
+     'another process held the write lock past busy_timeout'),
+    ('no such table',
+     'the database is missing a table this build expects — its schema is behind'),
+    ('no such column',
+     'the database is missing a column this build expects — its schema is behind'),
+    ('disk is full', 'the disk is full'),
+    ('disk i/o error', 'a disk I/O error occurred'),
+)
+
+
+def _db_error_detail(exc):
+    """SQLite's own words, then what they mean in this deployment."""
+    msg = str(exc).rstrip('. ')
+    low = msg.lower()
+    for fragment, hint in _DB_HINTS:
+        if fragment in low:
+            # Sentence break between the two halves; a second em-dash inside
+            # the hint would then read as one run-on clause.
+            return f'{msg}. This usually means {hint}.'
+    return msg + '.' 
+
+
+@app.errorhandler(sqlite3.OperationalError)
+def handle_sqlite_operational(exc):
+    """Answer API callers in JSON so the reason survives to the screen.
+
+    Scoped to /api/: a page route hitting this should still render the normal
+    error page rather than dumping JSON into the browser. Every one of these
+    endpoints is behind require_officer, so naming the underlying condition
+    tells an officer something useful and tells nobody else anything.
+    """
+    app.logger.error('SQLite operational error on %s %s: %s',
+                     request.method, request.path, exc, exc_info=True)
+    if not request.path.startswith('/api/'):
+        return 'Internal Server Error', 500
+    return jsonify({'error': 'Database unavailable: ' + _db_error_detail(exc)}), 503
+
+
 def require_officer(f):
     """Decorator to gate endpoints behind officer rank (rank >= 5).
 
