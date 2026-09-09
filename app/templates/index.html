@@ -300,6 +300,39 @@
     margin-top: 15px;
   }
 
+  /* "Not a member yet?" — mirrors the portal's login card, so the two sites
+     offer the same way in. Outlined rather than filled: the Discord button
+     stays the obvious action for the many people who already have an account,
+     while this stays plainly findable for the few who don't. */
+  .auth-alt {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(126,38,25,0.22);
+  }
+  .auth-alt-q {
+    font-size: 12px;
+    color: #CBB8AA;
+    margin-bottom: 12px;
+  }
+  .btn-join {
+    display: block;
+    padding: 14px;
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: #E8855C;
+    border: 1px solid #E8855C;
+    transition: background 0.2s, color 0.2s;
+  }
+  .btn-join:hover,
+  .btn-join:focus-visible {
+    background: #E8855C;
+    color: #12100F;
+  }
+
   /* Blur dashboard while auth in progress */
   .landing-page.blurred {
     filter: blur(4px);
@@ -329,6 +362,19 @@
     
     <div class="auth-footer">
       REQUIRED: ACTIVE SOL PROVISION SERVER MEMBERSHIP
+    </div>
+
+    {# Route for someone who reached the tools site without an account. The
+       footer above states membership is required; this says what to do about
+       it, rather than leaving a dead end.
+
+       Absolute and env-aware, unlike the portal's copy of this: the join page
+       lives on a different host from here, and portal_url already resolves to
+       portal-dev from tools-dev so a developer isn't sent to the live
+       recruiting form. #}
+    <div class="auth-alt">
+      <p class="auth-alt-q">Not a member yet?</p>
+      <a class="btn-join" href="{{ portal_url }}/join">Begin Your Expedition Today</a>
     </div>
   </div>
 </div>
