@@ -235,6 +235,43 @@ nav.section-nav { display: flex; gap: 0; }
   color: var(--fg-muted);
 }
 
+/* ── "Not a member yet?" ──────────────────────────────────────────────────
+   The secondary path out of the login card, for someone who arrived without an
+   account. Deliberately quieter than .btn-discord: outlined rather than
+   filled, so the primary action for the many people who DO have a Discord
+   account stays the obvious one, while this stays plainly findable for the few
+   who don't. The rule above it separates the two without adding a heading. */
+.auth-alt {
+  margin-top: var(--space-6);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--line);
+}
+.auth-alt-q {
+  font-size: var(--text-sm);
+  color: var(--fg2);
+  margin-bottom: var(--space-3);
+}
+.btn-join {
+  display: inline-block;
+  padding: var(--space-3) var(--space-6);
+  font-family: var(--font-cond);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: var(--track-label);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  transition: background 120ms ease, color 120ms ease;
+}
+.btn-join:hover,
+.btn-join:focus-visible {
+  background: var(--accent);
+  color: var(--on-brand);
+}
+
 .auth-warn {
   margin-top: var(--space-4);
   padding: var(--space-3);
