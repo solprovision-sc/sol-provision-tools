@@ -313,7 +313,10 @@ nav.section-nav { display: flex; gap: 0; }
   justify-content: center;
   gap: var(--space-4);
 }
-.deck-card { flex: 0 1 240px; }
+/* 280px matches .hero-card on the tools landing page, so a card is the same
+   size on both sites. Three across plus two 16px gaps is 872px, well inside
+   the 1080px body, so this still lays out on one row. */
+.deck-card { flex: 0 1 280px; }
 
 .deck-card {
   padding: var(--space-5);
@@ -337,6 +340,60 @@ a.deck-card:hover {
   box-shadow: var(--lift-sun);
 }
 a.deck-card:hover h2 { color: var(--accent); }
+
+/* ── "In Development" ribbon ──────────────────────────────────────────────
+   The treatment the tools landing page has used since launch — .hero-card.wip
+   and .wip-ribbon in app/templates/index.html — same wording, so an unbuilt
+   card reads the same on both sites.
+
+   position/overflow are scoped to .wip rather than added to every .deck-card:
+   the band is rotated and hangs past the corner, so it needs an anchor and a
+   clip. The two working cards need neither.
+
+   GEOMETRY. The band is a horizontal bar rotated 45°, clipped by the card. How
+   far it cuts in from the corner is
+
+       a = top - right + width/2 + height/2
+
+   and what survives the clip is a x sqrt(2). "IN DEVELOPMENT" at 7px with 2px
+   tracking needs ~85px, so a has to be at least ~60. These values give a = 75.5
+   and a 107px band.
+
+   They are the tools card's own numbers, usable verbatim now that both cards
+   are 280px. At the old 240px they were not: the same depth put the band
+   straight through a two-line heading. Card width and ribbon geometry are
+   coupled — change one and re-check the other against the formula above.
+
+   Colour is --brand rather than the #7E2619 the tools copy pins. Same colour,
+   sourced from the shared layer. */
+.deck-card.wip {
+  position: relative;
+  overflow: hidden;
+}
+/* Dim the CONTENT, not the card. Fading the whole card takes the ribbon with
+   it, and the ribbon is the one part that has to stay legible. */
+.deck-card.wip h2,
+.deck-card.wip p,
+.deck-card.wip .card-tag { opacity: 0.5; }
+
+.wip-ribbon {
+  position: absolute;
+  top: 30px;
+  right: -34px;
+  width: 140px;
+  padding: 5px 0;
+  background: var(--brand);
+  color: var(--sand);
+  font-family: var(--font-cond);
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(45deg);
+  z-index: 2;
+  pointer-events: none;
+}
 
 .deck-card h2 {
   font-family: var(--font-display);
