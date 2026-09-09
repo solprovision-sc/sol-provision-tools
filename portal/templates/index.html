@@ -26,6 +26,20 @@
       <code>FIREBASE_SERVICE_ACCOUNT</code> to enable sign-in.
     </p>
     {% endif %}
+
+    {# Route for people who reached the portal without an account yet. Sits
+       below the status line rather than directly under the Discord button,
+       because that line reports on the sign-in above it and splitting the two
+       would leave it describing nothing.
+
+       A real link, not a button: this is navigation, so middle-click, "open in
+       new tab", and the keyboard all behave the way people expect. Relative
+       href on purpose — /join on portal-dev must reach portal-dev's own form,
+       not send a developer to the live recruiting page. #}
+    <div class="auth-alt">
+      <p class="auth-alt-q">Not a member yet?</p>
+      <a class="btn-join" href="/join">Begin Your Expedition Today</a>
+    </div>
   </div>
 </div>
 
