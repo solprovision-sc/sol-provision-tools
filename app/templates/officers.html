@@ -1513,8 +1513,7 @@ async function calculateShoppingList() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: payload }),
     });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
+    const data = await readJSON(r);
     renderShoppingResults(data);
   } catch (e) {
     results.innerHTML = `<div class="tile-error">Failed to calculate.</div>`;
@@ -1944,6 +1943,39 @@ function setTab(btn) {
   history.replaceState(null, "", "#" + name);
 }
 
+// ── Reading a response ─────────────────────────────────────────────────
+// Every fetch below goes through this. Calling r.json() directly on a failed
+// request is what produced the useless "Unexpected token '<', "<!doctype"...
+// is not valid JSON": Flask renders 404, 405 and 500 as HTML pages, so the
+// parse blows up and buries the status code — the one thing you actually need
+// to know. Read the body as text first, then decide what it is.
+async function readJSON(r) {
+  const body = await r.text();
+  let data = null;
+  try { data = body ? JSON.parse(body) : null; } catch (e) { /* not JSON */ }
+
+  if (!r.ok) {
+    if (data && data.error) throw new Error(data.error);
+    // Nothing quotable in the body, so lead with the status and say what it
+    // usually means — the difference between "reload" and "check the log".
+    const hint = r.status === 401 ? " — session expired, reload the page"
+               : r.status === 403 ? " — officer access required"
+               : (r.status === 404 || r.status === 405)
+                   ? " — endpoint missing on the server (deploy may be behind)"
+               // 500 and 502 look alike in a browser but need opposite
+               // fixes: 500 is the app throwing (read its log), 502/503/504
+               // is nginx unable to reach it at all (the service is down).
+               : r.status === 500 ? " — server error, check the service log"
+               : r.status >= 502 ? " — the service is not responding"
+               : "";
+    throw new Error("HTTP " + r.status + " " + (r.statusText || "") + hint);
+  }
+  if (data === null) {
+    throw new Error("Server returned a non-JSON response (HTTP " + r.status + ")");
+  }
+  return data;
+}
+
 // ── Portal Administration: Division Readiness ──────────────────────────
 // Writes to org_status.db through /api/officers/readiness; the portal reads
 // that same file read-only. Save submits every division and the server writes
@@ -1955,9 +1987,7 @@ let READINESS_STATUSES = [];
 async function loadReadiness() {
   const rows = document.getElementById("readiness-rows");
   try {
-    const r = await fetch("/api/officers/readiness");
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
+    const data = await readJSON(await fetch("/api/officers/readiness"));
     READINESS_STATUSES = data.statuses || [];
     renderReadinessRows(data.divisions || []);
     renderReadinessHistory(data.recent || []);
@@ -2028,8 +2058,7 @@ async function saveReadiness() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ divisions }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const data = await readJSON(r);
     msg.className = "admin-msg ok";
     msg.textContent = data.saved === 0
       ? "No changes to save."
@@ -2059,9 +2088,7 @@ async function loadApplications() {
   var status = document.getElementById("apps-status").value;
   try {
     var url = "/api/officers/applications" + (status ? "?status=" + encodeURIComponent(status) : "");
-    var r = await fetch(url);
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    var data = await r.json();
+    var data = await readJSON(await fetch(url));
 
     if (!data.available) {
       document.getElementById("apps-counts").innerHTML = "";
@@ -2217,8 +2244,7 @@ async function decideApplication(id, decision, btn) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: decision })
     });
-    var data = await r.json();
-    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    var data = await readJSON(r);
     refreshAppRow(data.application);
     if (data.counts) renderAppCounts(data.counts);
   } catch (err) {
@@ -2236,8 +2262,7 @@ async function markEmailSent(id, sent, box) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sent: sent })
     });
-    var data = await r.json();
-    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    var data = await readJSON(r);
     refreshAppRow(data.application);
   } catch (err) {
     box.checked = !sent;                 // put the tick back where it was
@@ -2266,9 +2291,7 @@ document.getElementById("apps-list").addEventListener("change", function (e) {
 async function loadTasking() {
   const host = document.getElementById("tasking-rows");
   try {
-    const r = await fetch("/api/officers/tasking");
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
+    const data = await readJSON(await fetch("/api/officers/tasking"));
     renderTaskingRows(data.slots || []);
   } catch (err) {
     host.innerHTML = '<div class="readiness-msg">Could not load tasking: '
@@ -2319,8 +2342,7 @@ async function saveTasking() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ slots })
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    const data = await readJSON(r);
     msg.className = "admin-msg ok";
     msg.textContent = data.saved === 0
       ? "No changes to save."
@@ -2341,9 +2363,7 @@ async function saveTasking() {
 async function loadOpords() {
   const host = document.getElementById("opord-list");
   try {
-    const r = await fetch("/api/officers/opords");
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    renderOpords(await r.json());
+    renderOpords(await readJSON(await fetch("/api/officers/opords")));
   } catch (err) {
     host.innerHTML = '<div class="readiness-msg">Could not load OpOrds: '
                    + escapeHtml(err.message) + "</div>";
@@ -2392,9 +2412,11 @@ async function duplicateOpord(id) {
   msg.className = "admin-msg";
   msg.textContent = "Duplicating…";
   try {
-    const r = await fetch("/api/officers/opord/" + id + "/duplicate", { method: "POST" });
-    const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error(data.error || ("HTTP " + r.status));
+    // readJSON already threw on a non-2xx, so only the body's own ok flag is
+    // left to check here.
+    const data = await readJSON(
+      await fetch("/api/officers/opord/" + id + "/duplicate", { method: "POST" }));
+    if (!data.ok) throw new Error(data.error || "Duplicate failed");
     // Straight into the copy — duplicating is always a prelude to editing it.
     window.location.href = "/officers/opord/" + data.id;
   } catch (err) {
