@@ -338,6 +338,58 @@ a.deck-card:hover {
 }
 a.deck-card:hover h2 { color: var(--accent); }
 
+/* ── "Coming Soon" ribbon ─────────────────────────────────────────────────
+   The treatment the tools landing page has used since launch (.hero-card.wip /
+   .wip-ribbon in app/templates/index.html), ported so a card that isn't built
+   yet reads the same on both sites.
+
+   position/overflow are scoped to .wip rather than added to every .deck-card:
+   the band is rotated and hangs past the corner, so it needs an anchor and a
+   clip — the two working cards need neither.
+
+   Tokens, not the hex values the tools copy pins: --brand IS #7E2619, so this
+   is the same colour sourced from the shared layer.
+
+   GEOMETRY. The band is a horizontal bar rotated 45°, clipped by the card. How
+   far it cuts in from the corner is
+
+       a = top - right + width/2 + height/2
+
+   and the length left visible after clipping is a x sqrt(2). "COMING SOON" at
+   8px/0.12em needs about 75px, so a must be at least ~55. The values below give
+   a = 61.5 and an 87px band: enough for the text, and shallow enough to stay
+   clear of a two-line heading. The tools card is 280px wide and uses a deeper
+   cut; at 240px that same depth runs straight through the title, which is why
+   these numbers differ rather than being copied across. */
+.deck-card.wip {
+  position: relative;
+  overflow: hidden;
+}
+/* Dim the CONTENT, not the card. Fading the whole card takes the ribbon with
+   it, and the ribbon is the one part that has to stay legible. */
+.deck-card.wip h2,
+.deck-card.wip p,
+.deck-card.wip .card-tag { opacity: 0.5; }
+
+.wip-ribbon {
+  position: absolute;
+  top: 26px;
+  right: -40px;
+  width: 130px;
+  padding: 5px 0;
+  background: var(--brand);
+  color: var(--sand);
+  font-family: var(--font-cond);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(45deg);
+  z-index: 2;
+  pointer-events: none;
+}
+
 .deck-card h2 {
   font-family: var(--font-display);
   font-size: var(--text-lg);
