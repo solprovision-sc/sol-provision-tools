@@ -188,6 +188,36 @@ if FIREBASE_READY and not FIREBASE_API_KEY:
 AUTH_ENABLED = FIREBASE_READY and bool(FIREBASE_API_KEY)
 
 # ══════════════════════════════════════════════════════════════════════
+# DATABASE FAILURES THAT ARE OPERATIONAL, NOT BUGS
+# ══════════════════════════════════════════════════════════════════════
+# Mirrors the handler in app/server.py, with one deliberate difference: this
+# app's only write endpoint, /api/join, is PUBLIC. An applicant must never be
+# shown the state of our filesystem, so the detail goes to the log and they get
+# a sentence they can act on.
+#
+# The stakes here are higher than in HQ. A failed readiness save is an officer
+# retrying; a failed join submission is a prospective member concluding the org
+# is broken and never coming back — so this path must fail legibly and tell
+# them their work was not lost.
+@app.errorhandler(sqlite3.OperationalError)
+def handle_sqlite_operational(exc):
+    app.logger.error('SQLite operational error on %s %s: %s',
+                     request.method, request.path, exc, exc_info=True)
+    if not request.path.startswith('/api/'):
+        return 'Internal Server Error', 500
+    return jsonify({
+        'ok': False,
+        # A complete sentence, ending in a full stop: join.html appends its
+        # own "If this keeps happening, reach us on Discord." so this must not
+        # repeat it. Says explicitly that nothing was lost — an applicant who
+        # thinks their answers vanished does not type them a second time.
+        'error': "We couldn't save your application just now — this is on our "
+                 "side, not yours. Nothing you typed was lost; please try "
+                 "again in a moment.",
+    }), 503
+
+
+# ══════════════════════════════════════════════════════════════════════
 # MEMBER ROSTER (READ-ONLY)
 # ══════════════════════════════════════════════════════════════════════
 def _members_db_path():
