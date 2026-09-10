@@ -71,6 +71,15 @@ function resolveAnchor(world, anchor) {
     return null;
   }
 
+  // Exact per-system heliocentric km (star at origin), straight from the game
+  // data. Used for sites with no body or belt to hang off — the Pyro mining
+  // clusters orbit the star directly, and the Keeger stations would otherwise
+  // all stack on a single belt point.
+  if (anchor.kind === 'helio') {
+    if (!world.helioToScene) return null;
+    return world.helioToScene(anchor.x, anchor.y);
+  }
+
   if (anchor.kind === 'lagrange') {
     const want = (anchor.code || '').toUpperCase();
     const pois = (world.coords && world.coords.pois) || [];
