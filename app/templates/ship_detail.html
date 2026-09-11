@@ -2539,7 +2539,6 @@ body::before {
     
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeSwapModal()">Cancel</button>
-      <button class="btn" id="modal-apply-btn" onclick="applyComponentSwap()">Apply</button>
     </div>
   </div>
 </div>
@@ -2714,6 +2713,27 @@ body::before {
             current_index: idx
           };
         });
+      } else {
+        // Foundry-only ships (F8C, Pisces, 300 series, Hermes, ...) have no
+        // typed ports — every row lands in hardpoints.misc with no size, so
+        // the swap modal had no slot to open. Derive one slot per installed
+        // component, sized by that component, and recover the port name from
+        // the misc row that holds it.
+        const installed = ship.components[hpListKey[type]] || [];
+        if (!installed.length) return;
+        const misc = ((ship.hardpoints && ship.hardpoints.misc) || []).slice();
+        shipLoadout.hardpoints[type] = installed.map((c, idx) => {
+          const name = (c.entity_name || '').toLowerCase();
+          const mi = misc.findIndex(hp => (hp.installed_name || '').toLowerCase() === name);
+          const port = mi >= 0 ? misc.splice(mi, 1)[0] : null;
+          return {
+            port_name: port ? port.port_name : null,
+            size: c.size,
+            min_size: null,
+            max_size: null,
+            current_index: idx
+          };
+        });
       }
     });
     
@@ -2879,16 +2899,10 @@ body::before {
       const row = document.createElement('tr');
       row.dataset.index = idx;
       
-      // Row click handler
+      // Row click applies the swap immediately (matches the armament modal)
       row.addEventListener('click', () => {
-        // Deselect previous
-        if (selectedComponentRow) {
-          selectedComponentRow.classList.remove('selected');
-        }
-        
-        // Select this row
-        row.classList.add('selected');
         selectedComponentRow = row;
+        applyComponentSwap();
       });
 	  
       // ADD THESE HOVER HANDLERS:
