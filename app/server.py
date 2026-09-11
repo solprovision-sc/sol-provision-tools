@@ -3173,6 +3173,7 @@ def get_compatible_components():
             c.*,
             e.size,
             e.grade,
+            ic.class,
             ic.heat_baseline,
             ic.coolant_consumption,
             ic.heat_gen_rate,

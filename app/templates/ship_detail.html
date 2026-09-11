@@ -2539,7 +2539,6 @@ body::before {
     
     <div class="modal-footer">
       <button class="btn-ghost" onclick="closeSwapModal()">Cancel</button>
-      <button class="btn" id="modal-apply-btn" onclick="applyComponentSwap()">Apply</button>
     </div>
   </div>
 </div>
@@ -2714,6 +2713,27 @@ body::before {
             current_index: idx
           };
         });
+      } else {
+        // Foundry-only ships (F8C, Pisces, 300 series, Hermes, ...) have no
+        // typed ports — every row lands in hardpoints.misc with no size, so
+        // the swap modal had no slot to open. Derive one slot per installed
+        // component, sized by that component, and recover the port name from
+        // the misc row that holds it.
+        const installed = ship.components[hpListKey[type]] || [];
+        if (!installed.length) return;
+        const misc = ((ship.hardpoints && ship.hardpoints.misc) || []).slice();
+        shipLoadout.hardpoints[type] = installed.map((c, idx) => {
+          const name = (c.entity_name || '').toLowerCase();
+          const mi = misc.findIndex(hp => (hp.installed_name || '').toLowerCase() === name);
+          const port = mi >= 0 ? misc.splice(mi, 1)[0] : null;
+          return {
+            port_name: port ? port.port_name : null,
+            size: c.size,
+            min_size: null,
+            max_size: null,
+            current_index: idx
+          };
+        });
       }
     });
     
@@ -2810,85 +2830,86 @@ body::before {
     thead.innerHTML = '';
     tbody.innerHTML = '';
     
-    // Define columns based on component type
+    // Define columns based on component type. Widths sum to 100% per type so
+    // the fixed-layout table doesn't rescale them.
+    const CLASS_ABBR = { Military: 'MIL', Civilian: 'CIV', Industrial: 'IND',
+                         Stealth: 'STEALTH', Competition: 'COMP' };
+    const classCol = { key: 'class', label: 'Class', format: v => CLASS_ABBR[v] || v };
     let columns = [];
-    
+
     if (compType === 'PowerPlant') {
       columns = [
-        { key: 'display_name', label: 'Name', width: '25%' },
-        { key: 'manufacturer', label: 'Manufacturer', width: '15%' },
-        { key: 'grade_letter', label: 'Grade', width: '10%' },
-        { key: 'power_output', label: 'Output', width: '15%', format: v => fmt(v, 0, 'units') },
-        { key: 'em_signature', label: 'EM Sig', width: '15%', format: v => fmt(v, 0, '') }
+        { key: 'display_name', label: 'Name', width: '27%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '20%' },
+        { ...classCol, width: '11%' },
+        { key: 'grade_letter', label: 'Grade', width: '8%' },
+        { key: 'power_output', label: 'Output', width: '18%', format: v => fmt(v, 0, 'units') },
+        { key: 'em_signature', label: 'EM Sig', width: '16%', format: v => fmt(v, 0, '') }
       ];
     } else if (compType === 'Shield') {
       columns = [
-        { key: 'display_name', label: 'Name', width: '20%' },
-        { key: 'manufacturer', label: 'Manufacturer', width: '12%' },
-        { key: 'grade_letter', label: 'Grade', width: '8%' },
-        { key: 'max_shield_health', label: 'HP', width: '12%', format: v => fmt(v, 0, '') },
-        { key: 'max_shield_regen', label: 'Regen', width: '12%', format: v => fmt(v, 0, '/s') },
-        { key: 'downed_regen_delay', label: 'Down Delay', width: '12%', format: v => fmt(v, 1, 's') },
-        { key: 'em_signature', label: 'EM', width: '12%', format: v => fmt(v, 0, '') },
-        { key: 'power_draw', label: 'Power', width: '12%', format: v => fmt(v, 0, 'pwr') }
+        { key: 'display_name', label: 'Name', width: '16%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '15%' },
+        { ...classCol, width: '11%' },
+        { key: 'grade_letter', label: 'Grade', width: '7%' },
+        { key: 'max_shield_health', label: 'HP', width: '9%', format: v => fmt(v, 0, '') },
+        { key: 'max_shield_regen', label: 'Regen', width: '9%', format: v => fmt(v, 0, '/s') },
+        { key: 'downed_regen_delay', label: 'Down Delay', width: '13%', format: v => fmt(v, 1, 's') },
+        { key: 'em_signature', label: 'EM', width: '9%', format: v => fmt(v, 0, '') },
+        { key: 'power_draw', label: 'Power', width: '11%', format: v => fmt(v, 0, 'pwr') }
       ];
     } else if (compType === 'Cooler') {
       columns = [
-        { key: 'display_name', label: 'Name', width: '30%' },
-        { key: 'manufacturer', label: 'Manufacturer', width: '20%' },
-        { key: 'grade_letter', label: 'Grade', width: '10%' },
-		{ key: 'power_draw', label: 'Power', width: '15%', format: v => fmt(v, 0, '') },
-        { key: 'cooling_output', label: 'Cooling Output', width: '15%', format: v => fmt(v, 0,'') },
-        { key: 'em_signature', label: 'EM Sig', width: '10%', format: v => fmt(v, 0, '') }
-        
+        { key: 'display_name', label: 'Name', width: '22%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '18%' },
+        { ...classCol, width: '11%' },
+        { key: 'grade_letter', label: 'Grade', width: '8%' },
+        { key: 'power_draw', label: 'Power', width: '12%', format: v => fmt(v, 0, '') },
+        { key: 'cooling_output', label: 'Cooling Output', width: '17%', format: v => fmt(v, 0,'') },
+        { key: 'em_signature', label: 'EM Sig', width: '12%', format: v => fmt(v, 0, '') }
       ];
     } else if (compType === 'QuantumDrive') {
       columns = [
-        { key: 'display_name', label: 'Name', width: '18%' },
-        { key: 'manufacturer', label: 'Manufacturer', width: '12%' },
-        { key: 'grade_letter', label: 'Grade', width: '8%' },
-        { key: 'speed_mps', label: 'Speed', width: '12%', format: v => fmt(v, 0, 'km/s') },
-        { key: 'quantum_fuel_requirement', label: 'Fuel/Gm', width: '12%', format: v => fmt(v, 2, '') },
-        { key: 'spool_up_time', label: 'Spool', width: '10%', format: v => fmt(v, 1, 's') },
-        { key: 'cooldown_time', label: 'Cooldown', width: '10%', format: v => fmt(v, 1, 's') },
-        { key: 'power_draw', label: 'Power', width: '12%', format: v => fmt(v, 0, 'pwr') }
+        { key: 'display_name', label: 'Name', width: '15%' },
+        { key: 'manufacturer', label: 'Manufacturer', width: '15%' },
+        { ...classCol, width: '11%' },
+        { key: 'grade_letter', label: 'Grade', width: '7%' },
+        { key: 'speed_mps', label: 'Speed', width: '9%', format: v => fmt(v, 0, 'km/s') },
+        { key: 'quantum_fuel_requirement', label: 'Fuel/Gm', width: '10%', format: v => fmt(v, 2, '') },
+        { key: 'spool_up_time', label: 'Spool', width: '8%', format: v => fmt(v, 1, 's') },
+        { key: 'cooldown_time', label: 'Cooldown', width: '12%', format: v => fmt(v, 1, 's') },
+        { key: 'power_draw', label: 'Power', width: '13%', format: v => fmt(v, 0, 'pwr') }
       ];
     } else if (compType === 'Radar') {
       columns = [
-        { key: 'display_name', label: 'Name', width: '30%' },
+        { key: 'display_name', label: 'Name', width: '25%' },
         { key: 'manufacturer', label: 'Manufacturer', width: '20%' },
-        { key: 'grade_letter', label: 'Grade', width: '10%' },
+        { ...classCol, width: '11%' },
+        { key: 'grade_letter', label: 'Grade', width: '8%' },
         { key: 'detection_range', label: 'Detection Range', width: '20%', format: v => fmt(v, 0, 'm') },
-        { key: 'em_signature', label: 'EM Sig', width: '15%', format: v => fmt(v, 0, '') }
+        { key: 'em_signature', label: 'EM Sig', width: '16%', format: v => fmt(v, 0, '') }
       ];
     }
     // Additional types will be added in Phase 2
-    
-    // Build header
-    const headerRow = document.createElement('tr');
+
+    // Build header. `thead` is already the <tr> — appending a second <tr>
+    // inside it nested rows and knocked the headers out of column alignment.
     columns.forEach(col => {
       const th = document.createElement('th');
       th.textContent = col.label;
       th.style.width = col.width;
-      headerRow.appendChild(th);
+      thead.appendChild(th);
     });
-    thead.appendChild(headerRow);
     
     // Build rows
     availableComponents.forEach((comp, idx) => {
       const row = document.createElement('tr');
       row.dataset.index = idx;
       
-      // Row click handler
+      // Row click applies the swap immediately (matches the armament modal)
       row.addEventListener('click', () => {
-        // Deselect previous
-        if (selectedComponentRow) {
-          selectedComponentRow.classList.remove('selected');
-        }
-        
-        // Select this row
-        row.classList.add('selected');
         selectedComponentRow = row;
+        applyComponentSwap();
       });
 	  
       // ADD THESE HOVER HANDLERS:
