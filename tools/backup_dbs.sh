@@ -2,21 +2,30 @@
 #
 # Snapshot every SQLite database that holds data we cannot regenerate.
 #
-# One entry
-# per database in DATABASES below beats one crontab line per database plus a
-# matching prune line: adding a database is now a one-line change that cannot
-# drift out of sync with its own retention rule (which is exactly what happened
-# to mee6_snapshots — it had a prune job and no backup job).
+# One entry per database in DATABASES below beats one crontab line per database
+# plus a matching prune line: adding a database is a one-line change that
+# carries its own retention rule, so the two cannot drift apart.
 #
 # Uses sqlite3's .backup, NOT cp. Every app here runs in WAL mode, where a plain
 # file copy can catch a database mid-transaction and restore corrupt. .backup
 # takes a read lock and folds in the -wal, so this is safe against the LIVE site
 # with no service stop.
 #
+# RUN IT AS THE USER THAT OWNS THE DATABASES — solprovision, never marauder or
+# root. Enforced below. In WAL mode, opening a database that has no -wal/-shm at
+# that moment makes SQLite CREATE them, owned by whoever ran the command. The
+# services open and close a connection per request, so the sidecars are usually
+# absent — and this script, run from marauder's crontab, recreated them as
+# marauder at every run. solprovision could still read, but every write failed
+# with "attempt to write a readonly database": HQ saves, and every /join
+# submission from Sep 2 to Sep 11 2026.
+#
 # Install:
 #   sudo install -m 755 tools/backup_dbs.sh /usr/local/bin/sp-backup-dbs
-# Cron (replaces every per-database backup AND prune line):
+# Cron — in solprovision's crontab (sudo crontab -u solprovision -e):
 #   17 */12 * * * /usr/local/bin/sp-backup-dbs >> /var/log/sp_backup.log 2>&1
+# A manual run:
+#   sudo -u solprovision /usr/local/bin/sp-backup-dbs
 #
 # Exits non-zero if ANY database failed, so cron mails you / the log shows it.
 
@@ -67,6 +76,21 @@ DATABASES=(
 )
 
 command -v sqlite3 >/dev/null || { echo "FATAL: sqlite3 not on PATH"; exit 2; }
+
+# Refuse to run as anyone but the owner of the database directory. Checked, not
+# just documented, because the failure mode is silent: the backup itself
+# succeeds, and the damage only shows up later as writes failing in the apps.
+# SP_BACKUP_ALLOW_ANY_USER=1 exists for local testing against a scratch
+# directory, where there is no service to lock out.
+owner=$(stat -c %U "$SRC_DIR" 2>/dev/null)
+me=$(id -un)
+if [[ -n "$owner" && "$me" != "$owner" && "${SP_BACKUP_ALLOW_ANY_USER:-}" != "1" ]]; then
+    echo "FATAL: running as '$me' but $SRC_DIR belongs to '$owner'."
+    echo "       SQLite would create -wal/-shm files owned by '$me' and lock the"
+    echo "       services out of writing. Run as the owner instead:"
+    echo "         sudo -u $owner $0"
+    exit 2
+fi
 
 stamp=$(date -u +%Y-%m-%dT%H%M%SZ)
 failed=()
