@@ -266,7 +266,7 @@
 .pm-col.mode-locked .pm-seg { cursor: not-allowed; }
 
 /* ── DPS mode toggles (Burst/Sustained + gimbal Target/Lock/Precision/Gimbal),
-      shown just above the Performance readouts. Burst + Target are active;
+      shown just above the DPS readouts. Burst + Target are active;
       the rest are placeholders until their calc is implemented. */
 .dps-modes { margin-top: 16px; }
 .dps-mode-toggle {
@@ -2186,6 +2186,32 @@ body::before {
         </div>
       </div>
 
+      <!-- ── Signatures — one group per signature so each icon sits in the shared
+           icon column, left-aligned with every other icon in the panel. ── -->
+      <div class="ms-panel" style="margin-top:16px;">
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-sir" title="IR signature"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v xl" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
+          </div>
+        </div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-sem" title="EM signature"></span>
+          <div class="msg-body">
+            <div class="msg-main"><span class="msg-v xl" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
+          </div>
+        </div>
+        <div class="msg-group">
+          <span class="msg-icon ms-icon-scs" title="Cross-section"></span>
+          <div class="msg-body">
+            <!-- Stacked: three faces on one line overflow the sidebar at xl size. -->
+            <div class="msg-main"><span class="msg-v xl" id="ms-sig-cs-f">—</span><span class="msg-u">CS front</span></div>
+            <div class="msg-main"><span class="msg-v xl" id="ms-sig-cs-s">—</span><span class="msg-u">CS side</span></div>
+            <div class="msg-main"><span class="msg-v xl" id="ms-sig-cs-t">—</span><span class="msg-u">CS top</span></div>
+          </div>
+        </div>
+      </div>
+
       <!-- ── DPS mode toggle: Burst active; Sustained + alt gimbal modes pending ── -->
       <div class="dps-modes">
         <div class="dps-mode-toggle">
@@ -2201,8 +2227,7 @@ body::before {
       </div>
 
       <!-- ── Meta Stats Panel ───────────────────────────────────────────── -->
-      <div class="sb-lbl-header" style="margin-top:14px;">Performance</div>
-      <div class="ms-panel">
+      <div class="ms-panel" style="margin-top:14px;">
         <!-- Pilot weapons -->
         <div class="msg-group">
           <span class="msg-icon ms-icon-w" title="Pilot Weapons"></span>
@@ -2287,27 +2312,6 @@ body::before {
           <span class="msg-icon ms-icon-mass" title="Mass"></span>
           <div class="msg-body">
             <div class="msg-main"><span class="msg-v md" id="ms-mass">—</span><span class="msg-u">kg mass</span></div>
-          </div>
-        </div>
-        <div class="msg-divider"></div>
-        <!-- Signatures — one group per signature so each icon sits in the shared
-             icon column, left-aligned with every other icon in the panel. -->
-        <div class="msg-group">
-          <span class="msg-icon ms-icon-sir" title="IR signature"></span>
-          <div class="msg-body">
-            <div class="msg-main"><span class="msg-v md" id="ms-sig-ir">—</span><span class="msg-u">IR signature</span></div>
-          </div>
-        </div>
-        <div class="msg-group">
-          <span class="msg-icon ms-icon-sem" title="EM signature"></span>
-          <div class="msg-body">
-            <div class="msg-main"><span class="msg-v md" id="ms-sig-em">—</span><span class="msg-u">EM signature</span></div>
-          </div>
-        </div>
-        <div class="msg-group">
-          <span class="msg-icon ms-icon-scs" title="Cross-section"></span>
-          <div class="msg-body">
-            <div class="msg-main"><span class="msg-v md" id="ms-sig-cs">—</span><span class="msg-u">CS front · side · top</span></div>
           </div>
         </div>
       </div>
@@ -4723,13 +4727,11 @@ body::before {
     });
     setNum('ms-sig-em', (emSig * armEM) || null, 0);
     setNum('ms-sig-ir', (irSig * armIR) || null, 0);
-    const csEl = document.getElementById('ms-sig-cs');
-    if (csEl) {
-      const L = ship.length_m, B = ship.beam_m, H = ship.height_m;
-      csEl.textContent = (L && B && H)
-        ? `${fmt(B * H * armCS, 0)} f · ${fmt(L * H * armCS, 0)} s · ${fmt(L * B * armCS, 0)} t`
-        : '—';
-    }
+    const L = ship.length_m, B = ship.beam_m, H = ship.height_m;
+    const hasDims = !!(L && B && H);
+    setNum('ms-sig-cs-f', hasDims ? B * H * armCS : null, 0);
+    setNum('ms-sig-cs-s', hasDims ? L * H * armCS : null, 0);
+    setNum('ms-sig-cs-t', hasDims ? L * B * armCS : null, 0);
   }
 
   // ── Sidebar ──────────────────────────────────────────────────────────────────
