@@ -357,20 +357,44 @@ Two databases are deliberately **not** here:
   writers.
 - `dataforge.db` — regenerable from Data.p4k.
 
-Install it and schedule it:
+Install it and schedule it **in `solprovision`'s crontab** — not your own:
 
 ```bash
 sudo install -m 755 /var/www/sol-provision-tools/tools/backup_dbs.sh /usr/local/bin/sp-backup-dbs
-crontab -e
+sudo crontab -u solprovision -e
 ```
 
 ```
 17 */12 * * * /usr/local/bin/sp-backup-dbs >> /var/log/sp_backup.log 2>&1
 ```
 
-It replaces the per-database backup and prune lines that used to live in the crontab: one entry in
-the script's `DATABASES` list now carries both, so a database can no longer end up with a retention
-rule and no backup.
+**Why the user matters.** Every database here is in WAL mode. Opening one that has no `-wal`/`-shm`
+at that moment makes SQLite create them, owned by whoever ran the command. The services run as
+`solprovision` and open and close a connection per request, so the sidecars are usually absent.
+From September 2 to September 11, 2026, this job ran from `marauder`'s crontab and recreated them as
+`marauder` at every run. The services could still read, so nothing looked wrong, but every write failed
+with `attempt to write a readonly database`. That included HQ saves and every `/join` submission.
+
+The script now refuses to run as anyone but the owner of the checkout directory, so the same
+mistake exits with instructions instead of breaking the site. The same rule applies to **anything**
+that touches these files: cron jobs, pullers, and ad-hoc `sqlite3` commands all run as
+`sudo -u solprovision`.
+
+The destination directories and the log must be writable by `solprovision`:
+
+```bash
+for d in applications opord org_status blueprint_ownership ship_ownership          cargo_planner uex_feed warehouse_inventory; do
+  sudo mkdir -p /var/www/backups/$d
+  sudo chown -R solprovision:solprovision /var/www/backups/$d
+done
+sudo touch /var/log/sp_backup.log && sudo chown solprovision:solprovision /var/log/sp_backup.log
+```
+
+`/var/www/backups/mee6_snapshots` is deliberately left alone. SPARQy writes it, and its prune line
+stays in the crontab of the user SPARQy runs as.
+
+The script replaces the per-database backup and prune lines that used to live in the crontab. Each
+entry in its `DATABASES` list carries both the backup and its retention rule.
 
 Verify the next morning — a backup nobody checks is not a backup:
 
